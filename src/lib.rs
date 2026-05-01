@@ -1,20 +1,19 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
+mod settings;
+
+use crate::settings::Config;
 use reqwest::blocking::Client;
 use serde_json::Value;
 use std::{thread::sleep, time::Duration};
 
-const BASE: &str = "http://localhost:8080";
-const USERNAME: &str = "admin";
-const PASSWORD: &str = "YOUR_PASSWORD";
-
-fn login(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
+fn login(config: &Config, client: &Client) -> Result<(), Box<dyn std::error::Error>> {
     let resp = client
-        .post(format!("{}/api/v2/auth/login", BASE))
+        .post(format!("{}/api/v2/auth/login", &config.base_url))
         .form(&[
-            ("username", USERNAME),
-            ("password", PASSWORD),
+            ("username", &config.username),
+            ("password", &config.password),
         ])
         .send()?;
 
@@ -27,11 +26,15 @@ fn login(client: &Client) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn add_torrents(client: &Client, urls: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+fn add_torrents(
+    config: &Config,
+    client: &Client,
+    urls: &[&str],
+) -> Result<(), Box<dyn std::error::Error>> {
     let joined = urls.join("\n"); // qBittorrent accepts newline-separated URLs
 
     client
-        .post(format!("{}/api/v2/torrents/add", BASE))
+        .post(format!("{}/api/v2/torrents/add", &config.base_url))
         .form(&[("urls", joined)])
         .send()?;
 
@@ -39,9 +42,9 @@ fn add_torrents(client: &Client, urls: &[&str]) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-fn get_hashes(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+fn get_hashes(config: &Config, client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let resp: Value = client
-        .get(format!("{}/api/v2/torrents/info", BASE))
+        .get(format!("{}/api/v2/torrents/info", &config.base_url))
         .send()?
         .json()?;
 
@@ -55,11 +58,15 @@ fn get_hashes(client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>
     Ok(hashes)
 }
 
-fn poll_completion(client: &Client, hashes: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+fn poll_completion(
+    config: &Config,
+    client: &Client,
+    hashes: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let url = format!(
             "{}/api/v2/torrents/info?hashes={}",
-            BASE,
+            &config.base_url,
             hashes.join("|")
         );
 
@@ -73,12 +80,7 @@ fn poll_completion(client: &Client, hashes: &[String]) -> Result<(), Box<dyn std
                 let progress = t["progress"].as_f64().unwrap_or(0.0);
                 let state = t["state"].as_str().unwrap_or("");
 
-                println!(
-                    "{}: {:.2}% ({})",
-                    name,
-                    progress * 100.0,
-                    state
-                );
+                println!("{}: {:.2}% ({})", name, progress * 100.0, state);
 
                 if progress < 1.0 {
                     all_done = false;
@@ -98,23 +100,22 @@ fn poll_completion(client: &Client, hashes: &[String]) -> Result<(), Box<dyn std
 }
 
 pub fn start() -> Result<(), Box<dyn std::error::Error>> {
-    let magnets = vec![
-        "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel"
-    ];
+    let config = Config::new();
 
-    // 👇 THIS is the important part: cookie store enabled
-    let client = Client::builder()
-        .cookie_store(true)
-        .build()?;
+    println!("Base URL: {}", config.base_url);
 
-    login(&client)?;
-    add_torrents(&client, &magnets)?;
+    let magnets = vec!["magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel"];
+
+    let client = Client::builder().cookie_store(true).build()?;
+
+    login(&config, &client)?;
+    add_torrents(&config, &client, &magnets)?;
 
     // give qbittorrent a moment to register torrents
     sleep(Duration::from_secs(2));
 
-    let hashes = get_hashes(&client)?;
-    poll_completion(&client, &hashes)?;
+    let hashes = get_hashes(&config, &client)?;
+    poll_completion(&config, &client, &hashes)?;
 
     Ok(())
 }
