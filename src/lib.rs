@@ -3,7 +3,6 @@
 
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
@@ -14,38 +13,6 @@ use tokio::{
 };
 
 mod settings;
-use settings::Config;
-
-type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
-
-#[derive(Clone, Debug, Serialize)]
-enum Status {
-    Downloading(f64),
-    Copying(f64),
-    Completed,
-    Unknown,
-    Error(String),
-}
-
-#[derive(Clone, Debug)]
-struct RsyncTrack {
-    name: String,
-    status: Status,
-    rsync: Option<RsyncTarget>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct RsyncTarget {
-    host: String,
-    username: String,
-    remote_path: String,
-}
-
-#[derive(Deserialize)]
-struct PutRequest {
-    urls: Vec<String>,
-    rsync: Option<RsyncTarget>,
-}
 
 /* ---------------- LOGGING ---------------- */
 
@@ -57,7 +24,7 @@ macro_rules! log {
 
 /* ---------------- QBIT HELPERS ---------------- */
 
-async fn login(config: &Config, client: &Client) {
+async fn login(config: &settings::Config, client: &Client) {
     log!("Authenticating with qBittorrent...");
     let _ = client
         .post(format!("{}/api/v2/auth/login", config.base_url))
@@ -81,7 +48,7 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
 
 /* ---------------- WORKER (ONLY RSYNC) ---------------- */
 
-fn spawn_worker(state: SharedState, config: Config) {
+fn spawn_worker(state: settings::SharedState, config: settings::Config) {
     tokio::spawn(async move {
         let client = Client::builder().cookie_store(true).build().unwrap();
         login(&config, &client).await;
@@ -89,7 +56,7 @@ fn spawn_worker(state: SharedState, config: Config) {
         log!("Worker started");
 
         loop {
-            let snapshot: Vec<(String, String, Option<RsyncTarget>)> = {
+            let snapshot: Vec<(String, String, Option<settings::RsyncTarget>)> = {
                 let db = state.read().await;
                 db.iter()
                     .map(|(h, v)| (h.clone(), v.name.clone(), v.rsync.clone()))
@@ -103,8 +70,7 @@ fn spawn_worker(state: SharedState, config: Config) {
 
                 let url = format!(
                     "{}/api/v2/torrents/properties?hash={}",
-                    config.base_url,
-                    hash
+                    config.base_url, hash
                 );
 
                 if let Some(resp) = qb_get(&client, url).await {
@@ -133,18 +99,15 @@ fn spawn_worker(state: SharedState, config: Config) {
 /* ---------------- RSYNC ---------------- */
 
 async fn run_rsync(
-    state: SharedState,
+    state: settings::SharedState,
     hash: String,
     name: String,
-    target: RsyncTarget,
+    target: settings::RsyncTarget,
 ) {
     log!("Starting rsync for {}", name);
 
     let local_path = format!("/downloads/{}", name);
-    let remote = format!(
-        "{}@{}:{}",
-        target.username, target.host, target.remote_path
-    );
+    let remote = format!("{}@{}:{}", target.username, target.host, target.remote_path);
 
     let mut child = Command::new("rsync")
         .args(["-avz", "--progress", &local_path, &remote])
@@ -161,7 +124,7 @@ async fn run_rsync(
         if let Some(p) = parse_progress(&line) {
             let mut db = state.write().await;
             if let Some(e) = db.get_mut(&hash) {
-                e.status = Status::Copying(p);
+                e.status = settings::Status::Copying(p);
             }
         }
     }
@@ -172,7 +135,7 @@ async fn run_rsync(
 
     let mut db = state.write().await;
     if let Some(e) = db.get_mut(&hash) {
-        e.status = Status::Completed;
+        e.status = settings::Status::Completed;
     }
 }
 
@@ -189,7 +152,7 @@ fn parse_progress(line: &str) -> Option<f64> {
 
 /* ---------------- GET (SOURCE OF TRUTH = QBIT) ---------------- */
 
-async fn get_torrents(config: web::Data<Config>) -> impl Responder {
+async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
     log!("GET /torrent");
 
     let client = Client::builder().cookie_store(true).build().unwrap();
@@ -235,9 +198,9 @@ async fn get_torrents(config: web::Data<Config>) -> impl Responder {
 /* ---------------- PUT ---------------- */
 
 async fn put_torrent(
-    state: web::Data<SharedState>,
-    config: web::Data<Config>,
-    req: web::Json<PutRequest>,
+    state: web::Data<settings::SharedState>,
+    config: web::Data<settings::Config>,
+    req: web::Json<settings::PutRequest>,
 ) -> impl Responder {
     log!("PUT /torrent");
 
@@ -260,9 +223,9 @@ async fn put_torrent(
     for url in &req.urls {
         db.insert(
             url.clone(),
-            RsyncTrack {
+            settings::RsyncTrack {
                 name: url.clone(),
-                status: Status::Downloading(0.0),
+                status: settings::Status::Downloading(0.0),
                 rsync: req.rsync.clone(),
             },
         );
@@ -274,7 +237,7 @@ async fn put_torrent(
 /* ---------------- DELETE ---------------- */
 
 async fn delete_torrent(
-    config: web::Data<Config>,
+    config: web::Data<settings::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
     log!("DELETE /torrent");
@@ -334,13 +297,6 @@ async fn delete_torrent(
 
     log!("Deleting torrent: {}", hash);
 
-    let url = format!(
-        "{}/api/v2/torrents/delete?hashes={}&deleteFiles={}",
-        config.base_url,
-        hash,
-        if force { "true" } else { "false" }
-    );
-
     let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.base_url))
         .form(&[
@@ -378,8 +334,8 @@ async fn delete_torrent(
 /* ---------------- START ---------------- */
 
 pub async fn start() -> std::io::Result<()> {
-    let config = Config::new();
-    let state: SharedState = Arc::new(RwLock::new(HashMap::new()));
+    let config = settings::Config::new();
+    let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
 
     spawn_worker(state.clone(), config.clone());
 
@@ -393,7 +349,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::put().to(put_torrent))
             .route("/torrent", web::delete().to(delete_torrent))
     })
-        .bind(("127.0.0.1", 3000))?
-        .run()
-        .await
+    .bind(("127.0.0.1", 3000))?
+    .run()
+    .await
 }

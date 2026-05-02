@@ -1,4 +1,8 @@
+use std::collections::HashMap;
 use std::env;
+use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct Config {
@@ -19,4 +23,33 @@ impl Config {
             password,
         }
     }
+}
+
+pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
+
+#[derive(Clone, Debug, Serialize)]
+pub enum Status {
+    Downloading(f64),
+    Copying(f64),
+    Completed,
+}
+
+#[derive(Clone, Debug)]
+pub struct RsyncTrack {
+    pub name: String,
+    pub status: Status,
+    pub rsync: Option<RsyncTarget>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct RsyncTarget {
+    pub host: String,
+    pub username: String,
+    pub remote_path: String,
+}
+
+#[derive(Deserialize)]
+pub struct PutRequest {
+    pub urls: Vec<String>,
+    pub rsync: Option<RsyncTarget>,
 }
