@@ -279,18 +279,69 @@ async fn delete_torrent(
 ) -> impl Responder {
     log!("DELETE /torrent");
 
-    let hash = match query.get("hash") {
+    let identifier = match query.get("name") {
         Some(h) => h,
-        None => return HttpResponse::BadRequest().body("Missing hash"),
+        None => return HttpResponse::BadRequest().body("Missing name"),
     };
+
+    log!("Deleting torrent: {}", identifier);
+
+    let client = Client::builder().cookie_store(true).build().unwrap();
+    login(&config, &client).await;
+
+    // fetch all torrents
+    let resp: Value = match client
+        .get(format!("{}/api/v2/torrents/info", config.base_url))
+        .send()
+        .await
+    {
+        Ok(r) => match r.json().await {
+            Ok(j) => j,
+            Err(_) => return HttpResponse::InternalServerError().body("Invalid JSON"),
+        },
+        Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
+    };
+
+    // find matching torrent
+    let mut found_hash = None;
+
+    if let Some(arr) = resp.as_array() {
+        for t in arr {
+            let name = t["name"].as_str().unwrap_or("");
+            let hash = t["hash"].as_str().unwrap_or("");
+
+            if name == identifier {
+                found_hash = Some(hash.to_string());
+                break;
+            }
+        }
+    }
+
+    let hash = match found_hash {
+        Some(h) => h,
+        None => {
+            log!("Torrent not found: {}", identifier);
+            return HttpResponse::NotFound().body("Torrent not found");
+        }
+    };
+
+    log!("Resolved {} → {}", identifier, hash);
 
     let force = query.get("force").map(|v| v == "true").unwrap_or(false);
 
     let client = Client::builder().cookie_store(true).build().unwrap();
     login(&config, &client).await;
 
-    // TODO: DELETE is silently failing
-    let _ = client
+    log!("Deleting torrent: {}", hash);
+
+    let url = format!(
+        "{}/api/v2/torrents/delete?hashes={}&deleteFiles={}",
+        config.base_url,
+        hash,
+        if force { "true" } else { "false" }
+    );
+
+    let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.base_url))
         .form(&[
             ("hashes", hash.as_str()),
@@ -299,9 +350,29 @@ async fn delete_torrent(
         .send()
         .await;
 
-    log!("deleted torrent {}", hash);
+    match resp {
+        Ok(r) => {
+            let status = r.status();
+            let body = r.text().await.unwrap_or_default();
 
-    HttpResponse::Ok().body("Deleted")
+            log!("DELETE HTTP {} body: {:?}", status, body);
+
+            if !status.is_success() {
+                return HttpResponse::InternalServerError().body(body);
+            }
+
+            if body.trim() != "Ok." {
+                return HttpResponse::BadRequest().body(body);
+            }
+
+            log!("Successfully deleted {}", identifier);
+            HttpResponse::Ok().body("Deleted")
+        }
+        Err(e) => {
+            log!("DELETE failed: {}", e);
+            HttpResponse::InternalServerError().body("Request failed")
+        }
+    }
 }
 
 /* ---------------- START ---------------- */
