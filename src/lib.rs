@@ -14,18 +14,7 @@ use tokio::{
 
 mod settings;
 mod logger;
-
-async fn login(config: &settings::Config, client: &Client) {
-    log::info!("Authenticating with qBittorrent...");
-    let _ = client
-        .post(format!("{}/api/v2/auth/login", config.base_url))
-        .form(&[
-            ("username", config.username.as_str()),
-            ("password", config.password.as_str()),
-        ])
-        .send()
-        .await;
-}
+mod qb;
 
 async fn qb_get(client: &Client, url: String) -> Option<Value> {
     match client.get(&url).send().await {
@@ -37,13 +26,9 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
     }
 }
 
-fn spawn_worker(state: settings::SharedState, config: settings::Config) {
+fn spawn_worker(client: Client, state: settings::SharedState, config: settings::Config) {
     tokio::spawn(async move {
-        let client = Client::builder().cookie_store(true).build().unwrap();
-        login(&config, &client).await;
-
         log::info!("Worker started");
-
         loop {
             let snapshot: Vec<(String, String, Option<settings::RsyncTarget>)> = {
                 let db = state.read().await;
@@ -138,8 +123,10 @@ fn parse_progress(line: &str) -> Option<f64> {
 async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
     log::info!("GET /torrent");
 
-    let client = Client::builder().cookie_store(true).build().unwrap();
-    login(&config, &client).await;
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
 
     let url = format!("{}/api/v2/torrents/info", config.base_url);
 
@@ -185,16 +172,22 @@ async fn put_torrent(
 ) -> impl Responder {
     log::info!("PUT /torrent");
 
-    let client = Client::builder().cookie_store(true).build().unwrap();
-    login(&config, &client).await;
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
 
     let joined = req.urls.join("\n");
 
-    let _ = client
+    let resp = client
         .post(format!("{}/api/v2/torrents/add", config.base_url))
-        .form(&[("urls", joined)])
+        .form(&[("urls", joined.as_str())])
         .send()
         .await;
+
+    if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
+        return e;
+    }
 
     log::info!("torrent submitted");
 
@@ -228,8 +221,10 @@ async fn delete_torrent(
 
     log::info!("Deleting torrent: {}", identifier);
 
-    let client = Client::builder().cookie_store(true).build().unwrap();
-    login(&config, &client).await;
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
 
     // fetch all torrents
     let resp: Value = match client
@@ -271,8 +266,10 @@ async fn delete_torrent(
 
     let force = query.get("force").map(|v| v == "true").unwrap_or(false);
 
-    let client = Client::builder().cookie_store(true).build().unwrap();
-    login(&config, &client).await;
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
 
     log::info!("Deleting torrent: {}", hash);
 
@@ -285,29 +282,12 @@ async fn delete_torrent(
         .send()
         .await;
 
-    match resp {
-        Ok(r) => {
-            let status = r.status();
-            let body = r.text().await.unwrap_or_default();
-
-            log::info!("DELETE HTTP {} body: {:?}", status, body);
-
-            if !status.is_success() {
-                return HttpResponse::InternalServerError().body(body);
-            }
-
-            if body.trim() != "Ok." {
-                return HttpResponse::BadRequest().body(body);
-            }
-
-            log::info!("Successfully deleted {}", identifier);
-            HttpResponse::Ok().body("Deleted")
-        }
-        Err(e) => {
-            log::info!("DELETE failed: {}", e);
-            HttpResponse::InternalServerError().body("Request failed")
-        }
+    if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
+        return e;
     }
+
+    log::info!("Successfully deleted {}", identifier);
+    HttpResponse::Ok().body("Deleted")
 }
 
 pub async fn start() -> std::io::Result<()> {
@@ -315,7 +295,14 @@ pub async fn start() -> std::io::Result<()> {
     logger::init_logger(config.utc_logger);
     let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
 
-    spawn_worker(state.clone(), config.clone());
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(_) => {
+            panic!("Worker failed to authenticate.");
+        }
+    };
+
+    spawn_worker(client, state.clone(), config.clone());
 
     let host = config.host.clone();
     let port = config.port;
