@@ -15,6 +15,7 @@ use tokio::{
 mod settings;
 mod logger;
 mod qb;
+mod rsync;
 
 async fn qb_get(client: &Client, url: String) -> Option<Value> {
     match client.get(&url).send().await {
@@ -59,7 +60,7 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
                         let target = rsync.unwrap();
 
                         tokio::spawn(async move {
-                            run_rsync(state_clone, hash_clone, name_clone, target).await;
+                            rsync::run(state_clone, hash_clone, name_clone, target).await;
                         });
                     }
                 }
@@ -70,7 +71,8 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
     });
 }
 
-async fn run_rsync(
+#[allow(dead_code)]
+async fn run_rsync_legacy(
     state: settings::SharedState,
     hash: String,
     name: String,
@@ -79,7 +81,7 @@ async fn run_rsync(
     log::info!("Starting rsync for {}", name);
 
     let local_path = format!("/downloads/{}", name);
-    let remote = format!("{}@{}:{}", target.username, target.host, target.remote_path);
+    let remote = format!("{}@{}:{}", target.username, target.host, target.path);
 
     let mut child = Command::new("rsync")
         .args(["-avz", "--progress", &local_path, &remote])

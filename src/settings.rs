@@ -54,7 +54,8 @@ pub struct RsyncTrack {
 pub struct RsyncTarget {
     pub host: String,
     pub username: String,
-    pub remote_path: String,
+    pub password: String,
+    pub path: String,
 }
 
 #[derive(Deserialize)]
