@@ -13,19 +13,10 @@ use tokio::{
 };
 
 mod settings;
-
-/* ---------------- LOGGING ---------------- */
-
-macro_rules! log {
-    ($($arg:tt)*) => {
-        println!("[torrent-service] {}", format!($($arg)*));
-    };
-}
-
-/* ---------------- QBIT HELPERS ---------------- */
+mod logger;
 
 async fn login(config: &settings::Config, client: &Client) {
-    log!("Authenticating with qBittorrent...");
+    log::info!("Authenticating with qBittorrent...");
     let _ = client
         .post(format!("{}/api/v2/auth/login", config.base_url))
         .form(&[
@@ -40,20 +31,18 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
     match client.get(&url).send().await {
         Ok(r) => r.json().await.ok(),
         Err(e) => {
-            log!("qB GET error: {}", e);
+            log::info!("qB GET error: {}", e);
             None
         }
     }
 }
-
-/* ---------------- WORKER (ONLY RSYNC) ---------------- */
 
 fn spawn_worker(state: settings::SharedState, config: settings::Config) {
     tokio::spawn(async move {
         let client = Client::builder().cookie_store(true).build().unwrap();
         login(&config, &client).await;
 
-        log!("Worker started");
+        log::info!("Worker started");
 
         loop {
             let snapshot: Vec<(String, String, Option<settings::RsyncTarget>)> = {
@@ -77,7 +66,7 @@ fn spawn_worker(state: settings::SharedState, config: settings::Config) {
                     let progress = resp["progress"].as_f64().unwrap_or(0.0);
 
                     if progress >= 1.0 {
-                        log!("Download complete → starting rsync: {}", name);
+                        log::info!("Download complete → starting rsync: {}", name);
 
                         let state_clone = state.clone();
                         let hash_clone = hash.clone();
@@ -96,15 +85,13 @@ fn spawn_worker(state: settings::SharedState, config: settings::Config) {
     });
 }
 
-/* ---------------- RSYNC ---------------- */
-
 async fn run_rsync(
     state: settings::SharedState,
     hash: String,
     name: String,
     target: settings::RsyncTarget,
 ) {
-    log!("Starting rsync for {}", name);
+    log::info!("Starting rsync for {}", name);
 
     let local_path = format!("/downloads/{}", name);
     let remote = format!("{}@{}:{}", target.username, target.host, target.remote_path);
@@ -119,7 +106,7 @@ async fn run_rsync(
     let mut lines = BufReader::new(stdout).lines();
 
     while let Ok(Some(line)) = lines.next_line().await {
-        log!("rsync: {}", line);
+        log::info!("rsync: {}", line);
 
         if let Some(p) = parse_progress(&line) {
             let mut db = state.write().await;
@@ -131,15 +118,13 @@ async fn run_rsync(
 
     let _ = child.wait().await;
 
-    log!("rsync complete: {}", name);
+    log::info!("rsync complete: {}", name);
 
     let mut db = state.write().await;
     if let Some(e) = db.get_mut(&hash) {
         e.status = settings::Status::Completed;
     }
 }
-
-/* ---------------- PROGRESS PARSER ---------------- */
 
 fn parse_progress(line: &str) -> Option<f64> {
     if let Some(idx) = line.find('%') {
@@ -150,10 +135,8 @@ fn parse_progress(line: &str) -> Option<f64> {
     None
 }
 
-/* ---------------- GET (SOURCE OF TRUTH = QBIT) ---------------- */
-
 async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
-    log!("GET /torrent");
+    log::info!("GET /torrent");
 
     let client = Client::builder().cookie_store(true).build().unwrap();
     login(&config, &client).await;
@@ -164,12 +147,12 @@ async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
         Ok(r) => match r.json().await {
             Ok(j) => j,
             Err(e) => {
-                log!("JSON error: {}", e);
+                log::info!("JSON error: {}", e);
                 return HttpResponse::InternalServerError().finish();
             }
         },
         Err(e) => {
-            log!("request error: {}", e);
+            log::info!("request error: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
@@ -191,18 +174,16 @@ async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
         }
     }
 
-    log!("GET complete");
+    log::info!("GET complete");
     HttpResponse::Ok().json(map)
 }
-
-/* ---------------- PUT ---------------- */
 
 async fn put_torrent(
     state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
     req: web::Json<settings::PutRequest>,
 ) -> impl Responder {
-    log!("PUT /torrent");
+    log::info!("PUT /torrent");
 
     let client = Client::builder().cookie_store(true).build().unwrap();
     login(&config, &client).await;
@@ -215,7 +196,7 @@ async fn put_torrent(
         .send()
         .await;
 
-    log!("torrent submitted");
+    log::info!("torrent submitted");
 
     // cache rsync intent ONLY (not truth)
     let mut db = state.write().await;
@@ -234,20 +215,18 @@ async fn put_torrent(
     HttpResponse::Ok().body("Added")
 }
 
-/* ---------------- DELETE ---------------- */
-
 async fn delete_torrent(
     config: web::Data<settings::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    log!("DELETE /torrent");
+    log::info!("DELETE /torrent");
 
     let identifier = match query.get("name") {
         Some(h) => h,
         None => return HttpResponse::BadRequest().body("Missing name"),
     };
 
-    log!("Deleting torrent: {}", identifier);
+    log::info!("Deleting torrent: {}", identifier);
 
     let client = Client::builder().cookie_store(true).build().unwrap();
     login(&config, &client).await;
@@ -283,19 +262,19 @@ async fn delete_torrent(
     let hash = match found_hash {
         Some(h) => h,
         None => {
-            log!("Torrent not found: {}", identifier);
+            log::info!("Torrent not found: {}", identifier);
             return HttpResponse::NotFound().body("Torrent not found");
         }
     };
 
-    log!("Resolved {} → {}", identifier, hash);
+    log::info!("Resolved {} → {}", identifier, hash);
 
     let force = query.get("force").map(|v| v == "true").unwrap_or(false);
 
     let client = Client::builder().cookie_store(true).build().unwrap();
     login(&config, &client).await;
 
-    log!("Deleting torrent: {}", hash);
+    log::info!("Deleting torrent: {}", hash);
 
     let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.base_url))
@@ -311,7 +290,7 @@ async fn delete_torrent(
             let status = r.status();
             let body = r.text().await.unwrap_or_default();
 
-            log!("DELETE HTTP {} body: {:?}", status, body);
+            log::info!("DELETE HTTP {} body: {:?}", status, body);
 
             if !status.is_success() {
                 return HttpResponse::InternalServerError().body(body);
@@ -321,25 +300,27 @@ async fn delete_torrent(
                 return HttpResponse::BadRequest().body(body);
             }
 
-            log!("Successfully deleted {}", identifier);
+            log::info!("Successfully deleted {}", identifier);
             HttpResponse::Ok().body("Deleted")
         }
         Err(e) => {
-            log!("DELETE failed: {}", e);
+            log::info!("DELETE failed: {}", e);
             HttpResponse::InternalServerError().body("Request failed")
         }
     }
 }
 
-/* ---------------- START ---------------- */
-
 pub async fn start() -> std::io::Result<()> {
     let config = settings::Config::new();
+    logger::init_logger(config.utc_logger);
     let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
 
     spawn_worker(state.clone(), config.clone());
 
-    log!("server starting...");
+    let host = config.host.clone();
+    let port = config.port;
+
+    log::info!("Starting server on: http://{}:{}", host, port);
 
     HttpServer::new(move || {
         App::new()
@@ -349,7 +330,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::put().to(put_torrent))
             .route("/torrent", web::delete().to(delete_torrent))
     })
-    .bind(("127.0.0.1", 3000))?
+    .bind((host, port))?
     .run()
     .await
 }
