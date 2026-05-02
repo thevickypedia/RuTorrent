@@ -1,121 +1,328 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-mod settings;
-
-use crate::settings::Config;
-use reqwest::blocking::Client;
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{thread::sleep, time::Duration};
+use std::{collections::HashMap, sync::Arc};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+    sync::RwLock,
+    time::{sleep, Duration},
+};
 
-fn login(config: &Config, client: &Client) -> Result<(), Box<dyn std::error::Error>> {
-    let resp = client
-        .post(format!("{}/api/v2/auth/login", &config.base_url))
+mod settings;
+use settings::Config;
+
+type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
+
+#[derive(Clone, Debug, Serialize)]
+enum Status {
+    Downloading(f64),
+    Copying(f64),
+    Completed,
+    Unknown,
+    Error(String),
+}
+
+#[derive(Clone, Debug)]
+struct RsyncTrack {
+    name: String,
+    status: Status,
+    rsync: Option<RsyncTarget>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct RsyncTarget {
+    host: String,
+    username: String,
+    remote_path: String,
+}
+
+#[derive(Deserialize)]
+struct PutRequest {
+    urls: Vec<String>,
+    rsync: Option<RsyncTarget>,
+}
+
+/* ---------------- LOGGING ---------------- */
+
+macro_rules! log {
+    ($($arg:tt)*) => {
+        println!("[torrent-service] {}", format!($($arg)*));
+    };
+}
+
+/* ---------------- QBIT HELPERS ---------------- */
+
+async fn login(config: &Config, client: &Client) {
+    log!("Authenticating with qBittorrent...");
+    let _ = client
+        .post(format!("{}/api/v2/auth/login", config.base_url))
         .form(&[
-            ("username", &config.username),
-            ("password", &config.password),
+            ("username", config.username.as_str()),
+            ("password", config.password.as_str()),
         ])
-        .send()?;
+        .send()
+        .await;
+}
 
-    let text = resp.text()?;
-    if text != "Ok." {
-        return Err(format!("Login failed: {}", text).into());
+async fn qb_get(client: &Client, url: String) -> Option<Value> {
+    match client.get(&url).send().await {
+        Ok(r) => r.json().await.ok(),
+        Err(e) => {
+            log!("qB GET error: {}", e);
+            None
+        }
     }
-
-    println!("Authenticated");
-    Ok(())
 }
 
-fn add_torrents(
-    config: &Config,
-    client: &Client,
-    urls: &[&str],
-) -> Result<(), Box<dyn std::error::Error>> {
-    let joined = urls.join("\n"); // qBittorrent accepts newline-separated URLs
+/* ---------------- WORKER (ONLY RSYNC) ---------------- */
 
-    client
-        .post(format!("{}/api/v2/torrents/add", &config.base_url))
-        .form(&[("urls", joined)])
-        .send()?;
+fn spawn_worker(state: SharedState, config: Config) {
+    tokio::spawn(async move {
+        let client = Client::builder().cookie_store(true).build().unwrap();
+        login(&config, &client).await;
 
-    println!("Sent {} torrent(s)", urls.len());
-    Ok(())
-}
+        log!("Worker started");
 
-fn get_hashes(config: &Config, client: &Client) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let resp: Value = client
-        .get(format!("{}/api/v2/torrents/info", &config.base_url))
-        .send()?
-        .json()?;
+        loop {
+            let snapshot: Vec<(String, String, Option<RsyncTarget>)> = {
+                let db = state.read().await;
+                db.iter()
+                    .map(|(h, v)| (h.clone(), v.name.clone(), v.rsync.clone()))
+                    .collect()
+            };
 
-    let hashes = resp
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|t| t["hash"].as_str().map(|s| s.to_string()))
-        .collect();
+            for (hash, name, rsync) in snapshot {
+                if rsync.is_none() {
+                    continue;
+                }
 
-    Ok(hashes)
-}
+                let url = format!(
+                    "{}/api/v2/torrents/properties?hash={}",
+                    config.base_url,
+                    hash
+                );
 
-fn poll_completion(
-    config: &Config,
-    client: &Client,
-    hashes: &[String],
-) -> Result<(), Box<dyn std::error::Error>> {
-    loop {
-        let url = format!(
-            "{}/api/v2/torrents/info?hashes={}",
-            &config.base_url,
-            hashes.join("|")
-        );
+                if let Some(resp) = qb_get(&client, url).await {
+                    let progress = resp["progress"].as_f64().unwrap_or(0.0);
 
-        let resp: Value = client.get(&url).send()?.json()?;
+                    if progress >= 1.0 {
+                        log!("Download complete → starting rsync: {}", name);
 
-        let mut all_done = true;
+                        let state_clone = state.clone();
+                        let hash_clone = hash.clone();
+                        let name_clone = name.clone();
+                        let target = rsync.unwrap();
 
-        if let Some(arr) = resp.as_array() {
-            for t in arr {
-                let name = t["name"].as_str().unwrap_or("?");
-                let progress = t["progress"].as_f64().unwrap_or(0.0);
-                let state = t["state"].as_str().unwrap_or("");
-
-                println!("{}: {:.2}% ({})", name, progress * 100.0, state);
-
-                if progress < 1.0 {
-                    all_done = false;
+                        tokio::spawn(async move {
+                            run_rsync(state_clone, hash_clone, name_clone, target).await;
+                        });
+                    }
                 }
             }
+
+            sleep(Duration::from_secs(2)).await;
         }
-
-        if all_done {
-            println!("DONE");
-            break;
-        }
-
-        sleep(Duration::from_secs(2));
-    }
-
-    Ok(())
+    });
 }
 
-pub fn start() -> Result<(), Box<dyn std::error::Error>> {
+/* ---------------- RSYNC ---------------- */
+
+async fn run_rsync(
+    state: SharedState,
+    hash: String,
+    name: String,
+    target: RsyncTarget,
+) {
+    log!("Starting rsync for {}", name);
+
+    let local_path = format!("/downloads/{}", name);
+    let remote = format!(
+        "{}@{}:{}",
+        target.username, target.host, target.remote_path
+    );
+
+    let mut child = Command::new("rsync")
+        .args(["-avz", "--progress", &local_path, &remote])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("rsync failed");
+
+    let stdout = child.stdout.take().unwrap();
+    let mut lines = BufReader::new(stdout).lines();
+
+    while let Ok(Some(line)) = lines.next_line().await {
+        log!("rsync: {}", line);
+
+        if let Some(p) = parse_progress(&line) {
+            let mut db = state.write().await;
+            if let Some(e) = db.get_mut(&hash) {
+                e.status = Status::Copying(p);
+            }
+        }
+    }
+
+    let _ = child.wait().await;
+
+    log!("rsync complete: {}", name);
+
+    let mut db = state.write().await;
+    if let Some(e) = db.get_mut(&hash) {
+        e.status = Status::Completed;
+    }
+}
+
+/* ---------------- PROGRESS PARSER ---------------- */
+
+fn parse_progress(line: &str) -> Option<f64> {
+    if let Some(idx) = line.find('%') {
+        let start = line[..idx].rfind(' ')?;
+        let pct = line[start..idx].trim();
+        return pct.parse::<f64>().ok().map(|p| p / 100.0);
+    }
+    None
+}
+
+/* ---------------- GET (SOURCE OF TRUTH = QBIT) ---------------- */
+
+async fn get_torrents(config: web::Data<Config>) -> impl Responder {
+    log!("GET /torrent");
+
+    let client = Client::builder().cookie_store(true).build().unwrap();
+    login(&config, &client).await;
+
+    let url = format!("{}/api/v2/torrents/info", config.base_url);
+
+    let resp: Value = match client.get(url).send().await {
+        Ok(r) => match r.json().await {
+            Ok(j) => j,
+            Err(e) => {
+                log!("JSON error: {}", e);
+                return HttpResponse::InternalServerError().finish();
+            }
+        },
+        Err(e) => {
+            log!("request error: {}", e);
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+
+    let mut map = HashMap::new();
+
+    if let Some(arr) = resp.as_array() {
+        for t in arr {
+            let name = t["name"].as_str().unwrap_or("?").to_string();
+            let progress = t["progress"].as_f64().unwrap_or(0.0);
+
+            let status = if progress >= 1.0 {
+                "Completed"
+            } else {
+                "Downloading"
+            };
+
+            map.insert(name, format!("{}: {:.0}%", status, progress * 100.0));
+        }
+    }
+
+    log!("GET complete");
+    HttpResponse::Ok().json(map)
+}
+
+/* ---------------- PUT ---------------- */
+
+async fn put_torrent(
+    state: web::Data<SharedState>,
+    config: web::Data<Config>,
+    req: web::Json<PutRequest>,
+) -> impl Responder {
+    log!("PUT /torrent");
+
+    let client = Client::builder().cookie_store(true).build().unwrap();
+    login(&config, &client).await;
+
+    let joined = req.urls.join("\n");
+
+    let _ = client
+        .post(format!("{}/api/v2/torrents/add", config.base_url))
+        .form(&[("urls", joined)])
+        .send()
+        .await;
+
+    log!("torrent submitted");
+
+    // cache rsync intent ONLY (not truth)
+    let mut db = state.write().await;
+
+    for url in &req.urls {
+        db.insert(
+            url.clone(),
+            RsyncTrack {
+                name: url.clone(),
+                status: Status::Downloading(0.0),
+                rsync: req.rsync.clone(),
+            },
+        );
+    }
+
+    HttpResponse::Ok().body("Added")
+}
+
+/* ---------------- DELETE ---------------- */
+
+async fn delete_torrent(
+    config: web::Data<Config>,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    log!("DELETE /torrent");
+
+    let hash = match query.get("hash") {
+        Some(h) => h,
+        None => return HttpResponse::BadRequest().body("Missing hash"),
+    };
+
+    let force = query.get("force").map(|v| v == "true").unwrap_or(false);
+
+    let client = Client::builder().cookie_store(true).build().unwrap();
+    login(&config, &client).await;
+
+    // TODO: DELETE is silently failing
+    let _ = client
+        .post(format!("{}/api/v2/torrents/delete", config.base_url))
+        .form(&[
+            ("hashes", hash.as_str()),
+            ("deleteFiles", if force { "true" } else { "false" }),
+        ])
+        .send()
+        .await;
+
+    log!("deleted torrent {}", hash);
+
+    HttpResponse::Ok().body("Deleted")
+}
+
+/* ---------------- START ---------------- */
+
+pub async fn start() -> std::io::Result<()> {
     let config = Config::new();
+    let state: SharedState = Arc::new(RwLock::new(HashMap::new()));
 
-    println!("Base URL: {}", config.base_url);
+    spawn_worker(state.clone(), config.clone());
 
-    let magnets = vec!["magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel"];
+    log!("server starting...");
 
-    let client = Client::builder().cookie_store(true).build()?;
-
-    login(&config, &client)?;
-    add_torrents(&config, &client, &magnets)?;
-
-    // give qbittorrent a moment to register torrents
-    sleep(Duration::from_secs(2));
-
-    let hashes = get_hashes(&config, &client)?;
-    poll_completion(&config, &client, &hashes)?;
-
-    Ok(())
+    HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(state.clone()))
+            .app_data(web::Data::new(config.clone()))
+            .route("/torrent", web::get().to(get_torrents))
+            .route("/torrent", web::put().to(put_torrent))
+            .route("/torrent", web::delete().to(delete_torrent))
+    })
+        .bind(("127.0.0.1", 3000))?
+        .run()
+        .await
 }

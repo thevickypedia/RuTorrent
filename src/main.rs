@@ -1,4 +1,4 @@
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    rutorrent::start()
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    rutorrent::start().await
 }
