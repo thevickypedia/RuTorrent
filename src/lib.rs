@@ -12,10 +12,10 @@ use tokio::{
     time::{sleep, Duration},
 };
 
-mod settings;
 mod logger;
 mod qb;
 mod rsync;
+mod settings;
 
 async fn qb_get(client: &Client, url: String) -> Option<Value> {
     match client.get(&url).send().await {
@@ -37,28 +37,28 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
                 db.keys().cloned().collect()
             };
 
-            for hash in hashes {
-                let url = format!(
-                    "{}/api/v2/torrents/properties?hash={}",
-                    config.base_url, hash
-                );
+            let url = format!(
+                "{}/api/v2/torrents/info?hashes={}",
+                config.base_url,
+                hashes.join("|")
+            );
 
-                if let Some(resp) = qb_get(&client, url).await {
-                    let progress = resp["progress"].as_f64().unwrap_or(0.0);
-
+            if let Some(resp) = qb_get(&client, url).await
+                && let Some(arr) = resp.as_array() {
                     let mut db = state.write().await;
-                    if let Some(entry) = db.get_mut(&hash) {
-                        // CRITICAL: only act based on CURRENT state
-                        match entry.status {
-                            settings::Status::Downloading(_) => {
+
+                    for t in arr {
+                        let hash = t["hash"].as_str().unwrap_or("").to_string();
+                        let progress = t["progress"].as_f64().unwrap_or(0.0);
+
+                        if let Some(entry) = db.get_mut(&hash)
+                            && let settings::Status::Downloading(_) = entry.status {
                                 if progress >= 1.0 {
                                     if let Some(target) = entry.rsync.clone() {
                                         log::info!(
                                             "Download complete → starting rsync: {}",
                                             entry.name
                                         );
-
-                                        // transition state BEFORE spawning
                                         entry.status = settings::Status::Copying(0.0);
 
                                         let state_clone = state.clone();
@@ -72,28 +72,17 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
                                                 name_clone,
                                                 target,
                                             )
-                                                .await;
+                                            .await;
                                         });
                                     } else {
-                                        // no rsync configured
                                         entry.status = settings::Status::Completed;
                                     }
                                 } else {
-                                    // keep updating download progress
-                                    entry.status =
-                                        settings::Status::Downloading(progress);
+                                    entry.status = settings::Status::Downloading(progress);
                                 }
                             }
-                            settings::Status::Copying(_) => {
-                                // do nothing → rsync already running
-                            }
-                            settings::Status::Completed => {
-                                // do nothing → finished
-                            }
-                        }
                     }
                 }
-            }
 
             sleep(Duration::from_secs(2)).await;
         }
@@ -193,9 +182,7 @@ async fn get_torrents(
                     settings::Status::Copying(p) => {
                         format!("Copying: {:.0}%", p * 100.0)
                     }
-                    settings::Status::Completed => {
-                        "Completed (download + copy)".to_string()
-                    }
+                    settings::Status::Completed => "Completed (download + copy)".to_string(),
                     settings::Status::Downloading(_) => {
                         format!("Downloading: {:.0}%", progress * 100.0)
                     }
