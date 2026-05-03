@@ -58,8 +58,11 @@ pub struct RsyncTarget {
     pub path: String,
 }
 
-#[derive(Deserialize)]
-pub struct PutRequest {
-    pub urls: Vec<String>,
-    pub rsync: Option<RsyncTarget>,
+#[derive(Deserialize, Clone)]
+pub struct PutItem {
+    pub url: String,
+    pub host: String,
+    pub username: String,
+    pub password: String,
+    pub path: String,
 }

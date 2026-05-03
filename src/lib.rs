@@ -31,18 +31,13 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
     tokio::spawn(async move {
         log::info!("Worker started");
         loop {
-            let snapshot: Vec<(String, String, Option<settings::RsyncTarget>)> = {
+            // take snapshot of hashes only (not status)
+            let hashes: Vec<String> = {
                 let db = state.read().await;
-                db.iter()
-                    .map(|(h, v)| (h.clone(), v.name.clone(), v.rsync.clone()))
-                    .collect()
+                db.keys().cloned().collect()
             };
 
-            for (hash, name, rsync) in snapshot {
-                if rsync.is_none() {
-                    continue;
-                }
-
+            for hash in hashes {
                 let url = format!(
                     "{}/api/v2/torrents/properties?hash={}",
                     config.base_url, hash
@@ -51,17 +46,51 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
                 if let Some(resp) = qb_get(&client, url).await {
                     let progress = resp["progress"].as_f64().unwrap_or(0.0);
 
-                    if progress >= 1.0 {
-                        log::info!("Download complete → starting rsync: {}", name);
+                    let mut db = state.write().await;
+                    if let Some(entry) = db.get_mut(&hash) {
+                        // CRITICAL: only act based on CURRENT state
+                        match entry.status {
+                            settings::Status::Downloading(_) => {
+                                if progress >= 1.0 {
+                                    if let Some(target) = entry.rsync.clone() {
+                                        log::info!(
+                                            "Download complete → starting rsync: {}",
+                                            entry.name
+                                        );
 
-                        let state_clone = state.clone();
-                        let hash_clone = hash.clone();
-                        let name_clone = name.clone();
-                        let target = rsync.unwrap();
+                                        // transition state BEFORE spawning
+                                        entry.status = settings::Status::Copying(0.0);
 
-                        tokio::spawn(async move {
-                            rsync::run(state_clone, hash_clone, name_clone, target).await;
-                        });
+                                        let state_clone = state.clone();
+                                        let hash_clone = hash.clone();
+                                        let name_clone = entry.name.clone();
+
+                                        tokio::spawn(async move {
+                                            rsync::run(
+                                                state_clone,
+                                                hash_clone,
+                                                name_clone,
+                                                target,
+                                            )
+                                                .await;
+                                        });
+                                    } else {
+                                        // no rsync configured
+                                        entry.status = settings::Status::Completed;
+                                    }
+                                } else {
+                                    // keep updating download progress
+                                    entry.status =
+                                        settings::Status::Downloading(progress);
+                                }
+                            }
+                            settings::Status::Copying(_) => {
+                                // do nothing → rsync already running
+                            }
+                            settings::Status::Completed => {
+                                // do nothing → finished
+                            }
+                        }
                     }
                 }
             }
@@ -122,7 +151,10 @@ fn parse_progress(line: &str) -> Option<f64> {
     None
 }
 
-async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
+async fn get_torrents(
+    state: web::Data<settings::SharedState>,
+    config: web::Data<settings::Config>,
+) -> impl Responder {
     log::info!("GET /torrent");
 
     let client = match qb::client(&config).await {
@@ -136,30 +168,49 @@ async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
         Ok(r) => match r.json().await {
             Ok(j) => j,
             Err(e) => {
-                log::info!("JSON error: {}", e);
+                log::error!("JSON error: {}", e);
                 return HttpResponse::InternalServerError().finish();
             }
         },
         Err(e) => {
-            log::info!("request error: {}", e);
+            log::error!("request error: {}", e);
             return HttpResponse::InternalServerError().finish();
         }
     };
 
+    let db = state.read().await;
     let mut map = HashMap::new();
 
     if let Some(arr) = resp.as_array() {
         for t in arr {
             let name = t["name"].as_str().unwrap_or("?").to_string();
+            let hash = t["hash"].as_str().unwrap_or("").to_string();
             let progress = t["progress"].as_f64().unwrap_or(0.0);
 
-            let status = if progress >= 1.0 {
-                "Completed"
-            } else {
-                "Downloading"
-            };
+            // check rsync state first
+            if let Some(local) = db.get(&hash) {
+                let status = match local.status {
+                    settings::Status::Copying(p) => {
+                        format!("Copying: {:.0}%", p * 100.0)
+                    }
+                    settings::Status::Completed => {
+                        "Completed (download + copy)".to_string()
+                    }
+                    settings::Status::Downloading(_) => {
+                        format!("Downloading: {:.0}%", progress * 100.0)
+                    }
+                };
 
-            map.insert(name, format!("{}: {:.0}%", status, progress * 100.0));
+                map.insert(name, status);
+            } else {
+                // fallback to pure qBittorrent
+                let status = if progress >= 1.0 {
+                    "Completed".to_string()
+                } else {
+                    format!("Downloading: {:.0}%", progress * 100.0)
+                };
+                map.insert(name, status);
+            }
         }
     }
 
@@ -170,7 +221,7 @@ async fn get_torrents(config: web::Data<settings::Config>) -> impl Responder {
 async fn put_torrent(
     state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
-    req: web::Json<settings::PutRequest>,
+    req: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
     log::info!("PUT /torrent");
 
@@ -179,30 +230,75 @@ async fn put_torrent(
         Err(e) => return e,
     };
 
-    let joined = req.urls.join("\n");
+    for item in req.iter() {
+        log::info!("Adding torrent: {}", item.url);
 
-    let resp = client
-        .post(format!("{}/api/v2/torrents/add", config.base_url))
-        .form(&[("urls", joined.as_str())])
-        .send()
-        .await;
+        // 1️⃣ Add torrent
+        let resp = client
+            .post(format!("{}/api/v2/torrents/add", config.base_url))
+            .form(&[("urls", item.url.as_str())])
+            .send()
+            .await;
 
-    if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
-        return e;
-    }
+        if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
+            return e;
+        }
 
-    log::info!("torrent submitted");
+        // 2️⃣ wait for qB to register it
+        sleep(Duration::from_secs(2)).await;
 
-    // cache rsync intent ONLY (not truth)
-    let mut db = state.write().await;
+        // 3️⃣ fetch all torrents and find this one
+        let resp: Value = match client
+            .get(format!("{}/api/v2/torrents/info", config.base_url))
+            .send()
+            .await
+        {
+            Ok(r) => match r.json().await {
+                Ok(j) => j,
+                Err(_) => return HttpResponse::InternalServerError().body("Invalid JSON"),
+            },
+            Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
+        };
 
-    for url in &req.urls {
+        let mut found = None;
+
+        if let Some(arr) = resp.as_array() {
+            for t in arr {
+                let name = t["name"].as_str().unwrap_or("");
+                let hash = t["hash"].as_str().unwrap_or("");
+
+                // crude but works: match by name or magnet substring
+                if item.url.contains(name) || name.contains("magnet") {
+                    found = Some((hash.to_string(), name.to_string()));
+                    break;
+                }
+            }
+        }
+
+        let (hash, name) = match found {
+            Some(v) => v,
+            None => {
+                log::error!("Could not resolve hash for {}", item.url);
+                continue;
+            }
+        };
+
+        log::info!("Resolved {} → {}", name, hash);
+
+        // 4️⃣ store rsync intent
+        let mut db = state.write().await;
+
         db.insert(
-            url.clone(),
+            hash.clone(),
             settings::RsyncTrack {
-                name: url.clone(),
+                name,
                 status: settings::Status::Downloading(0.0),
-                rsync: req.rsync.clone(),
+                rsync: Some(settings::RsyncTarget {
+                    host: item.host.clone(),
+                    username: item.username.clone(),
+                    password: item.password.clone(),
+                    path: item.path.clone(),
+                }),
             },
         );
     }
