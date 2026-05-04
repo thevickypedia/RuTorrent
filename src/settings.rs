@@ -1,8 +1,11 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+
+pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
+pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 
 #[derive(Clone)]
 pub struct Config {
@@ -11,13 +14,16 @@ pub struct Config {
     pub base_url: String,
     pub username: String,
     pub password: String,
-    pub utc_logger: bool
+    pub utc_logger: bool,
 }
 
 impl Config {
     pub fn new() -> Self {
         let host = env::var("HOST").unwrap_or("127.0.0.1".to_string());
-        let port = env::var("PORT").unwrap_or("3000".to_string()).parse::<u16>().unwrap();
+        let port = env::var("PORT")
+            .unwrap_or("3000".to_string())
+            .parse::<u16>()
+            .unwrap();
         let base_url = env::var("BASE_URL").unwrap_or("http://localhost:8080".to_string());
         let username = env::var("USERNAME").unwrap_or_default();
         let password = env::var("PASSWORD").unwrap_or_default();
@@ -29,12 +35,10 @@ impl Config {
             base_url,
             username,
             password,
-            utc_logger
+            utc_logger,
         }
     }
 }
-
-pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
 
 #[derive(Clone, Debug, Serialize)]
 pub enum Status {
