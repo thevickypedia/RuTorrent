@@ -39,7 +39,7 @@ pub async fn get_torrents(
     };
 
     let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.base_url))
+        .get(format!("{}/api/v2/torrents/info", config.qbit_api))
         .send()
         .await
     {
@@ -134,7 +134,7 @@ pub async fn put_torrent(
         log::info!("Adding torrent [{}]: {}", tag, item.url);
 
         let resp = client
-            .post(format!("{}/api/v2/torrents/add", config.base_url))
+            .post(format!("{}/api/v2/torrents/add", config.qbit_api))
             .form(&[("urls", item.url.as_str()), ("tags", tag.as_str())])
             .send()
             .await;
@@ -202,7 +202,7 @@ pub async fn delete_torrent(
     };
 
     let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.base_url))
+        .get(format!("{}/api/v2/torrents/info", config.qbit_api))
         .send()
         .await
     {
@@ -239,7 +239,7 @@ pub async fn delete_torrent(
     );
 
     let resp = client
-        .post(format!("{}/api/v2/torrents/delete", config.base_url))
+        .post(format!("{}/api/v2/torrents/delete", config.qbit_api))
         .form(&[
             ("hashes", hash.as_str()),
             ("deleteFiles", delete_files.to_string().as_str()),

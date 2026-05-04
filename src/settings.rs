@@ -17,7 +17,7 @@ pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 pub struct Config {
     pub host: String,
     pub port: u16,
-    pub base_url: String,
+    pub qbit_api: String,
     pub username: String,
     pub password: String,
     pub utc_logger: bool,
@@ -36,15 +36,17 @@ impl Config {
             .unwrap_or("3000".to_string())
             .parse::<u16>()
             .unwrap();
-        let base_url = env::var("BASE_URL").unwrap_or("http://localhost:8080".to_string());
+
+        let qbit_api = env::var("QBIT_API").unwrap_or("http://localhost:8080".to_string());
         let username = env::var("USERNAME").unwrap_or_default();
         let password = env::var("PASSWORD").unwrap_or_default();
+
         let utc_logger = env::var("UTC_LOGGER").unwrap_or("true".to_string()) == "true";
 
         Self {
             host,
             port,
-            base_url,
+            qbit_api,
             username,
             password,
             utc_logger,
@@ -84,10 +86,16 @@ pub struct RsyncTarget {
 #[derive(Deserialize, Clone)]
 pub struct PutItem {
     pub url: String,
-    #[serde(default)]
+    #[serde(default = "default_host")]
     pub host: String,
-    #[serde(default)]
+    #[serde(default = "default_username")]
     pub username: String,
-    #[serde(default)]
+    #[serde(default = "default_path")]
     pub path: String,
 }
+
+fn default_host() -> String { env::var("REMOTE_HOST").unwrap_or_default() }
+
+fn default_username() -> String { env::var("REMOTE_USER").unwrap_or_default() }
+
+fn default_path() -> String { env::var("REMOTE_PATH").unwrap_or_default() }

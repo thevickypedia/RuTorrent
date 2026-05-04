@@ -38,7 +38,7 @@ async fn resolve_new_torrents(
     pending: &settings::PendingMap,
     state: &settings::SharedState,
 ) {
-    let resp = qb_get(client, format!("{}/api/v2/torrents/info", config.base_url)).await;
+    let resp = qb_get(client, format!("{}/api/v2/torrents/info", config.qbit_api)).await;
 
     let Some(arr) = resp.and_then(|v| v.as_array().cloned()) else {
         return;
@@ -120,7 +120,7 @@ pub fn spawn_worker(
 
             let url = format!(
                 "{}/api/v2/torrents/info?hashes={}",
-                config.base_url,
+                config.qbit_api,
                 hashes.join("|")
             );
 

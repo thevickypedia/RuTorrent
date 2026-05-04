@@ -25,7 +25,7 @@ use reqwest::Client;
 pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
     let client = Client::builder().cookie_store(true).build().unwrap();
 
-    let request = client.post(format!("{}/api/v2/auth/login", config.base_url));
+    let request = client.post(format!("{}/api/v2/auth/login", config.qbit_api));
 
     let request = if config.username.is_empty() || config.password.is_empty() {
         request

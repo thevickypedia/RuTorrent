@@ -57,6 +57,7 @@ pub async fn run(
 
     let remote = format!("{}@{}:{}", target.username, target.host, target.path);
 
+    // TODO: Make sure rsync doesn't prompt - if it does, treat as failed
     let mut child = Command::new("rsync")
         .args([
             "-az",

@@ -23,6 +23,17 @@ async fn main() -> std::io::Result<()> {
 }
 ```
 
+### Environment Variables
+- **HOST**: Hostname to run `rutorrent`. Defaults to `127.0.0.1`
+- **PORT**: Port to run `rutorrent`. Defaults to `3000`
+- **QBIT_API**: Base URL for qbittorrent API. Defaults to `http://localhost:8080`
+- **USERNAME**: Username for qbittorrent API
+- **PASSWORD**: Password for qbittorrent API
+- **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
+- **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
+- **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
+- **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
+
 **rsync functionality**
 ```shell
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
