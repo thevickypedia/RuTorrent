@@ -2,6 +2,16 @@ use std::io::Write;
 
 use chrono::{DateTime, Local};
 
+/// Initializes the application logger with optional UTC or local timestamp formatting.
+///
+/// # Arguments
+///
+/// * `utc` - If `true`, initializes the logger using the default UTC-based format.
+///   If `false`, uses a custom formatter with local time timestamps.
+///
+/// # Notes
+///
+/// - This function should only be called once during application startup.
 pub fn init_logger(utc: bool) {
     // Safe when executed in single threading
     unsafe {

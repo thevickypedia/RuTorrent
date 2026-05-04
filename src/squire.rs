@@ -3,9 +3,17 @@ use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
 
-/* -----------------------------
-   qB GET helper
-------------------------------*/
+/// Sends a GET request to the qBittorrent API and parses the JSON response.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client used to perform the request
+/// * `url` - The full API endpoint URL
+///
+/// # Returns
+///
+/// * `Some(Value)` - Parsed JSON response if the request succeeds
+/// * `None` - If the request fails or the response cannot be parsed
 async fn qb_get(client: &Client, url: String) -> Option<Value> {
     match client.get(&url).send().await {
         Ok(r) => r.json().await.ok(),
@@ -16,9 +24,14 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
     }
 }
 
-/* -----------------------------
-   Helper: resolve new torrents
-------------------------------*/
+/// Resolves newly added torrents by matching them with pending entries and inserting them into shared state.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client used to query the qBittorrent API
+/// * `config` - Application configuration containing the API base URL
+/// * `pending` - Shared map of pending torrent metadata keyed by tags
+/// * `state` - Shared state where active torrent tracking entries are stored
 async fn resolve_new_torrents(
     client: &Client,
     config: &settings::Config,
@@ -62,9 +75,21 @@ async fn resolve_new_torrents(
     }
 }
 
-/* -----------------------------
-   WORKER
-------------------------------*/
+/// Spawns a background worker that monitors torrents and triggers rsync transfers upon completion.
+///
+/// # Arguments
+///
+/// * `client` - Authenticated HTTP client for qBittorrent API requests
+/// * `state` - Shared state used to track torrent and transfer progress
+/// * `pending` - Shared map of pending torrent metadata
+/// * `config` - Application configuration containing API settings
+///
+/// # Notes
+///
+/// - Runs an infinite loop that periodically polls torrent status.
+/// - Updates download progress and transitions completed torrents to rsync transfers.
+/// - Spawns separate async tasks for rsync operations.
+/// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
     client: Client,
     state: settings::SharedState,

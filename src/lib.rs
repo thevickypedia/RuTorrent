@@ -11,9 +11,17 @@ mod rsync;
 mod settings;
 mod api;
 mod squire;
-/* -----------------------------
-   START SERVER
-------------------------------*/
+
+/// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
+///
+/// # Examples
+///
+/// ```no_run
+/// #[actix_rt::main]
+/// async fn main() -> std::io::Result<()> {
+///    rutorrent::start().await
+/// }
+/// ```
 pub async fn start() -> std::io::Result<()> {
     let config = settings::Config::new();
     logger::init_logger(config.utc_logger);

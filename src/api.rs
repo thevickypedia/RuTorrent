@@ -4,10 +4,31 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::settings;
 use crate::qb;
-/* -----------------------------
-   GET /torrent
-------------------------------*/
 
+
+/// API endpoint to get download/copy status.
+///
+/// # Arguments
+///
+/// * `state` - Reference to the `SharedState` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl localhost:3000/torrent
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "Ubuntu 22.04 LTS": "Downloading: 39%",
+///   "Sintel": "Copying 69%"
+/// }
+/// ```
+///
+/// # Returns
+///
+/// Returns a JSON object to indicate the status.
 pub async fn get_torrents(
     state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
@@ -53,13 +74,52 @@ pub async fn get_torrents(
     HttpResponse::Ok().json(map)
 }
 
-/* -----------------------------
-   PUT /torrent (FIXED)
-------------------------------*/
+/// API endpoint to add torrents to the download queue.
+///
+/// # Arguments
+///
+/// * `pending` - Reference to the `PendingMap` object.
+/// * `config` - Reference to the `Config` object.
+/// * `body` - Request body that takes `PutItem` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl -X PUT localhost:3000/torrent \
+///   -H "Content-Type: application/json" \
+///   -d '[
+///     # Download and transfer content to ssh://admin@192.168.1.102:/Users/admin/Downloads
+///     {
+///       "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
+///       "host": "192.168.1.102",
+///       "username": "admin",
+///       "path": "/Users/admin/Downloads"
+///     },
+///     # Download and transfer content to ssh://admin@192.168.1.100:/home/admin/Documents
+///     {
+///       "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
+///       "host": "192.168.1.100",
+///       "username": "admin",
+///       "path": "/home/admin/Documents"
+///     },
+///     # Download without any subsequent transfer
+///     {
+///       "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
+///     }
+///   ]'
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// "Queued"
+/// ```
+///
+/// # Returns
+///
+/// Returns a JSON object to indicate the status.
 pub async fn put_torrent(
     pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
-    req: web::Json<Vec<settings::PutItem>>,
+    body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
     let client = match qb::client(&config).await {
         Ok(c) => c,
@@ -68,7 +128,7 @@ pub async fn put_torrent(
 
     let mut pending_lock = pending.write().await;
 
-    for item in req.iter() {
+    for item in body.iter() {
         let tag = Uuid::new_v4().to_string();
 
         log::info!("Adding torrent [{}]: {}", tag, item.url);
@@ -94,24 +154,44 @@ pub async fn put_torrent(
         };
     }
 
-    HttpResponse::Ok().body("Queued")
+    HttpResponse::Ok().json("Queued")
 }
 
-/* -----------------------------
-   DELETE /torrent
-------------------------------*/
+/// API endpoint to delete a torrent.
+///
+/// # Arguments
+///
+/// * `state` - Reference to the `SharedState` object.
+/// * `query` - JSON query parameters.
+///
+/// #### Sample Request (delete any downloaded files)
+/// ```shell
+/// curl -X DELETE "http://localhost:3000/torrent?name=Ubuntu+22.04+LTS"
+/// ```
+///
+/// #### Sample Request (retain any downloaded files)
+/// ```shell
+/// curl -X DELETE "http://localhost:3000/torrent?name=Ubuntu+22.04+LTS&delete-files=false"
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// Deleted
+/// ```
+///
+/// # Returns
+///
+/// Returns a JSON object to indicate the status.
 pub async fn delete_torrent(
     config: web::Data<settings::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    log::info!("DELETE /torrent");
-
     let identifier = match query.get("name") {
         Some(i) => i,
         None => return HttpResponse::BadRequest().body("Missing name"),
     };
 
-    let delete_files = match query.get("files") {
+    let delete_files = match query.get("delete-files") {
         Some(v) => v == "true",
         None => true,
     };
@@ -172,5 +252,5 @@ pub async fn delete_torrent(
     }
 
     log::info!("Successfully deleted {}", identifier);
-    HttpResponse::Ok().body("Deleted")
+    HttpResponse::Ok().json("Deleted")
 }

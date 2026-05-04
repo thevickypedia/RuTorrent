@@ -4,9 +4,15 @@ use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+/// ### SharedState
+/// Shared application state for tracking active rsync operations.
 pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
+/// ### PendingMap
+/// Shared map for storing pending torrent metadata before resolution.
 pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 
+/// ### Config
+/// Application configuration loaded from environment variables.
 #[derive(Clone)]
 pub struct Config {
     pub host: String,
@@ -17,6 +23,12 @@ pub struct Config {
     pub utc_logger: bool,
 }
 
+/// ### Config::new
+/// Creates a new [`Config`] instance from environment variables.
+///
+/// # Returns
+///
+/// A [`Config`] populated with environment values or sensible defaults.
 impl Config {
     pub fn new() -> Self {
         let host = env::var("HOST").unwrap_or("127.0.0.1".to_string());
@@ -40,6 +52,8 @@ impl Config {
     }
 }
 
+/// ### Status
+/// Represents the current status of a torrent or transfer.
 #[derive(Clone, Debug, Serialize)]
 pub enum Status {
     Downloading(f64),
@@ -47,6 +61,8 @@ pub enum Status {
     Completed,
 }
 
+/// ### RsyncTrack
+/// Tracks a torrent and its associated rsync transfer state.
 #[derive(Clone, Debug)]
 pub struct RsyncTrack {
     pub name: String,
@@ -54,6 +70,8 @@ pub struct RsyncTrack {
     pub rsync: Option<RsyncTarget>,
 }
 
+/// ### RsyncTarget
+/// Defines a remote rsync destination.
 #[derive(Clone, Debug, Deserialize)]
 pub struct RsyncTarget {
     pub host: String,
@@ -61,6 +79,8 @@ pub struct RsyncTarget {
     pub path: String,
 }
 
+/// ### PutItem
+/// Represents an incoming request to add a new torrent with optional rsync target details.
 #[derive(Deserialize, Clone)]
 pub struct PutItem {
     pub url: String,
