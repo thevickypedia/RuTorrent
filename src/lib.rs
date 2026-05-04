@@ -6,8 +6,6 @@ use reqwest::Client;
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    process::Command,
     sync::RwLock,
     time::{sleep, Duration},
 };
@@ -44,100 +42,53 @@ fn spawn_worker(client: Client, state: settings::SharedState, config: settings::
             );
 
             if let Some(resp) = qb_get(&client, url).await
-                && let Some(arr) = resp.as_array() {
-                    let mut db = state.write().await;
+                && let Some(arr) = resp.as_array()
+            {
+                let mut db = state.write().await;
 
-                    for t in arr {
-                        let hash = t["hash"].as_str().unwrap_or("").to_string();
-                        let progress = t["progress"].as_f64().unwrap_or(0.0);
+                for t in arr {
+                    let hash = t["hash"].as_str().unwrap_or("").to_string();
+                    let progress = t["progress"].as_f64().unwrap_or(0.0);
+                    let content_path = t["content_path"].as_str().unwrap_or("").to_string();
 
-                        if let Some(entry) = db.get_mut(&hash)
-                            && let settings::Status::Downloading(_) = entry.status {
-                                if progress >= 1.0 {
-                                    if let Some(target) = entry.rsync.clone() {
-                                        log::info!(
-                                            "Download complete → starting rsync: {}",
-                                            entry.name
-                                        );
-                                        entry.status = settings::Status::Copying(0.0);
+                    if let Some(entry) = db.get_mut(&hash)
+                        && let settings::Status::Downloading(_) = entry.status
+                    {
+                        // Avoid rsync re-trigger when looped again
+                        if matches!(entry.status, settings::Status::Downloading(_))
+                            && progress >= 1.0
+                        {
+                            if let Some(target) = entry.rsync.clone() {
+                                log::info!("Download complete → starting rsync: {}", entry.name);
+                                entry.status = settings::Status::Copying(0.0);
 
-                                        let state_clone = state.clone();
-                                        let hash_clone = hash.clone();
-                                        let name_clone = entry.name.clone();
+                                let state_clone = state.clone();
+                                let hash_clone = hash.clone();
+                                let name_clone = entry.name.clone();
 
-                                        tokio::spawn(async move {
-                                            rsync::run(
-                                                state_clone,
-                                                hash_clone,
-                                                name_clone,
-                                                target,
-                                            )
-                                            .await;
-                                        });
-                                    } else {
-                                        entry.status = settings::Status::Completed;
-                                    }
-                                } else {
-                                    entry.status = settings::Status::Downloading(progress);
-                                }
+                                tokio::spawn(async move {
+                                    rsync::run(
+                                        state_clone,
+                                        hash_clone,
+                                        name_clone,
+                                        content_path,
+                                        target,
+                                    )
+                                    .await;
+                                });
+                            } else {
+                                entry.status = settings::Status::Completed;
                             }
+                        } else {
+                            entry.status = settings::Status::Downloading(progress);
+                        }
                     }
                 }
+            }
 
             sleep(Duration::from_secs(2)).await;
         }
     });
-}
-
-#[allow(dead_code)]
-async fn run_rsync_legacy(
-    state: settings::SharedState,
-    hash: String,
-    name: String,
-    target: settings::RsyncTarget,
-) {
-    log::info!("Starting rsync for {}", name);
-
-    let local_path = format!("/downloads/{}", name);
-    let remote = format!("{}@{}:{}", target.username, target.host, target.path);
-
-    let mut child = Command::new("rsync")
-        .args(["-avz", "--progress", &local_path, &remote])
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("rsync failed");
-
-    let stdout = child.stdout.take().unwrap();
-    let mut lines = BufReader::new(stdout).lines();
-
-    while let Ok(Some(line)) = lines.next_line().await {
-        log::info!("rsync: {}", line);
-
-        if let Some(p) = parse_progress(&line) {
-            let mut db = state.write().await;
-            if let Some(e) = db.get_mut(&hash) {
-                e.status = settings::Status::Copying(p);
-            }
-        }
-    }
-
-    let _ = child.wait().await;
-
-    log::info!("rsync complete: {}", name);
-
-    let mut db = state.write().await;
-    if let Some(e) = db.get_mut(&hash) {
-        e.status = settings::Status::Completed;
-    }
-}
-
-fn parse_progress(line: &str) -> Option<f64> {
-    if let Some(idx) = line.find('%') {
-        let start = line[..idx].rfind(' ')?;
-        let pct = line[start..idx].trim();
-        return pct.parse::<f64>().ok().map(|p| p / 100.0);
-    }
-    None
 }
 
 async fn get_torrents(
@@ -283,7 +234,6 @@ async fn put_torrent(
                 rsync: Some(settings::RsyncTarget {
                     host: item.host.clone(),
                     username: item.username.clone(),
-                    password: item.password.clone(),
                     path: item.path.clone(),
                 }),
             },

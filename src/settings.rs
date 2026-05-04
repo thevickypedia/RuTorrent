@@ -54,7 +54,6 @@ pub struct RsyncTrack {
 pub struct RsyncTarget {
     pub host: String,
     pub username: String,
-    pub password: String,
     pub path: String,
 }
 
@@ -63,6 +62,5 @@ pub struct PutItem {
     pub url: String,
     pub host: String,
     pub username: String,
-    pub password: String,
     pub path: String,
 }
