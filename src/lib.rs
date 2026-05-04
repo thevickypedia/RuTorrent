@@ -256,7 +256,15 @@ async fn put_torrent(
             return e;
         }
 
-        pending_lock.insert(tag, item.clone());
+        // Only keep rsync info if ALL fields are present
+        if !item.host.is_empty()
+            && !item.username.is_empty()
+            && !item.path.is_empty()
+        {
+            pending_lock.insert(tag, item.clone());
+        } else {
+            log::info!("Adding torrent [{}]: {}", tag, item.url);
+        };
     }
 
     HttpResponse::Ok().body("Queued")

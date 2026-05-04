@@ -60,7 +60,10 @@ pub struct RsyncTarget {
 #[derive(Deserialize, Clone)]
 pub struct PutItem {
     pub url: String,
+    #[serde(default)]
     pub host: String,
+    #[serde(default)]
     pub username: String,
+    #[serde(default)]
     pub path: String,
 }
