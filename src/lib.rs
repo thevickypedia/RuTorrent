@@ -43,11 +43,7 @@ async fn resolve_new_torrents(
     pending: &PendingMap,
     state: &settings::SharedState,
 ) {
-    let resp = qb_get(
-        client,
-        format!("{}/api/v2/torrents/info", config.base_url),
-    )
-        .await;
+    let resp = qb_get(client, format!("{}/api/v2/torrents/info", config.base_url)).await;
 
     let Some(arr) = resp.and_then(|v| v.as_array().cloned()) else {
         return;
@@ -56,16 +52,16 @@ async fn resolve_new_torrents(
     let mut pending_lock = pending.write().await;
     let mut db = state.write().await;
 
-    // naive but robust: assign first unmatched torrents
     for t in arr {
         let hash = t["hash"].as_str().unwrap_or("").to_string();
         let name = t["name"].as_str().unwrap_or("").to_string();
+        let tags = t["tags"].as_str().unwrap_or("");
 
         if db.contains_key(&hash) {
             continue;
         }
 
-        if let Some((id, item)) = pending_lock.iter().next().map(|(k, v)| (k.clone(), v.clone())) {
+        if let Some(item) = pending_lock.remove(tags) {
             log::info!("Resolved {} → {}", name, hash);
 
             db.insert(
@@ -80,8 +76,6 @@ async fn resolve_new_torrents(
                     }),
                 },
             );
-
-            pending_lock.remove(&id);
         }
     }
 }
@@ -248,13 +242,13 @@ async fn put_torrent(
     let mut pending_lock = pending.write().await;
 
     for item in req.iter() {
-        let id = Uuid::new_v4().to_string();
+        let tag = Uuid::new_v4().to_string();
 
-        log::info!("Queueing torrent [{}]: {}", id, item.url);
+        log::info!("Adding torrent [{}]: {}", tag, item.url);
 
         let resp = client
             .post(format!("{}/api/v2/torrents/add", config.base_url))
-            .form(&[("urls", item.url.as_str())])
+            .form(&[("urls", item.url.as_str()), ("tags", tag.as_str())])
             .send()
             .await;
 
@@ -262,7 +256,7 @@ async fn put_torrent(
             return e;
         }
 
-        pending_lock.insert(id, item.clone());
+        pending_lock.insert(tag, item.clone());
     }
 
     HttpResponse::Ok().body("Queued")
