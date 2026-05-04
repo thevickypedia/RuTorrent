@@ -1,7 +1,29 @@
 [package]
 name = "rutorrent"
-version = "0.1.0"
+version = "0.0.1"
+description = "RuTorrent is a light-weight proxy API to download magnet links and transfer content to remote servers."
+license = "MIT"
+documentation = "https://docs.rs/rutorrent"
+homepage = "https://github.com/thevickypedia/rutorrent"
+repository = "https://github.com/thevickypedia/rutorrent"
+rust-version = "1.95.0"
+keywords = ["rutorrent", "qbittorrent", "asynchronous-server"]
+categories = ["web-programming::http-server", "asynchronous"]
+include = ["/src", "LICENSE"]
+exclude = [".github", ".gitignore", "README.md"]
 edition = "2024"
+authors = ["Vignesh Rao"]
+
+[lib]
+name = "rutorrent"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rutorrent"
+path = "src/main.rs"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--document-private-items"]
 
 [dependencies]
 actix-web = "4.13.0"
