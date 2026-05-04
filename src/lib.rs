@@ -263,6 +263,84 @@ async fn put_torrent(
 }
 
 /* -----------------------------
+   DELETE /torrent
+------------------------------*/
+async fn delete_torrent(
+    config: web::Data<settings::Config>,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    log::info!("DELETE /torrent");
+
+    let identifier = match query.get("name") {
+        Some(i) => i,
+        None => return HttpResponse::BadRequest().body("Missing name"),
+    };
+
+    let delete_files = match query.get("files") {
+        Some(v) => v == "true",
+        None => true,
+    };
+
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+
+    let resp: Value = match client
+        .get(format!("{}/api/v2/torrents/info", config.base_url))
+        .send()
+        .await
+    {
+        Ok(r) => match r.json().await {
+            Ok(j) => j,
+            Err(_) => return HttpResponse::InternalServerError().body("Invalid JSON"),
+        },
+        Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
+    };
+
+    let mut found_hash = None;
+
+    if let Some(arr) = resp.as_array() {
+        for t in arr {
+            let name = t["name"].as_str().unwrap_or("");
+            let hash = t["hash"].as_str().unwrap_or("");
+            if name == identifier {
+                found_hash = Some(hash.to_string());
+                break;
+            }
+        }
+    }
+
+    let hash = match found_hash {
+        Some(h) => h,
+        None => return HttpResponse::NotFound().body("Torrent not found"),
+    };
+
+    log::info!(
+        "Deleting torrent, name: {}, hash: {}, deleteFiles: {}",
+        identifier,
+        hash,
+        &delete_files
+    );
+
+    let resp = client
+        .post(format!("{}/api/v2/torrents/delete", config.base_url))
+        .form(&[
+            ("hashes", hash.as_str()),
+            ("deleteFiles", delete_files.to_string().as_str()),
+        ])
+        .send()
+        .await;
+
+    if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
+        return e;
+    }
+
+    log::info!("Successfully deleted {}", identifier);
+    HttpResponse::Ok().body("Deleted")
+}
+
+/* -----------------------------
    START SERVER
 ------------------------------*/
 pub async fn start() -> std::io::Result<()> {
@@ -289,6 +367,7 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .route("/torrent", web::get().to(get_torrents))
             .route("/torrent", web::put().to(put_torrent))
+            .route("/torrent", web::delete().to(delete_torrent))
     })
     .bind((host, port))?
     .run()
