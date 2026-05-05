@@ -33,21 +33,14 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
 /// * `pending` - Shared map of pending torrent metadata keyed by tags
 /// * `state` - Shared state where active torrent tracking entries are stored
 async fn resolve_new_torrents(
-    client: &Client,
-    config: &settings::Config,
+    array: &Vec<Value>,
     pending: &settings::PendingMap,
     state: &settings::SharedState,
 ) {
-    let resp = qb_get(client, format!("{}/api/v2/torrents/info", config.qbit_api)).await;
-
-    let Some(arr) = resp.and_then(|v| v.as_array().cloned()) else {
-        return;
-    };
-
     let mut pending_lock = pending.write().await;
     let mut db = state.write().await;
 
-    for t in arr {
+    for t in array {
         let hash = t["hash"].as_str().unwrap_or("").to_string();
         let name = t["name"].as_str().unwrap_or("").to_string();
         let tags = t["tags"].as_str().unwrap_or("");
@@ -75,12 +68,6 @@ async fn resolve_new_torrents(
     }
 }
 
-async fn get_client(config: &settings::Config) -> Client {
-    qb::client(&config)
-        .await
-        .expect("Failed to authenticate qBittorrent")
-}
-
 /// Spawns a background worker that monitors torrents and triggers rsync transfers upon completion.
 ///
 /// # Arguments
@@ -97,6 +84,7 @@ async fn get_client(config: &settings::Config) -> Client {
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
+    mut client: Client,
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
@@ -104,17 +92,40 @@ pub fn spawn_worker(
     tokio::spawn(async move {
         log::info!("Worker started");
 
-        let mut next_refresh = chrono::Local::now() + chrono::Duration::minutes(60);
-        let mut client: Client = get_client(&config).await;
         loop {
-            if chrono::Local::now() >= next_refresh {
-                client = get_client(&config).await;
-                next_refresh = chrono::Local::now() + chrono::Duration::minutes(60);
+            sleep(Duration::from_secs(5)).await;
+
+            // Check status of client and re-auth if request fails
+            if let Some(response) =
+                qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_api)).await
+            {
+                /* -----------------------------
+                   1. Resolve pending torrents
+                ------------------------------*/
+                let Some(array) = response.as_array() else {
+                    log::warn!("No info received from QBitAPI");
+                    continue;
+                };
+
+                if array.is_empty() {
+                    continue;
+                }
+
+                log::trace!("Torrents active: {:?}", array);
+                resolve_new_torrents(array, &pending, &state).await;
+            } else {
+                log::error!("Failed to get info from QBitAPI");
+
+                client = match qb::client(&config).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        log::error!("Failed to authenticate qBittorrent: {:?}", e);
+                        return;
+                    }
+                };
+
+                continue;
             }
-            /* -----------------------------
-               1. Resolve pending torrents
-            ------------------------------*/
-            resolve_new_torrents(&client, &config, &pending, &state).await;
 
             /* -----------------------------
                2. Poll tracked torrents
@@ -125,7 +136,6 @@ pub fn spawn_worker(
             };
 
             if hashes.is_empty() {
-                sleep(Duration::from_secs(2)).await;
                 continue;
             }
 
@@ -136,12 +146,10 @@ pub fn spawn_worker(
             );
 
             let Some(resp) = qb_get(&client, url).await else {
-                sleep(Duration::from_secs(2)).await;
                 continue;
             };
 
             let Some(arr) = resp.as_array() else {
-                sleep(Duration::from_secs(2)).await;
                 continue;
             };
 
@@ -191,7 +199,6 @@ pub fn spawn_worker(
             }
 
             drop(db);
-            sleep(Duration::from_secs(2)).await;
         }
     });
 }
@@ -210,7 +217,9 @@ pub fn get_env_var(key: &str, default: Option<&str>) -> String {
     let lower = std::env::var(key.to_lowercase());
     let upper = std::env::var(key.to_uppercase());
     let default = default.unwrap_or_default();
-    lower.unwrap_or(upper.unwrap_or(default.to_string())).to_string()
+    lower
+        .unwrap_or(upper.unwrap_or(default.to_string()))
+        .to_string()
 }
 
 /// Load dotenv file using the env var `env_file` or `ENV_FILE`

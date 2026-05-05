@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use url::Url;
 use uuid::Uuid;
 
-
 /// API endpoint to get the current health status.
 ///
 /// # Returns

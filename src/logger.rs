@@ -17,7 +17,7 @@ pub fn init_logger(utc: bool) {
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "actix_web=warn,actix_server=warn,rutorrent=info"
+            "actix_web=warn,actix_server=warn,rutorrent=info",
         );
     }
     if utc {
