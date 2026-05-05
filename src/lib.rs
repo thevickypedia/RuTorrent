@@ -1,7 +1,7 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{web, App, HttpServer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -36,8 +36,14 @@ pub async fn start() -> std::io::Result<()> {
 
     let host = config.host.clone();
     let port = config.port;
+    let workers = config.workers;
 
-    log::info!("Starting server on: http://{}:{}", host, port);
+    log::info!(
+        "Starting server on: http://{}:{} with {} workers",
+        host,
+        port,
+        workers
+    );
 
     HttpServer::new(move || {
         App::new()
@@ -52,6 +58,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::delete().to(api::delete_torrent))
     })
     .bind((host, port))?
+    .workers(workers)
     .run()
     .await
 }

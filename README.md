@@ -26,6 +26,7 @@ async fn main() -> std::io::Result<()> {
 ### Environment Variables
 - **HOST**: Hostname to run `rutorrent`. Defaults to `127.0.0.1`
 - **PORT**: Port to run `rutorrent`. Defaults to `3000`
+- **WORKERS**: Number of Actix workers to run the API. Defaults to number of CPUs.
 - **QBIT_API**: Base URL for qbittorrent API. Defaults to `http://localhost:8080`
 - **USERNAME**: Username for qbittorrent API
 - **PASSWORD**: Password for qbittorrent API

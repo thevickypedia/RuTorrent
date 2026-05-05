@@ -1,6 +1,7 @@
 use crate::squire;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -17,11 +18,12 @@ pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 pub struct Config {
     pub host: String,
     pub port: u16,
+    pub workers: usize,
     pub qbit_api: String,
     pub username: String,
     pub password: String,
     pub utc_logger: bool,
-    pub log_level: log::LevelFilter
+    pub log_level: log::LevelFilter,
 }
 
 /// ### Config::new
@@ -37,18 +39,27 @@ impl Config {
             .parse::<u16>()
             .unwrap();
 
+        let available_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
+        let default_workers =
+            squire::get_env_var("workers", Some(available_workers.to_string().as_str()));
+        let workers = match default_workers.parse::<usize>() {
+            Ok(n) if n > 0 => n,
+            Ok(_) => panic!("\nParseError:\n\t'workers' must be > 0, got {default_workers}\n"),
+            Err(e) => panic!("\nParseError:\n\tInvalid 'workers' value '{default_workers}': {e}\n"),
+        };
+
         let qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080"));
         let username = squire::get_env_var("username", None);
         let password = squire::get_env_var("password", None);
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
-        let log_level_ = squire::get_env_var("log_level", Some("info"));
-        let log_level = match log_level_.parse::<log::LevelFilter>() {
+        let default_log_level = squire::get_env_var("log_level", Some("info"));
+        let log_level = match default_log_level.parse::<log::LevelFilter>() {
             Ok(level) => level,
             Err(_) => {
                 panic!(
-                    "\nParseLevelError:\n\tInvalid log_level '{}'. Expected one of: off, error, warn, info, debug, trace\n",
-                    log_level_
+                    "\nParseError:\n\tInvalid 'log_level' value '{}'. Expected one of: off, error, warn, info, debug, trace\n",
+                    default_log_level
                 );
             }
         };
@@ -56,11 +67,12 @@ impl Config {
         Self {
             host,
             port,
+            workers,
             qbit_api,
             username,
             password,
             utc_logger,
-            log_level
+            log_level,
         }
     }
 }
