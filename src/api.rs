@@ -95,9 +95,18 @@ async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap
     if let Some(arr) = resp.as_array() {
         for t in arr {
             let mut map = HashMap::new();
-            map.insert("name".to_string(), t["name"].as_str().unwrap_or("?").to_string());
-            map.insert("hash".to_string(), t["hash"].as_str().unwrap_or("").to_string());
-            map.insert("progress".to_string(), format!("{}", t["progress"].as_f64().unwrap_or(0.0)));
+            map.insert(
+                "name".to_string(),
+                t["name"].as_str().unwrap_or("?").to_string(),
+            );
+            map.insert(
+                "hash".to_string(),
+                t["hash"].as_str().unwrap_or("").to_string(),
+            );
+            map.insert(
+                "progress".to_string(),
+                format!("{}", t["progress"].as_f64().unwrap_or(0.0)),
+            );
             vec.push(map);
         }
     }
@@ -139,9 +148,10 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
             name: Some(name),
             hash: Some(hash),
             trackers: Some(trackers),
-            host: item.host.to_string(),
-            username: item.username.to_string(),
-            path: item.path.to_string(),
+            save_path: item.save_path.to_owned(),
+            remote_host: item.remote_host.to_string(),
+            remote_username: item.remote_username.to_string(),
+            remote_path: item.remote_path.to_string(),
         });
     }
     ret
@@ -214,16 +224,28 @@ pub async fn put_torrent(
         let name = item.name.as_ref().unwrap().to_string();
         let hash = item.hash.as_ref().unwrap().to_uppercase().to_string();
         let trackers = item.trackers.as_ref().unwrap().to_vec();
+        let save_path = item.save_path.to_string();
 
         if hashes.contains(&hash) {
             response.push(HashMap::from([(name, 409.to_string())]));
             continue;
         }
 
-        log::info!("Adding torrent [{}]: {}, trackers: {}", tag, &name, trackers.len());
+        log::info!(
+            "Adding torrent [{}]: {}, trackers: {}",
+            tag,
+            &name,
+            trackers.len()
+        );
+
+        let mut params = vec![("urls", &url), ("tags", &tag)];
+        if !save_path.is_empty() {
+            params.push(("savepath", &save_path));
+        }
+
         let resp = client
             .post(format!("{}/api/v2/torrents/add", config.qbit_api))
-            .form(&[("urls", &url), ("tags", &tag)])
+            .form(&params)
             .send()
             .await;
 
@@ -234,7 +256,10 @@ pub async fn put_torrent(
         }
 
         // Only keep rsync info if ALL fields are present
-        if !item.host.is_empty() && !item.username.is_empty() && !item.path.is_empty() {
+        if !item.remote_host.is_empty()
+            && !item.remote_username.is_empty()
+            && !item.remote_path.is_empty()
+        {
             pending_lock.insert(tag, item.clone());
         } else {
             log::info!("Adding torrent [{}]: {}", tag, item.url);

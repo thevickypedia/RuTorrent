@@ -1,9 +1,8 @@
+use crate::squire;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::squire;
 
 /// ### SharedState
 /// Shared application state for tracking active rsync operations.
@@ -91,16 +90,29 @@ pub struct PutItem {
     pub hash: Option<String>,
     pub trackers: Option<Vec<String>>,
 
+    #[serde(default = "default_save_path")]
+    pub save_path: String,
+
     #[serde(default = "default_host")]
-    pub host: String,
+    pub remote_host: String,
     #[serde(default = "default_username")]
-    pub username: String,
+    pub remote_username: String,
     #[serde(default = "default_path")]
-    pub path: String,
+    pub remote_path: String,
 }
 
-fn default_host() -> String { env::var("REMOTE_HOST").unwrap_or_default() }
+fn default_host() -> String {
+    squire::get_env_var("remote_host", None)
+}
 
-fn default_username() -> String { env::var("REMOTE_USER").unwrap_or_default() }
+fn default_username() -> String {
+    squire::get_env_var("remote_user", None)
+}
 
-fn default_path() -> String { env::var("REMOTE_PATH").unwrap_or_default() }
+fn default_path() -> String {
+    squire::get_env_var("remote_path", None)
+}
+
+fn default_save_path() -> String {
+    squire::get_env_var("save_path", None)
+}

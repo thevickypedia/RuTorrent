@@ -65,9 +65,9 @@ async fn resolve_new_torrents(
                     name,
                     status: settings::Status::Downloading(0.0),
                     rsync: Some(settings::RsyncTarget {
-                        host: item.host,
-                        username: item.username,
-                        path: item.path,
+                        host: item.remote_host,
+                        username: item.remote_username,
+                        path: item.remote_path,
                     }),
                 },
             );
