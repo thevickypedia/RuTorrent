@@ -1,4 +1,4 @@
-use crate::{rsync, settings};
+use crate::{qb, rsync, settings};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
@@ -75,6 +75,12 @@ async fn resolve_new_torrents(
     }
 }
 
+async fn get_client(config: &settings::Config) -> Client {
+    qb::client(&config)
+        .await
+        .expect("Failed to authenticate qBittorrent")
+}
+
 /// Spawns a background worker that monitors torrents and triggers rsync transfers upon completion.
 ///
 /// # Arguments
@@ -91,7 +97,6 @@ async fn resolve_new_torrents(
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
-    client: Client,
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
@@ -99,7 +104,13 @@ pub fn spawn_worker(
     tokio::spawn(async move {
         log::info!("Worker started");
 
+        let mut next_refresh = chrono::Local::now() + chrono::Duration::minutes(60);
+        let mut client: Client = get_client(&config).await;
         loop {
+            if chrono::Local::now() >= next_refresh {
+                client = get_client(&config).await;
+                next_refresh = chrono::Local::now() + chrono::Duration::minutes(60);
+            }
             /* -----------------------------
                1. Resolve pending torrents
             ------------------------------*/
