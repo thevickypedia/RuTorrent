@@ -33,6 +33,7 @@ async fn main() -> std::io::Result<()> {
 - **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
 - **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
 - **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
+- **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
 
 **rsync functionality**
 ```shell
@@ -51,24 +52,28 @@ ssh user@receiver_ip
 2. `PUT /torrent` - Adds new torrent URLs to the queue.
     ```shell
     curl -X PUT localhost:3000/torrent \
-    -H "Content-Type: application/json" \
-    -d '[
-      {
-        "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
-        "host": "192.168.1.102",
-        "username": "admin",
-        "path": "/Users/admin/Downloads"
-      },
-      {
-        "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
-        "host": "192.168.1.100",
-        "username": "admin",
-        "path": "/home/admin/Documents"
-      },
-      {
-        "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
-      }
-    ]'
+      -H "Content-Type: application/json" \
+      -d '[
+	    # Download (at custom local path) and transfer content to ssh://admin@192.168.1.102:/Users/admin/Sintel
+        {
+          "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
+          "save_path": "/home/admin/Downloads"  # overrides the local `save_path`
+          "remote_host": "192.168.1.102",
+          "remote_username": "admin",
+          "remote_path": "/Users/admin/Sintel"
+        },
+        # Download (at default local path) and transfer content to ssh://admin@192.168.1.100:/home/admin/Big_Buck
+        {
+          "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
+          "remote_host": "192.168.1.100",
+          "remote_username": "admin",
+          "remote_path": "/home/admin/Big_Buck"
+        },
+	    # Download (at default local path) without any subsequent transfer
+        {
+          "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
+        }
+      ]'
     ```
 3. `DELETE /torrent` - Deletes a torrent.
     ```shell

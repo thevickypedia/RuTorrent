@@ -22,11 +22,13 @@ use uuid::Uuid;
 ///
 /// #### Sample Response
 /// ```json
-/// {
-///   "Ubuntu 22.04 LTS": "Downloading: 39%",
-///   "Sintel": "Copying 69%"
-/// }
+/// [{"Sintel":"400"},{"Big Buck Bunny":"409"},{"Ubuntu 22.04 LTS":"200"}]
 /// ```
+///
+/// #### Status
+/// * `200`: Successfully queued.
+/// * `409`: Duplicate request.
+/// * `400`: Invalid magnet link.
 ///
 /// # Returns
 ///
@@ -170,21 +172,22 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 /// curl -X PUT localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '[
-///     # Download and transfer content to ssh://admin@192.168.1.102:/Users/admin/Downloads
+///     # Download (at custom local path) and transfer content to ssh://admin@192.168.1.102:/Users/admin/Sintel
 ///     {
 ///       "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
-///       "host": "192.168.1.102",
-///       "username": "admin",
-///       "path": "/Users/admin/Downloads"
+///       "save_path": "/home/admin/Downloads"  # overrides the local `save_path`
+///       "remote_host": "192.168.1.102",
+///       "remote_username": "admin",
+///       "remote_path": "/Users/admin/Sintel"
 ///     },
-///     # Download and transfer content to ssh://admin@192.168.1.100:/home/admin/Documents
+///     # Download (at default local path) and transfer content to ssh://admin@192.168.1.100:/home/admin/Big_Buck
 ///     {
 ///       "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
-///       "host": "192.168.1.100",
-///       "username": "admin",
-///       "path": "/home/admin/Documents"
+///       "remote_host": "192.168.1.100",
+///       "remote_username": "admin",
+///       "remote_path": "/home/admin/Big_Buck"
 ///     },
-///     # Download without any subsequent transfer
+///     # Download (at default local path) without any subsequent transfer
 ///     {
 ///       "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
 ///     }
