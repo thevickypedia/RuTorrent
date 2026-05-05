@@ -84,6 +84,7 @@ async fn resolve_new_torrents(
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
+    mut client: Client,
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
@@ -91,8 +92,6 @@ pub fn spawn_worker(
     tokio::spawn(async move {
         log::info!("Worker started");
 
-        // Dummy client to trigger loop - will be renewed after first attempt
-        let mut client = Client::new();
         loop {
             sleep(Duration::from_secs(5)).await;
 
@@ -122,6 +121,7 @@ pub fn spawn_worker(
             } else {
                 log::error!("Failed to get info from QBitAPI");
 
+                // Re-create client when failed to authenticate
                 client = match qb::client(&config).await {
                     Ok(c) => c,
                     Err(e) => {
