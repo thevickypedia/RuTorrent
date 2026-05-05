@@ -121,6 +121,8 @@ pub async fn put_torrent(
     config: web::Data<settings::Config>,
     body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
+    // TODO: Raise valid error or skip when redundant magnet links are added instead of "Fails"
+    // TODO: DB should rely on qbit API as source since restarts will not honor in-progress items for rsync
     let client = match qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,

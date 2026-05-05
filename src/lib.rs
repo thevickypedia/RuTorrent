@@ -5,11 +5,11 @@ use actix_web::{web, App, HttpServer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
+mod api;
 mod logger;
 mod qb;
 mod rsync;
 mod settings;
-mod api;
 mod squire;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
@@ -23,6 +23,7 @@ mod squire;
 /// }
 /// ```
 pub async fn start() -> std::io::Result<()> {
+    squire::load_env_file();
     let config = settings::Config::new();
     logger::init_logger(config.utc_logger);
     let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));

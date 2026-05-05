@@ -184,3 +184,12 @@ pub fn spawn_worker(
         }
     });
 }
+
+/// Load dotenv file using the env var `env_file` or `ENV_FILE`
+pub fn load_env_file() {
+    // TODO: All env vars should be case-insensitive
+    let env_file = std::env::var("env_file")
+        .unwrap_or(std::env::var("ENV_FILE").unwrap_or(".env".to_string()));
+    let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
+    let _ = dotenv::from_path(env_file_path.as_path());
+}
