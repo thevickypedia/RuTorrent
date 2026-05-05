@@ -13,3 +13,6 @@ Cargo.lock
 
 # RustRover IDE
 .idea
+
+# Dotenv
+.env
