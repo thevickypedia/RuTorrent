@@ -185,11 +185,26 @@ pub fn spawn_worker(
     });
 }
 
+/// Get case agnostic environment variables.
+///
+/// # Arguments
+///
+/// * `key` - Environment variable's key.
+/// * `default` - Fallback value is env var is not available.
+///
+/// # Returns
+///
+/// Returns the resolved env var or a default string.
+pub fn get_env_var(key: &str, default: Option<&str>) -> String {
+    let lower = std::env::var(key.to_lowercase());
+    let upper = std::env::var(key.to_uppercase());
+    let default = default.unwrap_or_default();
+    lower.unwrap_or(upper.unwrap_or(default.to_string())).to_string()
+}
+
 /// Load dotenv file using the env var `env_file` or `ENV_FILE`
 pub fn load_env_file() {
-    // TODO: All env vars should be case-insensitive
-    let env_file = std::env::var("env_file")
-        .unwrap_or(std::env::var("ENV_FILE").unwrap_or(".env".to_string()));
+    let env_file = get_env_var("env_file", Some(".env"));
     let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
     let _ = dotenv::from_path(env_file_path.as_path());
 }

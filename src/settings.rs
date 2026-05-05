@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use crate::squire;
 
 /// ### SharedState
 /// Shared application state for tracking active rsync operations.
@@ -31,17 +32,16 @@ pub struct Config {
 /// A [`Config`] populated with environment values or sensible defaults.
 impl Config {
     pub fn new() -> Self {
-        let host = env::var("HOST").unwrap_or("127.0.0.1".to_string());
-        let port = env::var("PORT")
-            .unwrap_or("3000".to_string())
+        let host = squire::get_env_var("host", Some("127.0.0.1"));
+        let port = squire::get_env_var("port", Some("3000"))
             .parse::<u16>()
             .unwrap();
 
-        let qbit_api = env::var("QBIT_API").unwrap_or("http://localhost:8080".to_string());
-        let username = env::var("USERNAME").unwrap_or_default();
-        let password = env::var("PASSWORD").unwrap_or_default();
+        let qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080"));
+        let username = squire::get_env_var("username", None);
+        let password = squire::get_env_var("password", None);
 
-        let utc_logger = env::var("UTC_LOGGER").unwrap_or("true".to_string()) == "true";
+        let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
 
         Self {
             host,
