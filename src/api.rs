@@ -3,10 +3,29 @@ use crate::settings;
 
 use actix_web::{web, HttpResponse, Responder};
 use reqwest::Client;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use url::Url;
 use uuid::Uuid;
+
+
+/// API endpoint to get the current health status.
+///
+/// # Returns
+///
+/// Returns the HTTPResponse with a JSON message to indicate the API is up.
+pub async fn status() -> impl Responder {
+    HttpResponse::Ok().json(json!({ "status": "ok" }))
+}
+
+/// API endpoint to get the current version of the project.
+///
+/// # Returns
+///
+/// Returns the HTTPResponse with a JSON message resolved during compile time.
+pub async fn version() -> impl Responder {
+    HttpResponse::Ok().json(json!({ "version": env!("CARGO_PKG_VERSION") }))
+}
 
 /// API endpoint to get download/copy status.
 ///
