@@ -84,7 +84,6 @@ async fn resolve_new_torrents(
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
-    mut client: Client,
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
@@ -92,8 +91,19 @@ pub fn spawn_worker(
     tokio::spawn(async move {
         log::info!("Worker started");
 
+        // Dummy client to trigger loop - will be renewed after first attempt
+        let mut client = Client::new();
         loop {
             sleep(Duration::from_secs(5)).await;
+
+            // Skip all API calls when there is nothing to track.
+            {
+                let p = pending.read().await;
+                let s = state.read().await;
+                if p.is_empty() && s.is_empty() {
+                    continue;
+                }
+            }
 
             // Check status of client and re-auth if request fails
             if let Some(response) =
@@ -106,10 +116,6 @@ pub fn spawn_worker(
                     log::warn!("No info received from QBitAPI");
                     continue;
                 };
-
-                if array.is_empty() {
-                    continue;
-                }
 
                 log::trace!("Torrents active: {:?}", array);
                 resolve_new_torrents(array, &pending, &state).await;
@@ -154,6 +160,16 @@ pub fn spawn_worker(
             };
 
             let mut db = state.write().await;
+
+            // Remove entries that qBit no longer knows about (deleted via WebUI).
+            let returned: std::collections::HashSet<&str> =
+                arr.iter().filter_map(|t| t["hash"].as_str()).collect();
+            hashes.iter().for_each(|h| {
+                if !returned.contains(h.as_str()) {
+                    log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
+                    db.remove(h);
+                }
+            });
 
             for t in arr {
                 let hash = t["hash"].as_str().unwrap_or("").to_string();

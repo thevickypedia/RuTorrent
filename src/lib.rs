@@ -29,10 +29,7 @@ pub async fn start() -> std::io::Result<()> {
     let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
     let pending: settings::PendingMap = Arc::new(RwLock::new(HashMap::new()));
 
-    let client = qb::client(&config)
-        .await
-        .expect("Failed to authenticate qBittorrent");
-    squire::spawn_worker(client, state.clone(), pending.clone(), config.clone());
+    squire::spawn_worker(state.clone(), pending.clone(), config.clone());
 
     let host = config.host.clone();
     let port = config.port;
