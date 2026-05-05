@@ -5,7 +5,7 @@
 [![build][gh-logo]][build]
 
 #### Summary
-Rustic solution to download via magnet links and `rsync` (via `ssh`) to a remote server when completed.
+`RuTorrent` is a lightweight API that downloads magnet links and asynchronously transfers files to a remote server over SSH via `rsync`.
 
 ### Installation
 
