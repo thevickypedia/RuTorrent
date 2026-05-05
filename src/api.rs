@@ -1,10 +1,12 @@
+use crate::qb;
+use crate::settings;
+
 use actix_web::{web, HttpResponse, Responder};
+use reqwest::Client;
 use serde_json::Value;
 use std::collections::HashMap;
+use url::Url;
 use uuid::Uuid;
-use crate::settings;
-use crate::qb;
-
 
 /// API endpoint to get download/copy status.
 ///
@@ -38,6 +40,47 @@ pub async fn get_torrents(
         Err(e) => return e,
     };
 
+    let db = state.read().await;
+    let mut map = HashMap::new();
+    let array = get_existing(&client, &config).await;
+
+    if array.is_empty() {
+        return HttpResponse::Ok().json(map);
+    }
+
+    for t in array.iter() {
+        let name = t["name"].to_string();
+        let hash = t["hash"].to_string();
+        let progress = t["progress"].parse::<f64>().unwrap();
+
+        let status = match db.get(&hash) {
+            Some(local) => match local.status {
+                settings::Status::Copying(p) => format!("Copying: {:.0}%", p * 100.0),
+                settings::Status::Completed => "Completed".to_string(),
+                settings::Status::Downloading(_) => {
+                    format!("Downloading: {:.0}%", progress * 100.0)
+                }
+            },
+            None => format!("Downloading: {:.0}%", progress * 100.0),
+        };
+
+        map.insert(name, status);
+    }
+
+    HttpResponse::Ok().json(map)
+}
+
+/// Get existing torrents' information from QBitAPI.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client used to perform the request.
+/// * `config` - Reference to the `Config` object.
+///
+/// # Returns
+///
+/// Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
+async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap<String, String>> {
     let resp: Value = match client
         .get(format!("{}/api/v2/torrents/info", config.qbit_api))
         .send()
@@ -47,31 +90,61 @@ pub async fn get_torrents(
         Err(_) => Value::Null,
     };
 
-    let db = state.read().await;
-    let mut map = HashMap::new();
+    let mut vec = Vec::new();
 
     if let Some(arr) = resp.as_array() {
         for t in arr {
-            let name = t["name"].as_str().unwrap_or("?").to_string();
-            let hash = t["hash"].as_str().unwrap_or("").to_string();
-            let progress = t["progress"].as_f64().unwrap_or(0.0);
-
-            let status = match db.get(&hash) {
-                Some(local) => match local.status {
-                    settings::Status::Copying(p) => format!("Copying: {:.0}%", p * 100.0),
-                    settings::Status::Completed => "Completed".to_string(),
-                    settings::Status::Downloading(_) => {
-                        format!("Downloading: {:.0}%", progress * 100.0)
-                    }
-                },
-                None => format!("Downloading: {:.0}%", progress * 100.0),
-            };
-
-            map.insert(name, status);
+            let mut map = HashMap::new();
+            map.insert("name".to_string(), t["name"].as_str().unwrap_or("?").to_string());
+            map.insert("hash".to_string(), t["hash"].as_str().unwrap_or("").to_string());
+            map.insert("progress".to_string(), format!("{}", t["progress"].as_f64().unwrap_or(0.0)));
+            vec.push(map);
         }
     }
+    vec
+}
 
-    HttpResponse::Ok().json(map)
+/// Extends the payload for `PutItem` with resolved `name`, `hash` and `trackers`
+///
+/// # Arguments
+///
+/// * `body` - Request body that takes `PutItem` object.
+///
+/// # Returns
+///
+/// Returns the extended `PutItem` with attached `name`, `hash` and `trackers`
+fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
+    let mut ret: Vec<settings::PutItem> = Vec::new();
+    for item in body.iter() {
+        let url = Url::parse(&item.url).expect("Invalid URL");
+        let query_pairs: Vec<(String, String)> = url
+            .query_pairs()
+            .map(|(key, value)| (key.into_owned(), value.into_owned()))
+            .collect();
+
+        let mut hash = String::new();
+        let mut name = String::new();
+        let mut trackers: Vec<String> = Vec::new();
+        for (key, value) in query_pairs {
+            if key == "xt" {
+                hash = value.split(":").last().unwrap().to_string();
+            } else if key == "dn" {
+                name = value;
+            } else {
+                trackers.push(value);
+            }
+        }
+        ret.push(settings::PutItem {
+            url: url.to_string(),
+            name: Some(name),
+            hash: Some(hash),
+            trackers: Some(trackers),
+            host: item.host.to_string(),
+            username: item.username.to_string(),
+            path: item.path.to_string(),
+        });
+    }
+    ret
 }
 
 /// API endpoint to add torrents to the download queue.
@@ -121,8 +194,6 @@ pub async fn put_torrent(
     config: web::Data<settings::Config>,
     body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
-    // TODO: Raise valid error or skip when redundant magnet links are added instead of "Fails"
-    // TODO: DB should rely on qbit API as source since restarts will not honor in-progress items for rsync
     let client = match qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
@@ -130,33 +201,48 @@ pub async fn put_torrent(
 
     let mut pending_lock = pending.write().await;
 
-    for item in body.iter() {
+    let existing = get_existing(&client, &config).await;
+    let hashes: Vec<String> = existing
+        .into_iter()
+        .map(|i| i.get("hash").unwrap().to_uppercase().clone())
+        .collect();
+
+    let mut response: Vec<HashMap<String, String>> = Vec::new();
+    for item in resolve_payload(&body.into_inner()) {
         let tag = Uuid::new_v4().to_string();
+        let url = item.url.to_string();
+        let name = item.name.as_ref().unwrap().to_string();
+        let hash = item.hash.as_ref().unwrap().to_uppercase().to_string();
+        let trackers = item.trackers.as_ref().unwrap().to_vec();
 
-        log::info!("Adding torrent [{}]: {}", tag, item.url);
+        if hashes.contains(&hash) {
+            response.push(HashMap::from([(name, 409.to_string())]));
+            continue;
+        }
 
+        log::info!("Adding torrent [{}]: {}, trackers: {}", tag, &name, trackers.len());
         let resp = client
             .post(format!("{}/api/v2/torrents/add", config.qbit_api))
-            .form(&[("urls", item.url.as_str()), ("tags", tag.as_str())])
+            .form(&[("urls", &url), ("tags", &tag)])
             .send()
             .await;
 
         if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
-            return e;
+            log::error!("{:?}", e.status().to_string());
+            response.push(HashMap::from([(name, 400.to_string())]));
+            continue;
         }
 
         // Only keep rsync info if ALL fields are present
-        if !item.host.is_empty()
-            && !item.username.is_empty()
-            && !item.path.is_empty()
-        {
+        if !item.host.is_empty() && !item.username.is_empty() && !item.path.is_empty() {
             pending_lock.insert(tag, item.clone());
         } else {
             log::info!("Adding torrent [{}]: {}", tag, item.url);
         };
+        response.push(HashMap::from([(name, 200.to_string())]));
     }
 
-    HttpResponse::Ok().json("Queued")
+    HttpResponse::Ok().json(response)
 }
 
 /// API endpoint to delete a torrent.

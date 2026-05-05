@@ -37,3 +37,4 @@ chrono = "0.4.44"
 log = "0.4.29"
 uuid = { version = "1.23.1", features = ["v4"] }
 dotenv = "0.15.0"
+url = "2.5.8"

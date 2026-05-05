@@ -83,9 +83,14 @@ pub struct RsyncTarget {
 
 /// ### PutItem
 /// Represents an incoming request to add a new torrent with optional rsync target details.
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct PutItem {
     pub url: String,
+
+    pub name: Option<String>,
+    pub hash: Option<String>,
+    pub trackers: Option<Vec<String>>,
+
     #[serde(default = "default_host")]
     pub host: String,
     #[serde(default = "default_username")]
