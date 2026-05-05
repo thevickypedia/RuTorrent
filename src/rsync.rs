@@ -57,13 +57,14 @@ pub async fn run(
 
     let remote = format!("{}@{}:{}", target.username, target.host, target.path);
 
-    // TODO: Make sure rsync doesn't prompt - if it does, treat as failed
     let mut child = Command::new("rsync")
         .args([
             "-az",
             "--progress",
             "--partial",
             "--inplace",
+            "-e",
+            "ssh -o BatchMode=yes -o ConnectTimeout=5",
             &source,
             &remote,
         ])
@@ -85,9 +86,25 @@ pub async fn run(
         }
     }
 
-    let _ = child.wait().await;
+    let status = child.wait().await.expect("failed to wait on rsync");
 
-    log::info!("rsync complete: {}", name);
+    if status.success() {
+        log::info!("rsync complete: {}", name);
+    } else {
+        let mut err_output = String::new();
+
+        if let Some(mut stderr) = child.stderr.take() {
+            use tokio::io::AsyncReadExt;
+            let _ = stderr.read_to_string(&mut err_output).await;
+        }
+
+        log::error!(
+            "rsync failed for {} with status {}. stderr: {}",
+            name,
+            status,
+            err_output
+        );
+    }
 
     let mut db = state.write().await;
     if let Some(e) = db.get_mut(&hash) {

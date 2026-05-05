@@ -7,7 +7,7 @@ use reqwest::Client;
 /// # Arguments
 ///
 /// * `config` - A reference to the application configuration containing:
-///   - `base_url`: The base URL of the qBittorrent Web API. Defaults to `http://localhost:8080`
+///   - `qbit_api`: The base URL of the qBittorrent Web API. Defaults to `http://localhost:8080`
 ///   - `username`: The username for authentication (optional)
 ///   - `password`: The password for authentication (optional)
 ///
@@ -21,7 +21,7 @@ use reqwest::Client;
 /// # Notes
 ///
 /// - Cookies are persisted in the client to maintain the authenticated session.
-/// - The function assumes the qBittorrent Web API is reachable at the given `base_url`.
+/// - The function assumes the qBittorrent Web API is reachable at the given `qbit_api`.
 pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
     let client = Client::builder().cookie_store(true).build().unwrap();
 
