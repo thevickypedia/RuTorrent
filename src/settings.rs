@@ -21,6 +21,7 @@ pub struct Config {
     pub username: String,
     pub password: String,
     pub utc_logger: bool,
+    pub log_level: log::LevelFilter
 }
 
 /// ### Config::new
@@ -41,6 +42,16 @@ impl Config {
         let password = squire::get_env_var("password", None);
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
+        let log_level_ = squire::get_env_var("log_level", Some("info"));
+        let log_level = match log_level_.parse::<log::LevelFilter>() {
+            Ok(level) => level,
+            Err(_) => {
+                panic!(
+                    "\nParseLevelError:\n\tInvalid log_level '{}'. Expected one of: off, error, warn, info, debug, trace\n",
+                    log_level_
+                );
+            }
+        };
 
         Self {
             host,
@@ -49,6 +60,7 @@ impl Config {
             username,
             password,
             utc_logger,
+            log_level
         }
     }
 }

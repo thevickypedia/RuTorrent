@@ -12,12 +12,12 @@ use chrono::{DateTime, Local};
 /// # Notes
 ///
 /// - This function should only be called once during application startup.
-pub fn init_logger(utc: bool) {
+pub fn init_logger(utc: bool, log_level: log::LevelFilter) {
     // Safe when executed in single threading
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            "actix_web=warn,actix_server=warn,rutorrent=info",
+            format!("actix_web={0},actix_server={0},rutorrent={0}", log_level),
         );
     }
     if utc {

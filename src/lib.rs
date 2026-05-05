@@ -25,7 +25,7 @@ mod squire;
 pub async fn start() -> std::io::Result<()> {
     squire::load_env_file();
     let config = settings::Config::new();
-    logger::init_logger(config.utc_logger);
+    logger::init_logger(config.utc_logger, config.log_level);
     let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
     let pending: settings::PendingMap = Arc::new(RwLock::new(HashMap::new()));
 

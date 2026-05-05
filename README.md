@@ -30,6 +30,7 @@ async fn main() -> std::io::Result<()> {
 - **USERNAME**: Username for qbittorrent API
 - **PASSWORD**: Password for qbittorrent API
 - **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
+- **LOG_LEVEL**: Log level to set across `actix-web`, `actix-server` and `rurorrent`
 - **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
 - **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
 - **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
