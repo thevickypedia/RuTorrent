@@ -1,9 +1,9 @@
 use crate::squire;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use utoipa::ToSchema;
 
 /// ### SharedState
 /// Shared application state for tracking active rsync operations.
@@ -79,7 +79,7 @@ impl Config {
 
 /// ### Status
 /// Represents the current status of a torrent or transfer.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub enum Status {
     Downloading(f64),
     Copying(f64),
@@ -97,7 +97,7 @@ pub struct RsyncTrack {
 
 /// ### RsyncTarget
 /// Defines a remote rsync destination.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct RsyncTarget {
     pub host: String,
     pub username: String,
@@ -106,7 +106,7 @@ pub struct RsyncTarget {
 
 /// ### PutItem
 /// Represents an incoming request to add a new torrent with optional rsync target details.
-#[derive(Deserialize, Clone, Debug)]
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PutItem {
     pub url: String,
 

@@ -13,6 +13,13 @@ use uuid::Uuid;
 /// # Returns
 ///
 /// Returns the HTTPResponse with a JSON message to indicate the API is up.
+#[utoipa::path(
+    get,
+    path = "/status",
+    responses(
+        (status = 200, description = "List of users", body = serde_json::Value),
+    ),
+)]
 pub async fn status() -> impl Responder {
     HttpResponse::Ok().json(json!({ "status": "ok" }))
 }
@@ -22,6 +29,13 @@ pub async fn status() -> impl Responder {
 /// # Returns
 ///
 /// Returns the HTTPResponse with a JSON message resolved during compile time.
+#[utoipa::path(
+    get,
+    path = "/version",
+    responses(
+        (status = 200, description = "API version", body = serde_json::Value)
+    )
+)]
 pub async fn version() -> impl Responder {
     HttpResponse::Ok().json(json!({ "version": env!("CARGO_PKG_VERSION") }))
 }
@@ -51,6 +65,13 @@ pub async fn version() -> impl Responder {
 /// # Returns
 ///
 /// Returns a JSON object to indicate the status.
+#[utoipa::path(
+    get,
+    path = "/torrent",
+    responses(
+        (status = 200, description = "Torrent status map", body = HashMap<String, String>)
+    )
+)]
 pub async fn get_torrents(
     state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
@@ -220,6 +241,14 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 /// # Returns
 ///
 /// Returns a JSON object to indicate the status.
+#[utoipa::path(
+    put,
+    path = "/torrent",
+    request_body = Vec<settings::PutItem>,
+    responses(
+        (status = 200, description = "Queued", body = String)
+    )
+)]
 pub async fn put_torrent(
     pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
@@ -316,6 +345,17 @@ pub async fn put_torrent(
 /// # Returns
 ///
 /// Returns a JSON object to indicate the status.
+#[utoipa::path(
+    delete,
+    path = "/torrent",
+    params(
+        ("name" = String, Query, description = "Torrent name"),
+        ("delete-files" = bool, Query, description = "Delete files")
+    ),
+    responses(
+        (status = 200, description = "Deleted", body = String)
+    )
+)]
 pub async fn delete_torrent(
     config: web::Data<settings::Config>,
     query: web::Query<HashMap<String, String>>,

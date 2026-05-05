@@ -26,6 +26,8 @@ path = "src/main.rs"
 rustdoc-args = ["--document-private-items"]
 
 [dependencies]
+utoipa = { version = "5.5.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 actix-web = "4.13.0"
 reqwest = { version = "0.13.3", features = ["blocking", "cookies", "json", "form"] }
 serde = { version = "1.0.228", features = ["derive"] }
