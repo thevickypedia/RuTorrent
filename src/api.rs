@@ -65,6 +65,7 @@ fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
 ///
 /// # Arguments
 ///
+/// * `request` - Reference to the `HttpRequest` object.
 /// * `state` - Reference to the `SharedState` object.
 /// * `config` - Reference to the `Config` object.
 ///
@@ -227,6 +228,7 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 ///
 /// # Arguments
 ///
+/// * `request` - Reference to the `HttpRequest` object.
 /// * `pending` - Reference to the `PendingMap` object.
 /// * `config` - Reference to the `Config` object.
 /// * `body` - Request body that takes `PutItem` object.
@@ -353,7 +355,8 @@ pub async fn put_torrent(
 ///
 /// # Arguments
 ///
-/// * `state` - Reference to the `SharedState` object.
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
 /// * `query` - JSON query parameters.
 ///
 /// #### Sample Request (delete any downloaded files)

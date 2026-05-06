@@ -29,8 +29,7 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
 ///
 /// # Arguments
 ///
-/// * `client` - The HTTP client used to query the qBittorrent API
-/// * `config` - Application configuration containing the API base URL
+/// * `array` - Array of existing torrents in QBitAPI.
 /// * `pending` - Shared map of pending torrent metadata keyed by tags
 /// * `state` - Shared state where active torrent tracking entries are stored
 async fn resolve_new_torrents(

@@ -6,10 +6,7 @@ use reqwest::Client;
 ///
 /// # Arguments
 ///
-/// * `config` - A reference to the application configuration containing:
-///   - `qbit_api`: The base URL of the qBittorrent Web API. Defaults to `http://localhost:8080`
-///   - `username`: The username for authentication (optional)
-///   - `password`: The password for authentication (optional)
+/// * `config` - Reference to the `Config` object.
 ///
 /// # Returns
 ///
