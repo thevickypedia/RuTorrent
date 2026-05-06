@@ -41,6 +41,14 @@ async fn main() -> std::io::Result<()> {
 - **NTFY_TOPIC**: Subscribed ntfy topic for notifications.
 - **NTFY_USERNAME**: Username to authentication ntfy notifications.
 - **NTFY_PASSWORD**: Password to authentication ntfy notifications.
+- **TELEGRAM_BOT_TOKEN**: Telegram bot token.
+- **TELEGRAM_CHAT_ID**: Chat ID where telegram notifications has to be sent.
+
+> To get the chat ID, message the bot on Telegram and run the command:
+> ```shell
+> curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" \
+> | jq '.result[].message.chat.id'
+> ```
 
 **rsync functionality**
 ```shell

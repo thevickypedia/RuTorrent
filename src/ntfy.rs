@@ -1,8 +1,15 @@
 use crate::settings;
 use reqwest::Client;
+use std::time::Duration;
 
-pub async fn send(config: &settings::Config, title: &str, data: &str) -> bool {
-    let client = Client::builder().build().unwrap();
+pub async fn send(config: &settings::Config, title: &String, data: &String) -> bool {
+    let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("Failed to build HTTP client: {}", e);
+            return false;
+        }
+    };
     let url = format!("{}/{}", config.ntfy_url, config.ntfy_topic);
 
     let mut request = client
@@ -21,7 +28,7 @@ pub async fn send(config: &settings::Config, title: &str, data: &str) -> bool {
         Ok(resp) => match resp.error_for_status() {
             Ok(resp) => {
                 match resp.text().await {
-                    Ok(body) => log::debug!("ntfy response: {}", body),
+                    Ok(body) => log::info!("Ntfy response: {}", body.strip_suffix("\n").unwrap()),
                     Err(e) => log::error!("Failed to read response body: {}", e),
                 }
                 true

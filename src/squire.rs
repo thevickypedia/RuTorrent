@@ -1,4 +1,4 @@
-use crate::{ntfy, qb, rsync, settings};
+use crate::{ntfy, qb, rsync, settings, telegram};
 use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
@@ -65,6 +65,29 @@ async fn resolve_new_torrents(
                 },
             );
         }
+    }
+}
+
+fn notifier(title: String, body: String, config: settings::Config) {
+    let title_clone = title.clone();
+    let body_clone = body.clone();
+    let config_clone = config.clone();
+    if !config.ntfy_url.is_empty() && !config.ntfy_topic.is_empty() {
+        log::info!("Sending NTFY notification to {}: {}", title_clone, body);
+        tokio::spawn(async move {
+            let _ = ntfy::send(&config, &title, &body).await;
+        });
+    }
+    if !config_clone.telegram_bot_token.is_empty() && !config_clone.telegram_chat_id.is_empty() {
+        log::info!(
+            "Sending Telegram notification to {}: {}",
+            title_clone,
+            body_clone
+        );
+        tokio::spawn(async move {
+            let message = format!("*{}*\n\n{}", &title_clone, &body_clone);
+            let _ = telegram::send(&config_clone, &message).await;
+        });
     }
 }
 
@@ -187,19 +210,11 @@ pub fn spawn_worker(
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
                         let entry_clone = entry.rsync.clone();
-                        // Kick off transfer failed notification in the background
-                        tokio::spawn(async move {
-                            let _ = ntfy::send(
-                                &config_cloned,
-                                "RuTorrent: Transfer Failed",
-                                format!(
-                                    "Failed to transfer {} to {}",
-                                    name_clone, entry_clone.host
-                                )
-                                .as_str(),
-                            )
-                            .await;
-                        });
+                        notifier(
+                            "RuTorrent: Transfer Failed".to_string(),
+                            format!("Failed to transfer {} to {}", name_clone, entry_clone.host),
+                            config_cloned,
+                        );
                         db.remove(&hash);
                     }
 
@@ -207,20 +222,14 @@ pub fn spawn_worker(
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
                         let entry_clone = entry.rsync.clone();
-                        // TODO: Include Telegram notifications
-                        // Kick off transfer complete notification in the background
-                        tokio::spawn(async move {
-                            let _ = ntfy::send(
-                                &config_cloned,
-                                "RuTorrent: Transfer Complete",
-                                format!(
-                                    "{} has been transferred to {}",
-                                    name_clone, entry_clone.host
-                                )
-                                .as_str(),
-                            )
-                            .await;
-                        });
+                        notifier(
+                            "RuTorrent: Transfer Complete".to_string(),
+                            format!(
+                                "{} has been transferred to {}",
+                                name_clone, entry_clone.host
+                            ),
+                            config_cloned,
+                        );
                         db.remove(&hash);
                     }
 
@@ -247,14 +256,11 @@ pub fn spawn_worker(
                             // Kick off download complete notification in the background
                             let config_cloned = config.clone();
                             let name_clone = entry.name.clone();
-                            tokio::spawn(async move {
-                                let _ = ntfy::send(
-                                    &config_cloned,
-                                    "RuTorrent: Download Complete",
-                                    format!("{} has been downloaded", name_clone).as_str(),
-                                )
-                                .await;
-                            });
+                            notifier(
+                                "RuTorrent: Download Complete".to_string(),
+                                format!("{} has been downloaded", name_clone),
+                                config_cloned,
+                            );
                         }
                     }
                 }

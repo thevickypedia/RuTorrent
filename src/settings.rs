@@ -33,6 +33,9 @@ pub struct Config {
     pub ntfy_topic: String,
     pub ntfy_username: String,
     pub ntfy_password: String,
+
+    pub telegram_chat_id: String,
+    pub telegram_bot_token: String,
 }
 
 fn startup_error(msg: &str) {
@@ -111,6 +114,20 @@ impl Config {
             .unwrap_or(&ntfy_topic)
             .to_string();
 
+        let telegram_bot_token = squire::get_env_var("telegram_bot_token", None);
+        let telegram_chat_id = squire::get_env_var("telegram_chat_id", None);
+        if !telegram_chat_id.is_empty() {
+            match telegram_chat_id.parse::<usize>() {
+                Ok(_) => (),
+                Err(_) => {
+                    startup_error(
+                        format!("Invalid 'telegram_chat_id' value '{telegram_chat_id}'").as_str(),
+                    );
+                    std::process::exit(1)
+                }
+            };
+        }
+
         Self {
             host,
             port,
@@ -125,6 +142,8 @@ impl Config {
             ntfy_topic,
             ntfy_username,
             ntfy_password,
+            telegram_bot_token,
+            telegram_chat_id,
         }
     }
 }

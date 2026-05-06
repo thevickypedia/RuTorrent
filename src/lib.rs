@@ -13,6 +13,7 @@ mod rsync;
 mod settings;
 mod squire;
 mod swagger;
+mod telegram;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
