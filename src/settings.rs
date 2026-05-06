@@ -73,9 +73,10 @@ impl Config {
             }
         };
 
-        let qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080"));
+        let mut qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080/"));
         let username = squire::get_env_var("username", None);
         let password = squire::get_env_var("password", None);
+        qbit_api = qbit_api.strip_suffix("/").unwrap_or_default().to_string();
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
         let default_log_level = squire::get_env_var("log_level", Some("info"));
