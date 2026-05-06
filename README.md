@@ -37,6 +37,10 @@ async fn main() -> std::io::Result<()> {
 - **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
 - **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
 - **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
+- **NTFY_URL**: Ntfy server URL for notifications.
+- **NTFY_TOPIC**: Subscribed ntfy topic for notifications.
+- **NTFY_USERNAME**: Username to authentication ntfy notifications.
+- **NTFY_PASSWORD**: Password to authentication ntfy notifications.
 
 **rsync functionality**
 ```shell
