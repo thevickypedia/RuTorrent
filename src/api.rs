@@ -53,11 +53,10 @@ pub async fn version() -> impl Responder {
 ///
 /// Returns a boolean value to indicate the authentication status.
 fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
-    if let Some(apikey) = request.headers().get("apikey") {
-        if apikey.to_str().unwrap().to_string() == config.apikey {
+    if let Some(apikey) = request.headers().get("apikey")
+        && apikey.to_str().unwrap() == config.apikey {
             return true;
         }
-    }
     false
 }
 

@@ -57,11 +57,11 @@ async fn resolve_new_torrents(
                 settings::RsyncTrack {
                     name,
                     status: settings::Status::Downloading(0.0),
-                    rsync: Some(settings::RsyncTarget {
+                    rsync: settings::RsyncTarget {
                         host: item.remote_host,
                         username: item.remote_username,
                         path: item.remote_path,
-                    }),
+                    },
                 },
             );
         }
@@ -187,10 +187,13 @@ pub fn spawn_worker(
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
                         let entry_clone = entry.rsync.clone();
+                        // TODO: Include Telegram notifications
+                        //  Include a failed status check if transfer fails
+                        // Kick off transfer complete notification in the background
                         tokio::spawn(async move {
                             let _ = ntfy::send(
                                 &config_cloned, "RuTorrent: Transfer Complete",
-                                format!("{} has been transferred to {}", name_clone, entry_clone.unwrap().host).as_str()
+                                format!("{} has been transferred to {}", name_clone, entry_clone.host).as_str()
                             ).await;
                         });
                         db.remove(&hash);
@@ -198,38 +201,33 @@ pub fn spawn_worker(
 
                     settings::Status::Downloading(_) => {
                         entry.status = settings::Status::Downloading(progress);
-
                         if progress >= 1.0 {
-                            if let Some(target) = entry.rsync.clone() {
-                                let config_cloned = config.clone();
-                                let name_clone = entry.name.clone();
-                                tokio::spawn(async move {
-                                    let _ = ntfy::send(
-                                        &config_cloned, "RuTorrent: Download Complete",
-                                        format!("{} has been downloaded", name_clone).as_str()
-                                    ).await;
-                                });
-
-                                log::info!("Download complete → rsync: {}", entry.name);
-
-                                entry.status = settings::Status::Copying(0.0);
-
-                                let state_clone = state.clone();
-                                let hash_clone = hash.clone();
-                                let name_clone = entry.name.clone();
-                                tokio::spawn(async move {
-                                    rsync::run(
-                                        state_clone,
-                                        hash_clone,
-                                        name_clone,
-                                        content_path,
-                                        target,
-                                    )
-                                    .await;
-                                });
-                            } else {
-                                entry.status = settings::Status::Completed;
-                            }
+                            log::info!("Download complete → rsync: {}", entry.name);
+                            entry.status = settings::Status::Copying(0.0);
+                            let state_clone = state.clone();
+                            let hash_clone = hash.clone();
+                            let name_clone = entry.name.clone();
+                            let rsync_clone = entry.rsync.clone();
+                            // Kick off transfer in the background
+                            tokio::spawn(async move {
+                                rsync::run(
+                                    state_clone,
+                                    hash_clone,
+                                    name_clone,
+                                    content_path,
+                                    rsync_clone,
+                                )
+                                .await;
+                            });
+                            // Kick off download complete notification in the background
+                            let config_cloned = config.clone();
+                            let name_clone = entry.name.clone();
+                            tokio::spawn(async move {
+                                let _ = ntfy::send(
+                                    &config_cloned, "RuTorrent: Download Complete",
+                                    format!("{} has been downloaded", name_clone).as_str()
+                                ).await;
+                            });
                         }
                     }
                 }
@@ -288,7 +286,7 @@ pub fn load_env_file() {
 ///
 /// * `Ok(())` if the secret meets all strength requirements.
 /// * `Err(String)` with a message describing the first failed condition.
-pub fn complexity_checker(value: &String, min_length: usize) -> Result<(), String> {
+pub fn complexity_checker(value: &str, min_length: usize) -> Result<(), String> {
     if value.trim().is_empty() {
         return Err("Value cannot be empty".to_string());
     }

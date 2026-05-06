@@ -141,7 +141,7 @@ pub enum Status {
 pub struct RsyncTrack {
     pub name: String,
     pub status: Status,
-    pub rsync: Option<RsyncTarget>,
+    pub rsync: RsyncTarget,
 }
 
 /// ### RsyncTarget
