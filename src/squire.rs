@@ -1,3 +1,4 @@
+use regex::Regex;
 use crate::{qb, rsync, settings};
 use reqwest::Client;
 use serde_json::Value;
@@ -161,7 +162,7 @@ pub fn spawn_worker(
 
             let mut db = state.write().await;
 
-            // Remove entries that qBit no longer knows about (deleted via WebUI).
+            // Remove entries that QBitAPI no longer knows about (deleted via WebUI).
             let returned: std::collections::HashSet<&str> =
                 arr.iter().filter_map(|t| t["hash"].as_str()).collect();
             hashes.iter().for_each(|h| {
@@ -243,4 +244,61 @@ pub fn load_env_file() {
     let env_file = get_env_var("env_file", Some(".env"));
     let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
     let _ = dotenv::from_path(env_file_path.as_path());
+}
+
+/// Verifies the strength of a secret string.
+///
+/// # Description
+/// A secret is considered strong if it satisfies all the following:
+///
+///     - Has at least `min_length` characters
+///     - Contains at least 1 digit
+///     - Contains at least 1 symbol (non-alphanumeric, non-whitespace)
+///     - Contains at least 1 uppercase letter
+///     - Contains at least 1 lowercase letter
+///
+/// # Arguments
+///
+/// * `value` - The secret string to validate.
+/// * `min_length` - Minimum required length of the secret.
+///
+/// # Returns
+///
+/// * `Ok(())` if the secret meets all strength requirements.
+/// * `Err(String)` with a message describing the first failed condition.
+pub fn complexity_checker(value: &String, min_length: usize) -> Result<(), String> {
+    if value.trim().is_empty() {
+        return Err("Value cannot be empty".to_string());
+    }
+
+    if value.len() < min_length {
+        return Err(format!(
+            "Minimum length is {}, received {}",
+            min_length,
+            value.len()
+        ));
+    }
+
+    let digit_re = Regex::new(r"\d").unwrap();
+    let upper_re = Regex::new(r"[A-Z]").unwrap();
+    let lower_re = Regex::new(r"[a-z]").unwrap();
+    let symbol_re = Regex::new(r#"[^\w\s]"#).unwrap();
+
+    if !digit_re.is_match(value) {
+        return Err("Value must include an integer".to_string());
+    }
+
+    if !upper_re.is_match(value) {
+        return Err("Value must include at least one uppercase letter".to_string());
+    }
+
+    if !lower_re.is_match(value) {
+        return Err("Value must include at least one lowercase letter".to_string());
+    }
+
+    if !symbol_re.is_match(value) {
+        return Err("Value must contain at least one special character".to_string());
+    }
+
+    Ok(())
 }

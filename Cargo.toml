@@ -40,3 +40,4 @@ log = "0.4.29"
 uuid = { version = "1.23.1", features = ["v4"] }
 dotenv = "0.15.0"
 url = "2.5.8"
+regex = "1.12.3"

@@ -1,7 +1,7 @@
 use crate::qb;
 use crate::settings;
 
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -16,6 +16,7 @@ use uuid::Uuid;
 #[utoipa::path(
     get,
     path = "/status",
+    security(()),
     responses(
         (status = 200, description = "List of users", body = serde_json::Value),
     ),
@@ -32,12 +33,32 @@ pub async fn status() -> impl Responder {
 #[utoipa::path(
     get,
     path = "/version",
+    security(()),
     responses(
         (status = 200, description = "API version", body = serde_json::Value)
     )
 )]
 pub async fn version() -> impl Responder {
     HttpResponse::Ok().json(json!({ "version": env!("CARGO_PKG_VERSION") }))
+}
+
+/// Authenticates the `apikey` through incoming request headers.
+///
+/// # Arguments
+///
+/// - `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// # Returns
+///
+/// Returns a boolean value to indicate the authentication status.
+fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
+    if let Some(apikey) = request.headers().get("apikey") {
+        if apikey.to_str().unwrap().to_string() == config.apikey {
+            return true;
+        }
+    }
+    false
 }
 
 /// API endpoint to get download/copy status.
@@ -73,9 +94,13 @@ pub async fn version() -> impl Responder {
     )
 )]
 pub async fn get_torrents(
+    request: HttpRequest,
     state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
 ) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
     let client = match qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
@@ -250,10 +275,14 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
     )
 )]
 pub async fn put_torrent(
+    request: HttpRequest,
     pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
     body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
     let client = match qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
@@ -357,9 +386,13 @@ pub async fn put_torrent(
     )
 )]
 pub async fn delete_torrent(
+    request: HttpRequest,
     config: web::Data<settings::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
     let identifier = match query.get("name") {
         Some(i) => i,
         None => return HttpResponse::BadRequest().body("Missing name"),
