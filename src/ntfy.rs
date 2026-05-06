@@ -2,12 +2,18 @@ use crate::settings;
 use reqwest::Client;
 use std::time::Duration;
 
-pub async fn send(config: &settings::Config, title: &String, data: &String) -> bool {
+/// Sends a message to the user via Ntfy.
+///
+/// # Arguments
+/// * `config` - Reference to the `Config` object.
+/// * `title` - Subject of the notification.
+/// * `body` - Body of the notification.
+pub async fn send(config: &settings::Config, title: &String, body: &String) {
     let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
         Ok(c) => c,
         Err(e) => {
             log::error!("Failed to build HTTP client: {}", e);
-            return false;
+            return;
         }
     };
     let url = format!("{}/{}", config.ntfy_url, config.ntfy_topic);
@@ -16,7 +22,7 @@ pub async fn send(config: &settings::Config, title: &String, data: &String) -> b
         .post(&url)
         .header("X-Title", title)
         .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(data.to_string());
+        .body(body.to_string());
 
     let username = config.ntfy_username.to_string();
     let password = config.ntfy_password.to_string();
@@ -25,22 +31,12 @@ pub async fn send(config: &settings::Config, title: &String, data: &String) -> b
     }
 
     match request.send().await {
-        Ok(resp) => match resp.error_for_status() {
-            Ok(resp) => {
-                match resp.text().await {
-                    Ok(body) => log::info!("Ntfy response: {}", body.strip_suffix("\n").unwrap()),
-                    Err(e) => log::error!("Failed to read response body: {}", e),
-                }
-                true
-            }
-            Err(e) => {
-                log::error!("HTTP error: {}", e);
-                false
-            }
-        },
-        Err(e) => {
-            log::error!("Request failed: {}", e);
-            false
+        Ok(body) => {
+            log::debug!("Response: {:?}", body);
+            log::info!("Ntfy notification has been sent to: {}", config.ntfy_topic);
+        }
+        Err(err) => {
+            log::error!("{}", err);
         }
     }
 }

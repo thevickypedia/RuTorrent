@@ -68,6 +68,17 @@ async fn resolve_new_torrents(
     }
 }
 
+/// Function to notify about an event.
+///
+/// # Arguments
+///
+/// * `title` - Subject of the notification.
+/// * `body` - Body of the notification.
+/// * `config` - Reference to the `Config` object.
+///
+/// # Notes
+///
+/// Sends notifications through `NTFY` and `Telegram` based on the availability of env vars.
 fn notifier(title: String, body: String, config: settings::Config) {
     let title_clone = title.clone();
     let body_clone = body.clone();
@@ -293,7 +304,6 @@ pub fn get_env_var(key: &str, default: Option<&str>) -> String {
 
 /// Load dotenv file using the env var `env_file` or `ENV_FILE`
 pub fn load_env_file() {
-    // TODO: dotenv does not load env vars with $ sign
     let env_file = get_env_var("env_file", Some(".env"));
     let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
     let _ = dotenv::from_path(env_file_path.as_path());
