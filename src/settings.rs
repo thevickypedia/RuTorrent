@@ -20,11 +20,19 @@ pub struct Config {
     pub port: u16,
     pub apikey: String,
     pub workers: usize,
+
     pub qbit_api: String,
+
     pub username: String,
     pub password: String,
+
     pub utc_logger: bool,
     pub log_level: log::LevelFilter,
+
+    pub ntfy_url: String,
+    pub ntfy_topic: String,
+    pub ntfy_username: String,
+    pub ntfy_password: String,
 }
 
 fn startup_error(msg: &str) {
@@ -76,7 +84,7 @@ impl Config {
         let mut qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080/"));
         let username = squire::get_env_var("username", None);
         let password = squire::get_env_var("password", None);
-        qbit_api = qbit_api.strip_suffix("/").unwrap_or_default().to_string();
+        qbit_api = qbit_api.strip_suffix("/").unwrap_or(&qbit_api).to_string();
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
         let default_log_level = squire::get_env_var("log_level", Some("info"));
@@ -92,6 +100,14 @@ impl Config {
             }
         };
 
+        let mut ntfy_url = squire::get_env_var("ntfy_url", None);
+        let mut ntfy_topic = squire::get_env_var("ntfy_topic", None);
+        let ntfy_username = squire::get_env_var("ntfy_username", None);
+        let ntfy_password = squire::get_env_var("ntfy_password", None);
+
+        ntfy_url = ntfy_url.strip_suffix("/").unwrap_or(&ntfy_url).to_string();
+        ntfy_topic = ntfy_topic.strip_prefix("/").unwrap_or(&ntfy_topic).to_string();
+
         Self {
             host,
             port,
@@ -102,6 +118,10 @@ impl Config {
             password,
             utc_logger,
             log_level,
+            ntfy_url,
+            ntfy_topic,
+            ntfy_username,
+            ntfy_password,
         }
     }
 }

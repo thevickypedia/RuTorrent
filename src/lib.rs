@@ -1,7 +1,7 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpServer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -12,6 +12,7 @@ mod rsync;
 mod settings;
 mod squire;
 mod swagger;
+mod ntfy;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///

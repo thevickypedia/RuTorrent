@@ -29,7 +29,7 @@ rustdoc-args = ["--document-private-items"]
 utoipa = { version = "5.5.0", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 actix-web = "4.13.0"
-reqwest = { version = "0.13.3", features = ["blocking", "cookies", "json", "form"] }
+reqwest = { version = "0.13.3", features = ["cookies", "json", "form"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 actix-rt = "2.11.0"

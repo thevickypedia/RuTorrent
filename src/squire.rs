@@ -1,4 +1,4 @@
-use crate::{qb, rsync, settings};
+use crate::{ntfy, qb, rsync, settings};
 use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
@@ -181,13 +181,35 @@ pub fn spawn_worker(
                 };
 
                 match entry.status {
-                    settings::Status::Copying(_) | settings::Status::Completed => continue,
+                    settings::Status::Copying(_) => continue,
+
+                    settings::Status::Completed => {
+                        let config_cloned = config.clone();
+                        let name_clone = entry.name.clone();
+                        let entry_clone = entry.rsync.clone();
+                        tokio::spawn(async move {
+                            let _ = ntfy::send(
+                                &config_cloned, "RuTorrent: Transfer Complete",
+                                format!("{} has been transferred to {}", name_clone, entry_clone.unwrap().host).as_str()
+                            ).await;
+                        });
+                        db.remove(&hash);
+                    }
 
                     settings::Status::Downloading(_) => {
                         entry.status = settings::Status::Downloading(progress);
 
                         if progress >= 1.0 {
                             if let Some(target) = entry.rsync.clone() {
+                                let config_cloned = config.clone();
+                                let name_clone = entry.name.clone();
+                                tokio::spawn(async move {
+                                    let _ = ntfy::send(
+                                        &config_cloned, "RuTorrent: Download Complete",
+                                        format!("{} has been downloaded", name_clone).as_str()
+                                    ).await;
+                                });
+
                                 log::info!("Download complete → rsync: {}", entry.name);
 
                                 entry.status = settings::Status::Copying(0.0);
@@ -195,7 +217,6 @@ pub fn spawn_worker(
                                 let state_clone = state.clone();
                                 let hash_clone = hash.clone();
                                 let name_clone = entry.name.clone();
-
                                 tokio::spawn(async move {
                                     rsync::run(
                                         state_clone,
@@ -230,16 +251,18 @@ pub fn spawn_worker(
 ///
 /// Returns the resolved env var or a default string.
 pub fn get_env_var(key: &str, default: Option<&str>) -> String {
-    let lower = std::env::var(key.to_lowercase());
-    let upper = std::env::var(key.to_uppercase());
-    let default = default.unwrap_or_default();
-    lower
-        .unwrap_or(upper.unwrap_or(default.to_string()))
-        .to_string()
+    if let Ok(upper) = std::env::var(key.to_uppercase()) {
+        return upper;
+    }
+    if let Ok(lower) = std::env::var(key.to_lowercase()) {
+        return lower;
+    }
+    default.unwrap_or_default().to_string()
 }
 
 /// Load dotenv file using the env var `env_file` or `ENV_FILE`
 pub fn load_env_file() {
+    // TODO: dotenv does not load env vars with $ sign
     let env_file = get_env_var("env_file", Some(".env"));
     let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
     let _ = dotenv::from_path(env_file_path.as_path());
