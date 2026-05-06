@@ -62,12 +62,13 @@ ssh user@receiver_ip
 
 1. `GET /torrent` - Returns the download/copy status.
     ```shell
-    curl localhost:3000/torrent
+    curl -H "apikey: ${APIKEY}" localhost:3000/torrent
     ```
 2. `PUT /torrent` - Adds new torrent URLs to the queue.
     ```shell
     curl -X PUT localhost:3000/torrent \
       -H "Content-Type: application/json" \
+      -H "apikey: ${APIKEY}" \
       -d '[
 	    # Download (at custom local path) and transfer content to ssh://admin@192.168.1.102:/Users/admin/Sintel
         {
@@ -92,7 +93,7 @@ ssh user@receiver_ip
     ```
 3. `DELETE /torrent` - Deletes a torrent.
     ```shell
-   curl -X DELETE "http://localhost:3000/torrent?name=Big+Buck+Bunny"
+   curl -X DELETE -H "apikey: ${APIKEY}" "http://localhost:3000/torrent?name=Big+Buck+Bunny"
     ```
 
 ## License & copyright
