@@ -1,10 +1,9 @@
-use reqwest::Client;
 use crate::settings;
+use reqwest::Client;
 
 pub async fn send(config: &settings::Config, title: &str, data: &str) -> bool {
     let client = Client::builder().build().unwrap();
     let url = format!("{}/{}", config.ntfy_url, config.ntfy_topic);
-    log::info!("Client url: {}", &url);
 
     let mut request = client
         .post(&url)

@@ -7,12 +7,12 @@ use tokio::sync::RwLock;
 
 mod api;
 mod logger;
+mod ntfy;
 mod qb;
 mod rsync;
 mod settings;
 mod squire;
 mod swagger;
-mod ntfy;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///

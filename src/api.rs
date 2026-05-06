@@ -54,9 +54,10 @@ pub async fn version() -> impl Responder {
 /// Returns a boolean value to indicate the authentication status.
 fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
     if let Some(apikey) = request.headers().get("apikey")
-        && apikey.to_str().unwrap() == config.apikey {
-            return true;
-        }
+        && apikey.to_str().unwrap() == config.apikey
+    {
+        return true;
+    }
     false
 }
 
@@ -123,6 +124,7 @@ pub async fn get_torrents(
             Some(local) => match local.status {
                 settings::Status::Copying(p) => format!("Copying: {:.0}%", p * 100.0),
                 settings::Status::Completed => "Completed".to_string(),
+                settings::Status::Failed => "Failed".to_string(),
                 settings::Status::Downloading(_) => {
                     format!("Downloading: {:.0}%", progress * 100.0)
                 }
@@ -160,6 +162,7 @@ async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap
 
     if let Some(arr) = resp.as_array() {
         for t in arr {
+            log::info!("{:?}", t);
             let mut map = HashMap::new();
             map.insert(
                 "name".to_string(),

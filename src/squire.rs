@@ -183,18 +183,43 @@ pub fn spawn_worker(
                 match entry.status {
                     settings::Status::Copying(_) => continue,
 
+                    settings::Status::Failed => {
+                        let config_cloned = config.clone();
+                        let name_clone = entry.name.clone();
+                        let entry_clone = entry.rsync.clone();
+                        // Kick off transfer failed notification in the background
+                        tokio::spawn(async move {
+                            let _ = ntfy::send(
+                                &config_cloned,
+                                "RuTorrent: Transfer Failed",
+                                format!(
+                                    "Failed to transfer {} to {}",
+                                    name_clone, entry_clone.host
+                                )
+                                .as_str(),
+                            )
+                            .await;
+                        });
+                        db.remove(&hash);
+                    }
+
                     settings::Status::Completed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
                         let entry_clone = entry.rsync.clone();
                         // TODO: Include Telegram notifications
-                        //  Include a failed status check if transfer fails
                         // Kick off transfer complete notification in the background
                         tokio::spawn(async move {
                             let _ = ntfy::send(
-                                &config_cloned, "RuTorrent: Transfer Complete",
-                                format!("{} has been transferred to {}", name_clone, entry_clone.host).as_str()
-                            ).await;
+                                &config_cloned,
+                                "RuTorrent: Transfer Complete",
+                                format!(
+                                    "{} has been transferred to {}",
+                                    name_clone, entry_clone.host
+                                )
+                                .as_str(),
+                            )
+                            .await;
                         });
                         db.remove(&hash);
                     }
@@ -224,9 +249,11 @@ pub fn spawn_worker(
                             let name_clone = entry.name.clone();
                             tokio::spawn(async move {
                                 let _ = ntfy::send(
-                                    &config_cloned, "RuTorrent: Download Complete",
-                                    format!("{} has been downloaded", name_clone).as_str()
-                                ).await;
+                                    &config_cloned,
+                                    "RuTorrent: Download Complete",
+                                    format!("{} has been downloaded", name_clone).as_str(),
+                                )
+                                .await;
                             });
                         }
                     }

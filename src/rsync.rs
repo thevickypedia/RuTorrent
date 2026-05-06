@@ -108,6 +108,10 @@ pub async fn run(
 
     let mut db = state.write().await;
     if let Some(e) = db.get_mut(&hash) {
-        e.status = settings::Status::Completed;
+        if status.success() {
+            e.status = settings::Status::Completed;
+        } else {
+            e.status = settings::Status::Failed;
+        }
     }
 }

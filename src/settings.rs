@@ -106,7 +106,10 @@ impl Config {
         let ntfy_password = squire::get_env_var("ntfy_password", None);
 
         ntfy_url = ntfy_url.strip_suffix("/").unwrap_or(&ntfy_url).to_string();
-        ntfy_topic = ntfy_topic.strip_prefix("/").unwrap_or(&ntfy_topic).to_string();
+        ntfy_topic = ntfy_topic
+            .strip_prefix("/")
+            .unwrap_or(&ntfy_topic)
+            .to_string();
 
         Self {
             host,
@@ -133,6 +136,7 @@ pub enum Status {
     Downloading(f64),
     Copying(f64),
     Completed,
+    Failed,
 }
 
 /// ### RsyncTrack
