@@ -1,5 +1,5 @@
-use regex::Regex;
 use crate::{qb, rsync, settings};
+use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{sleep, Duration};

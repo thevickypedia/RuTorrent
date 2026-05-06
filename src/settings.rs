@@ -53,7 +53,7 @@ impl Config {
             Err(err) => {
                 startup_error(format!("Invalid 'apikey': {}", err).as_str());
                 std::process::exit(1)
-            },
+            }
         }
 
         let available_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);

@@ -4,8 +4,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 
 mod api;
 mod logger;
@@ -13,16 +11,7 @@ mod qb;
 mod rsync;
 mod settings;
 mod squire;
-
-#[derive(OpenApi)]
-#[openapi(paths(
-    api::status,
-    api::version,
-    api::get_torrents,
-    api::put_torrent,
-    api::delete_torrent
-))]
-struct ApiDoc;
+mod swagger;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
@@ -56,7 +45,6 @@ pub async fn start() -> std::io::Result<()> {
         port,
         workers
     );
-    let openapi = ApiDoc::openapi();
 
     HttpServer::new(move || {
         App::new()
@@ -69,17 +57,9 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::get().to(api::get_torrents))
             .route("/torrent", web::put().to(api::put_torrent))
             .route("/torrent", web::delete().to(api::delete_torrent))
-            .route(
-                "/swagger",
-                web::get().to(|| async {
-                    HttpResponse::Found()
-                        .append_header(("Location", "/swagger-ui/"))
-                        .finish()
-                }),
-            )
-            .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
-            )
+            .route("/swagger", web::get().to(swagger::redirector))
+            .route("/ui", web::get().to(swagger::redirector))
+            .service(swagger::service())
     })
     .bind((host, port))?
     .workers(workers)
