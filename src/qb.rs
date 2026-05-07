@@ -18,7 +18,7 @@ use reqwest::Client;
 /// # Notes
 ///
 /// - Cookies are persisted in the client to maintain the authenticated session.
-/// - The function assumes the qBittorrent Web API is reachable at the given `qbit_api`.
+/// - The function assumes the qBittorrent Web API is reachable at the given `qbit_url`.
 pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
     let client = Client::builder().cookie_store(true).build().unwrap();
 

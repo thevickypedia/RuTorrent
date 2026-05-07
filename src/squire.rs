@@ -49,15 +49,21 @@ async fn resolve_new_torrents(
             continue;
         }
 
-        if let Some(item) = pending_lock.remove(tags) {
+        let matched_tag = tags
+            .split(',')
+            .map(str::trim)
+            .find(|tag| pending_lock.contains_key(*tag));
+
+        if let Some(tag) = matched_tag {
+            let item = pending_lock.remove(tag).unwrap();
             log::info!("Resolved {} → {}", name, hash);
 
             db.insert(
-                hash.clone(),
+                hash,
                 settings::RsyncTrack {
                     name,
                     status: settings::Status::Downloading(0.0),
-                    put_item: item.to_owned(),
+                    put_item: item,
                 },
             );
         }
