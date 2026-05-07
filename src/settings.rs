@@ -178,6 +178,8 @@ pub struct RsyncTarget {
     pub host: String,
     pub username: String,
     pub path: String,
+    // TODO: Move this somewhere else or construct an entirely new payload to have all PutItem objects available in the background task
+    pub delete: bool,
 }
 
 /// ### PutItem
@@ -199,6 +201,8 @@ pub struct PutItem {
     pub remote_username: String,
     #[serde(default = "default_path")]
     pub remote_path: String,
+    #[serde(default = "default_delete_after_copy")]
+    pub delete_after_copy: bool,
 }
 
 fn default_host() -> String {
@@ -215,4 +219,8 @@ fn default_path() -> String {
 
 fn default_save_path() -> String {
     squire::get_env_var("save_path", None)
+}
+
+fn default_delete_after_copy() -> bool {
+    false
 }

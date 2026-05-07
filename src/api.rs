@@ -221,6 +221,7 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
             remote_host: item.remote_host.to_string(),
             remote_username: item.remote_username.to_string(),
             remote_path: item.remote_path.to_string(),
+            delete_after_copy: item.delete_after_copy,
         });
     }
     ret

@@ -61,6 +61,7 @@ async fn resolve_new_torrents(
                         host: item.remote_host,
                         username: item.remote_username,
                         path: item.remote_path,
+                        delete: item.delete_after_copy
                     },
                 },
             );
@@ -220,10 +221,10 @@ pub fn spawn_worker(
                     settings::Status::Failed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
-                        let entry_clone = entry.rsync.clone();
+                        let rsync_clone = entry.rsync.clone();
                         notifier(
                             "RuTorrent: Transfer Failed".to_string(),
-                            format!("Failed to transfer {} to {}", name_clone, entry_clone.host),
+                            format!("Failed to transfer {} to {}", name_clone, rsync_clone.host),
                             config_cloned,
                         );
                         db.remove(&hash);
@@ -232,15 +233,37 @@ pub fn spawn_worker(
                     settings::Status::Completed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
-                        let entry_clone = entry.rsync.clone();
+                        let rsync_clone = entry.rsync.clone();
                         notifier(
                             "RuTorrent: Transfer Complete".to_string(),
                             format!(
                                 "{} has been transferred to {}",
-                                name_clone, entry_clone.host
+                                name_clone, rsync_clone.host
                             ),
                             config_cloned,
                         );
+                        if rsync_clone.delete {
+                            let resp = client
+                                .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
+                                .form(&[
+                                    ("hashes", hash.as_str()),
+                                    ("deleteFiles", "true"),
+                                ])
+                                .send()
+                                .await;
+                            if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
+                                log::error!("Failed to delete torrent: {}", e.status());
+                                if std::path::Path::new(&content_path).exists()
+                                    && let Err(err) = std::fs::remove_dir_all(content_path) {
+                                        log::error!("Failed to delete files: {}", err);
+                                        notifier(
+                                            "RuTorrent: Delete Failed".to_string(),
+                                            format!("Failed to delete torrent: {}", name_clone),
+                                            config.to_owned(),
+                                        );
+                                    }
+                            }
+                        }
                         db.remove(&hash);
                     }
 
