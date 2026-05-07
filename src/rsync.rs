@@ -51,11 +51,11 @@ pub async fn run(
     hash: String,
     name: String,
     source: String,
-    target: settings::RsyncTarget,
+    put_item: settings::PutItem,
 ) {
     log::info!("Starting rsync for {}", name);
 
-    let remote = format!("{}@{}:{}", target.username, target.host, target.path);
+    let remote = format!("{}@{}:{}", put_item.remote_username, put_item.remote_host, put_item.remote_path);
 
     let mut child = Command::new("rsync")
         .args([

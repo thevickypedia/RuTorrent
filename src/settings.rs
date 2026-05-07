@@ -164,22 +164,11 @@ pub enum Status {
 
 /// ### RsyncTrack
 /// Tracks a torrent and its associated rsync transfer state.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RsyncTrack {
     pub name: String,
     pub status: Status,
-    pub rsync: RsyncTarget,
-}
-
-/// ### RsyncTarget
-/// Defines a remote rsync destination.
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct RsyncTarget {
-    pub host: String,
-    pub username: String,
-    pub path: String,
-    // TODO: Move this somewhere else or construct an entirely new payload to have all PutItem objects available in the background task
-    pub delete: bool,
+    pub put_item: PutItem,
 }
 
 /// ### PutItem

@@ -57,12 +57,7 @@ async fn resolve_new_torrents(
                 settings::RsyncTrack {
                     name,
                     status: settings::Status::Downloading(0.0),
-                    rsync: settings::RsyncTarget {
-                        host: item.remote_host,
-                        username: item.remote_username,
-                        path: item.remote_path,
-                        delete: item.delete_after_copy
-                    },
+                    put_item: item.to_owned(),
                 },
             );
         }
@@ -221,10 +216,10 @@ pub fn spawn_worker(
                     settings::Status::Failed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
-                        let rsync_clone = entry.rsync.clone();
+                        let put_item_clone = entry.put_item.clone();
                         notifier(
                             "RuTorrent: Transfer Failed".to_string(),
-                            format!("Failed to transfer {} to {}", name_clone, rsync_clone.host),
+                            format!("Failed to transfer {} to {}", name_clone, put_item_clone.remote_host),
                             config_cloned,
                         );
                         db.remove(&hash);
@@ -233,16 +228,16 @@ pub fn spawn_worker(
                     settings::Status::Completed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
-                        let rsync_clone = entry.rsync.clone();
+                        let put_item_clone = entry.put_item.clone();
                         notifier(
                             "RuTorrent: Transfer Complete".to_string(),
                             format!(
                                 "{} has been transferred to {}",
-                                name_clone, rsync_clone.host
+                                name_clone, put_item_clone.remote_host
                             ),
                             config_cloned,
                         );
-                        if rsync_clone.delete {
+                        if put_item_clone.delete_after_copy {
                             let resp = client
                                 .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
                                 .form(&[
@@ -275,7 +270,7 @@ pub fn spawn_worker(
                             let state_clone = state.clone();
                             let hash_clone = hash.clone();
                             let name_clone = entry.name.clone();
-                            let rsync_clone = entry.rsync.clone();
+                            let put_item_clone = entry.put_item.clone();
                             // Kick off transfer in the background
                             tokio::spawn(async move {
                                 rsync::run(
@@ -283,7 +278,7 @@ pub fn spawn_worker(
                                     hash_clone,
                                     name_clone,
                                     content_path,
-                                    rsync_clone,
+                                    put_item_clone,
                                 )
                                 .await;
                             });

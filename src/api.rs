@@ -162,7 +162,6 @@ async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap
 
     if let Some(arr) = resp.as_array() {
         for t in arr {
-            log::info!("{:?}", t);
             let mut map = HashMap::new();
             map.insert(
                 "name".to_string(),
