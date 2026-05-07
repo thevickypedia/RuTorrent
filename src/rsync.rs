@@ -63,8 +63,6 @@ pub async fn run(
             "--progress",
             "--partial",
             "--inplace",
-            "-e",
-            "ssh -o BatchMode=yes -o ConnectTimeout=5",
             &source,
             &remote,
         ])
