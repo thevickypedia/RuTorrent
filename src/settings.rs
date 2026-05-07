@@ -16,24 +16,28 @@ pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 /// Application configuration loaded from environment variables.
 #[derive(Clone)]
 pub struct Config {
+    // RuTorrent API config
     pub host: String,
     pub port: u16,
     pub apikey: String,
     pub workers: usize,
 
-    pub qbit_api: String,
+    // QBitTorrent WebUI config
+    pub qbit_url: String,
+    pub qbit_username: String,
+    pub qbit_password: String,
 
-    pub username: String,
-    pub password: String,
-
+    // RuTorrent logger config
     pub utc_logger: bool,
     pub log_level: log::LevelFilter,
 
+    // Ntfy notification config
     pub ntfy_url: String,
     pub ntfy_topic: String,
     pub ntfy_username: String,
     pub ntfy_password: String,
 
+    // Telegram notification config
     pub telegram_chat_id: String,
     pub telegram_bot_token: String,
 }
@@ -84,10 +88,10 @@ impl Config {
             }
         };
 
-        let mut qbit_api = squire::get_env_var("qbit_api", Some("http://localhost:8080/"));
-        let username = squire::get_env_var("username", None);
-        let password = squire::get_env_var("password", None);
-        qbit_api = qbit_api.strip_suffix("/").unwrap_or(&qbit_api).to_string();
+        let mut qbit_url = squire::get_env_var("qbit_url", Some("http://localhost:8080/"));
+        let qbit_username = squire::get_env_var("qbit_username", None);
+        let qbit_password = squire::get_env_var("qbit_password", None);
+        qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
         let default_log_level = squire::get_env_var("log_level", Some("info"));
@@ -133,9 +137,9 @@ impl Config {
             port,
             apikey,
             workers,
-            qbit_api,
-            username,
-            password,
+            qbit_url,
+            qbit_username,
+            qbit_password,
             utc_logger,
             log_level,
             ntfy_url,

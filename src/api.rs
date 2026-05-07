@@ -150,7 +150,7 @@ pub async fn get_torrents(
 /// Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
 async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap<String, String>> {
     let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_api))
+        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
         .send()
         .await
     {
@@ -327,7 +327,7 @@ pub async fn put_torrent(
         }
 
         let resp = client
-            .post(format!("{}/api/v2/torrents/add", config.qbit_api))
+            .post(format!("{}/api/v2/torrents/add", config.qbit_url))
             .form(&params)
             .send()
             .await;
@@ -414,7 +414,7 @@ pub async fn delete_torrent(
     };
 
     let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_api))
+        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
         .send()
         .await
     {
@@ -451,7 +451,7 @@ pub async fn delete_torrent(
     );
 
     let resp = client
-        .post(format!("{}/api/v2/torrents/delete", config.qbit_api))
+        .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
         .form(&[
             ("hashes", hash.as_str()),
             ("deleteFiles", delete_files.to_string().as_str()),

@@ -28,9 +28,9 @@ async fn main() -> std::io::Result<()> {
 - **PORT**: Port to run `rutorrent`. Defaults to `3000`
 - **APIKEY**: A random string to authenticate requests through the API interface.
 - **WORKERS**: Number of Actix workers to run the API. Defaults to number of CPUs.
-- **QBIT_API**: Base URL for qbittorrent API. Defaults to `http://localhost:8080`
-- **USERNAME**: Username for qbittorrent API
-- **PASSWORD**: Password for qbittorrent API
+- **QBIT_URL**: Base URL for qbittorrent API. Defaults to `http://localhost:8080`
+- **QBIT_USERNAME**: Username for qbittorrent API
+- **QBIT_PASSWORD**: Password for qbittorrent API
 - **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
 - **LOG_LEVEL**: Log level to set across `actix-web`, `actix-server` and `rurorrent`
 - **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`

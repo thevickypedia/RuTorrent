@@ -140,7 +140,7 @@ pub fn spawn_worker(
 
             // Check status of client and re-auth if request fails
             if let Some(response) =
-                qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_api)).await
+                qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url)).await
             {
                 /* -----------------------------
                    1. Resolve pending torrents
@@ -181,7 +181,7 @@ pub fn spawn_worker(
 
             let url = format!(
                 "{}/api/v2/torrents/info?hashes={}",
-                config.qbit_api,
+                config.qbit_url,
                 hashes.join("|")
             );
 
