@@ -4,7 +4,7 @@
 
 [![build][gh-logo]][build]
 
-#### Summary
+### Summary
 `RuTorrent` is a lightweight API that downloads magnet links and asynchronously transfers files to a remote server over SSH via `rsync`.
 
 ### Installation
@@ -44,13 +44,32 @@ async fn main() -> std::io::Result<()> {
 - **TELEGRAM_BOT_TOKEN**: Telegram bot token.
 - **TELEGRAM_CHAT_ID**: Chat ID where telegram notifications has to be sent.
 
+> [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:
 > ```shell
 > curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" \
 > | jq '.result[].message.chat.id'
 > ```
 
-**rsync functionality**
+### Setup Instructions
+**qbittorrent**
+```shell
+sudo apt update
+sudo apt install -y qbittorrent-nox
+qbittorrent-nox -d --webui-port=${QBIT_PORT}
+```
+
+> [!WARNING]
+> Running QBitAPI through CLI will have the default username `admin` and the default password `adminadmin`<br>
+> Go to `Tools` → `Options` → `Web UI` → `Authentication` to change the default password
+
+**rsync**
+```shell
+sudo apt update
+sudo apt install rsync
+```
+
+**rsync + ssh**
 ```shell
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
 ssh-copy-id user@receiver_ip
@@ -58,7 +77,7 @@ ssh user@receiver_ip
 ```
 > For `rsync` functionality to work, run the above on the machine where `rutorrent` runs
 
-**API methods**
+### API methods
 
 1. `GET /torrent` - Returns the download/copy status.
     ```shell
