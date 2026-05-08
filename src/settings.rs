@@ -12,6 +12,8 @@ pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
 /// Shared map for storing pending torrent metadata before resolution.
 pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 
+pub type DbConn = Arc<std::sync::Mutex<rusqlite::Connection>>;
+
 /// ### Config
 /// Application configuration loaded from environment variables.
 #[derive(Clone)]

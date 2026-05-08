@@ -1,5 +1,5 @@
-use crate::qb;
 use crate::settings;
+use crate::{database, qb};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use reqwest::Client;
@@ -282,6 +282,7 @@ pub async fn put_torrent(
     request: HttpRequest,
     pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
+    db_conn: web::Data<settings::DbConn>,
     body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -343,7 +344,10 @@ pub async fn put_torrent(
             && !item.remote_username.is_empty()
             && !item.remote_path.is_empty()
         {
-            pending_lock.insert(tag, item.clone());
+            pending_lock.insert(tag.clone(), item.clone());
+            if let Ok(conn) = db_conn.lock() {
+                database::upsert_pending(&conn, &tag, &item);
+            }
         } else {
             log::info!("Adding torrent [{}]: {}", tag, item.url);
         };

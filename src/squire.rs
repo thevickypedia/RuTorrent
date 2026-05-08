@@ -36,6 +36,7 @@ async fn resolve_new_torrents(
     array: &Vec<Value>,
     pending: &settings::PendingMap,
     state: &settings::SharedState,
+    db_conn: &settings::DbConn,
 ) {
     let mut pending_lock = pending.write().await;
     let mut db = state.write().await;
@@ -59,13 +60,17 @@ async fn resolve_new_torrents(
             log::info!("Resolved {} → {}", name, hash);
 
             db.insert(
-                hash,
+                hash.clone(),
                 settings::RsyncTrack {
                     name,
                     status: settings::Status::Downloading(0.0),
                     put_item: item,
                 },
             );
+            if let Ok(conn) = db_conn.lock() {
+                database::remove_pending(&conn, tag);
+                database::upsert(&conn, &hash, db.get(&hash).unwrap());
+            }
         }
     }
 }
@@ -124,9 +129,8 @@ pub fn spawn_worker(
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
-    db_conn: rusqlite::Connection,
+    db_conn: settings::DbConn,
 ) {
-    let db_conn = std::sync::Mutex::new(db_conn);
     tokio::spawn(async move {
         log::info!("Worker started");
 
@@ -155,7 +159,7 @@ pub fn spawn_worker(
                 };
 
                 log::trace!("Torrents active: {:?}", array);
-                resolve_new_torrents(array, &pending, &state).await;
+                resolve_new_torrents(array, &pending, &state, &db_conn).await;
             } else {
                 log::error!("Failed to get info from QBitAPI");
 
@@ -230,7 +234,10 @@ pub fn spawn_worker(
                         let put_item_clone = entry.put_item.clone();
                         notifier(
                             "RuTorrent: Transfer Failed".to_string(),
-                            format!("Failed to transfer {} to {}", name_clone, put_item_clone.remote_host),
+                            format!(
+                                "Failed to transfer {} to {}",
+                                name_clone, put_item_clone.remote_host
+                            ),
                             config_cloned,
                         );
                         db.remove(&hash);
@@ -254,23 +261,21 @@ pub fn spawn_worker(
                         if put_item_clone.delete_after_copy {
                             let resp = client
                                 .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
-                                .form(&[
-                                    ("hashes", hash.as_str()),
-                                    ("deleteFiles", "true"),
-                                ])
+                                .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
                                 .send()
                                 .await;
                             if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
                                 log::error!("Failed to delete torrent: {}", e.status());
                                 if std::path::Path::new(&content_path).exists()
-                                    && let Err(err) = std::fs::remove_dir_all(content_path) {
-                                        log::error!("Failed to delete files: {}", err);
-                                        notifier(
-                                            "RuTorrent: Delete Failed".to_string(),
-                                            format!("Failed to delete torrent: {}", name_clone),
-                                            config.to_owned(),
-                                        );
-                                    }
+                                    && let Err(err) = std::fs::remove_dir_all(content_path)
+                                {
+                                    log::error!("Failed to delete files: {}", err);
+                                    notifier(
+                                        "RuTorrent: Delete Failed".to_string(),
+                                        format!("Failed to delete torrent: {}", name_clone),
+                                        config.to_owned(),
+                                    );
+                                }
                             }
                         }
                         db.remove(&hash);

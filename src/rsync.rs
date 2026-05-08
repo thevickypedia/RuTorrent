@@ -55,7 +55,10 @@ pub async fn run(
 ) {
     log::info!("Starting rsync for {}", name);
 
-    let remote = format!("{}@{}:{}", put_item.remote_username, put_item.remote_host, put_item.remote_path);
+    let remote = format!(
+        "{}@{}:{}",
+        put_item.remote_username, put_item.remote_host, put_item.remote_path
+    );
 
     let mut child = Command::new("rsync")
         .args([

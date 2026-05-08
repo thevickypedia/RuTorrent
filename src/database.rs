@@ -17,9 +17,18 @@ pub fn open() -> Connection {
             remote_user TEXT NOT NULL,
             remote_path TEXT NOT NULL,
             delete_after_copy INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS pending (
+            tag         TEXT PRIMARY KEY,
+            url         TEXT NOT NULL,
+            save_path   TEXT NOT NULL,
+            remote_host TEXT NOT NULL,
+            remote_user TEXT NOT NULL,
+            remote_path TEXT NOT NULL,
+            delete_after_copy INTEGER NOT NULL DEFAULT 0
         );",
     )
-        .expect("Failed to create schema");
+    .expect("Failed to create schema");
     conn
 }
 
@@ -44,6 +53,54 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
         ],
     )
         .expect("Failed to upsert state");
+}
+
+pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
+    conn.execute(
+        "INSERT OR REPLACE INTO pending
+            (tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            tag,
+            item.url,
+            item.save_path,
+            item.remote_host,
+            item.remote_username,
+            item.remote_path,
+            item.delete_after_copy as i32,
+        ],
+    )
+    .expect("Failed to upsert pending");
+}
+
+pub fn remove_pending(conn: &Connection, tag: &str) {
+    conn.execute("DELETE FROM pending WHERE tag = ?1", params![tag])
+        .expect("Failed to remove pending");
+}
+
+pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
+    let mut stmt = conn
+        .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy FROM pending")
+        .expect("Failed to prepare load_pending query");
+
+    stmt.query_map([], |row| {
+        let tag: String = row.get(0)?;
+        let item = PutItem {
+            url: row.get(1)?,
+            name: None,
+            hash: None,
+            trackers: None,
+            save_path: row.get(2)?,
+            remote_host: row.get(3)?,
+            remote_username: row.get(4)?,
+            remote_path: row.get(5)?,
+            delete_after_copy: row.get::<_, i32>(6)? != 0,
+        };
+        Ok((tag, item))
+    })
+    .expect("Failed to query pending")
+    .filter_map(|r| r.ok())
+    .collect()
 }
 
 /// Removes a torrent entry by hash.
@@ -83,27 +140,34 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
             delete_after_copy: delete_after_copy != 0,
         };
 
-        Ok((hash, RsyncTrack { name, status, put_item }))
+        Ok((
+            hash,
+            RsyncTrack {
+                name,
+                status,
+                put_item,
+            },
+        ))
     })
-        .expect("Failed to query state")
-        .filter_map(|r| r.ok())
-        .collect()
+    .expect("Failed to query state")
+    .filter_map(|r| r.ok())
+    .collect()
 }
 
 fn encode_status(status: &Status) -> (&'static str, f64) {
     match status {
         Status::Downloading(p) => ("Downloading", *p),
-        Status::Copying(p)     => ("Copying", *p),
-        Status::Completed      => ("Completed", 1.0),
-        Status::Failed         => ("Failed", 0.0),
+        Status::Copying(p) => ("Copying", *p),
+        Status::Completed => ("Completed", 1.0),
+        Status::Failed => ("Failed", 0.0),
     }
 }
 
 fn decode_status(s: &str, progress: f64) -> Status {
     match s {
-        "Copying"   => Status::Copying(progress),
+        "Copying" => Status::Copying(progress),
         "Completed" => Status::Completed,
-        "Failed"    => Status::Failed,
-        _           => Status::Downloading(progress),
+        "Failed" => Status::Failed,
+        _ => Status::Downloading(progress),
     }
 }

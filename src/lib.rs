@@ -2,10 +2,11 @@
 #![doc = include_str!("../README.md")]
 
 use actix_web::{web, App, HttpServer};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod api;
+mod database;
 mod logger;
 mod ntfy;
 mod qb;
@@ -14,7 +15,6 @@ mod settings;
 mod squire;
 mod swagger;
 mod telegram;
-mod database;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
@@ -32,14 +32,26 @@ pub async fn start() -> std::io::Result<()> {
     logger::init_logger(config.utc_logger, config.log_level);
     let db_conn = database::open();
     let initial_state = database::load_all(&db_conn);
-    log::info!("Loaded {} entries from database", initial_state.len());
+    let initial_pending = database::load_pending(&db_conn);
+    log::info!(
+        "Loaded {} state and {} pending entries from database",
+        initial_state.len(),
+        initial_pending.len()
+    );
     let state: settings::SharedState = Arc::new(RwLock::new(initial_state));
-    let pending: settings::PendingMap = Arc::new(RwLock::new(HashMap::new()));
+    let pending: settings::PendingMap = Arc::new(RwLock::new(initial_pending));
 
     let client = qb::client(&config)
         .await
         .expect("Failed to authenticate qBittorrent");
-    squire::spawn_worker(client, state.clone(), pending.clone(), config.clone(), db_conn);
+    let db_conn = Arc::new(std::sync::Mutex::new(db_conn));
+    squire::spawn_worker(
+        client,
+        state.clone(),
+        pending.clone(),
+        config.clone(),
+        db_conn.clone(),
+    );
 
     let host = config.host.clone();
     let port = config.port;
@@ -57,6 +69,7 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(pending.clone()))
             .app_data(web::Data::new(config.clone()))
+            .app_data(web::Data::new(db_conn.clone()))
             .route("/status", web::get().to(api::status))
             .route("/health", web::get().to(api::status))
             .route("/version", web::get().to(api::version))
