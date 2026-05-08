@@ -44,17 +44,7 @@ pub fn arguments(metadata: &constant::MetaData) -> Arguments {
                 }
             }
             "--read_db" => {
-                i += 1; // Move to the next argument.
-                if i < args.len() {
-                    let read_db_raw = args[i].clone();
-                    read_db = read_db_raw.parse::<bool>().unwrap_or_else(|err| {
-                        eprintln!("\nStartupError:\n\t{}\n", err);
-                        std::process::exit(1)
-                    });
-                } else {
-                    eprintln!("--read_db requires a value.");
-                    std::process::exit(1)
-                }
+                read_db = true;
             }
             _ => {
                 eprintln!("Unknown argument: {}", args[i]);

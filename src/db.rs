@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result};
 /// # Example
 ///
 /// ```shell
-/// ./rutorrent --read_db true
+/// ./rutorrent --read_db
 /// ```
 ///
 /// # Sample output
