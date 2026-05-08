@@ -39,7 +39,7 @@ pub async fn start() -> std::io::Result<()> {
 
     squire::load_env_file(cli_args.env_file);
     let config = settings::Config::new();
-    logger::init_logger(config.utc_logger, config.log_level, &metadata);
+    logger::init_logger(&config, &metadata);
 
     let db_conn = database::open();
     let initial_state = database::load_all(&db_conn);

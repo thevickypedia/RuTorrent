@@ -13,6 +13,25 @@ pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
 pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
 
 pub type DbConn = Arc<std::sync::Mutex<rusqlite::Connection>>;
+use std::str::FromStr;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogOptions {
+    Stdout,
+    File,
+}
+
+impl FromStr for LogOptions {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "stdout" => Ok(LogOptions::Stdout),
+            "file" => Ok(LogOptions::File),
+            _ => Err(format!("Invalid log option: {}", s)),
+        }
+    }
+}
 
 /// ### Config
 /// Application configuration loaded from environment variables.
@@ -31,6 +50,7 @@ pub struct Config {
 
     // RuTorrent logger config
     pub utc_logger: bool,
+    pub log: LogOptions,
     pub log_level: log::LevelFilter,
 
     // Ntfy notification config
@@ -96,6 +116,14 @@ impl Config {
         qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
+        let default_log = squire::get_env_var("log", Some("stdout"));
+        let log = match default_log.parse::<LogOptions>() {
+            Ok(log) => log,
+            Err(err) => {
+                startup_error(&format!("Invalid log option '{}': {}", default_log, err));
+                std::process::exit(1);
+            }
+        };
         let default_log_level = squire::get_env_var("log_level", Some("info"));
         let log_level = match default_log_level.parse::<log::LevelFilter>() {
             Ok(level) => level,
@@ -143,6 +171,7 @@ impl Config {
             qbit_username,
             qbit_password,
             utc_logger,
+            log,
             log_level,
             ntfy_url,
             ntfy_topic,

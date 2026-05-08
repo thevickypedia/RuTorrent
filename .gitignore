@@ -17,6 +17,9 @@ Cargo.lock
 # Dotenv
 *.env
 
+# Logs
+*.log
+
 # Database
 rutorrent.db
 
