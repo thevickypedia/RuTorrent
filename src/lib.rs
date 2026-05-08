@@ -14,6 +14,7 @@ mod settings;
 mod squire;
 mod swagger;
 mod telegram;
+mod database;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
@@ -29,13 +30,16 @@ pub async fn start() -> std::io::Result<()> {
     squire::load_env_file();
     let config = settings::Config::new();
     logger::init_logger(config.utc_logger, config.log_level);
-    let state: settings::SharedState = Arc::new(RwLock::new(HashMap::new()));
+    let db_conn = database::open();
+    let initial_state = database::load_all(&db_conn);
+    log::info!("Loaded {} entries from database", initial_state.len());
+    let state: settings::SharedState = Arc::new(RwLock::new(initial_state));
     let pending: settings::PendingMap = Arc::new(RwLock::new(HashMap::new()));
 
     let client = qb::client(&config)
         .await
         .expect("Failed to authenticate qBittorrent");
-    squire::spawn_worker(client, state.clone(), pending.clone(), config.clone());
+    squire::spawn_worker(client, state.clone(), pending.clone(), config.clone(), db_conn);
 
     let host = config.host.clone();
     let port = config.port;
@@ -61,6 +65,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::delete().to(api::delete_torrent))
             .route("/swagger", web::get().to(swagger::redirector))
             .route("/ui", web::get().to(swagger::redirector))
+            .route("/", web::get().to(swagger::redirector))
             .service(swagger::service())
     })
     .bind((host, port))?

@@ -1,4 +1,4 @@
-use crate::{ntfy, qb, rsync, settings, telegram};
+use crate::{database, ntfy, qb, rsync, settings, telegram};
 use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
@@ -124,7 +124,9 @@ pub fn spawn_worker(
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
+    db_conn: rusqlite::Connection,
 ) {
+    let db_conn = std::sync::Mutex::new(db_conn);
     tokio::spawn(async move {
         log::info!("Worker started");
 
@@ -204,6 +206,9 @@ pub fn spawn_worker(
                 if !returned.contains(h.as_str()) {
                     log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
                     db.remove(h);
+                    if let Ok(conn) = db_conn.lock() {
+                        database::remove(&conn, h);
+                    }
                 }
             });
 
@@ -229,6 +234,9 @@ pub fn spawn_worker(
                             config_cloned,
                         );
                         db.remove(&hash);
+                        if let Ok(conn) = db_conn.lock() {
+                            database::remove(&conn, &hash);
+                        }
                     }
 
                     settings::Status::Completed => {
@@ -266,6 +274,9 @@ pub fn spawn_worker(
                             }
                         }
                         db.remove(&hash);
+                        if let Ok(conn) = db_conn.lock() {
+                            database::remove(&conn, &hash);
+                        }
                     }
 
                     settings::Status::Downloading(_) => {

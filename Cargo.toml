@@ -41,3 +41,4 @@ uuid = { version = "1.23.1", features = ["v4"] }
 dotenv = "0.15.0"
 url = "2.5.8"
 regex = "1.12.3"
+rusqlite = { version = "0.31", features = ["bundled"] }
