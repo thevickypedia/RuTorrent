@@ -1,5 +1,6 @@
 use std::io::Write;
 
+use crate::constant;
 use chrono::{DateTime, Local};
 
 /// Initializes the application logger with optional UTC or local timestamp formatting.
@@ -12,12 +13,15 @@ use chrono::{DateTime, Local};
 /// # Notes
 ///
 /// - This function should only be called once during application startup.
-pub fn init_logger(utc: bool, log_level: log::LevelFilter) {
+pub fn init_logger(utc: bool, log_level: log::LevelFilter, metadata: &constant::MetaData) {
     // Safe when executed in single threading
     unsafe {
         std::env::set_var(
             "RUST_LOG",
-            format!("actix_web={0},actix_server={0},rutorrent={0}", log_level),
+            format!(
+                "actix_web={0},actix_server={0},{1}={0}",
+                log_level, metadata.crate_name
+            ),
         );
     }
     if utc {

@@ -5,13 +5,19 @@ use rusqlite::{Connection, Result};
 /// # Example
 ///
 /// ```shell
-/// cargo run --bin readdb
+/// ./rutorrent --read_db true
 /// ```
 ///
 /// # Sample output
 ///
 /// ```text
+/// === STATE ===
+///   [08ada5a7] Sintel — Downloading (0%)
+///   [dd8255ec] Big Buck Bunny — Downloading (0%)
+///   [2c6b6858] Ubuntu 22.04 LTS — Downloading (0%)
 ///
+/// === PENDING ===
+///   (empty)
 /// ```
 pub fn print_content() -> Result<()> {
     let conn = Connection::open("rutorrent.db")?;

@@ -15,4 +15,10 @@ Cargo.lock
 .idea
 
 # Dotenv
-.env
+*.env
+
+# Database
+rutorrent.db
+
+# Binary
+rutorrent

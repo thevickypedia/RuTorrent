@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::{constant, settings};
 use crate::{database, qb};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
@@ -38,8 +38,8 @@ pub async fn status() -> impl Responder {
         (status = 200, description = "API version", body = serde_json::Value)
     )
 )]
-pub async fn version() -> impl Responder {
-    HttpResponse::Ok().json(json!({ "version": env!("CARGO_PKG_VERSION") }))
+pub async fn version(metadata: web::Data<constant::MetaData>,) -> impl Responder {
+    HttpResponse::Ok().json(json!({ "version": metadata.pkg_version }))
 }
 
 /// Authenticates the `apikey` through incoming request headers.

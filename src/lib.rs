@@ -6,9 +6,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod api;
+mod constant;
 mod database;
+mod db;
 mod logger;
 mod ntfy;
+mod parser;
 mod qb;
 mod rsync;
 mod settings;
@@ -27,9 +30,17 @@ mod telegram;
 /// }
 /// ```
 pub async fn start() -> std::io::Result<()> {
-    squire::load_env_file();
+    let metadata = constant::build_info();
+    let cli_args = parser::arguments(&metadata);
+    if cli_args.read_db {
+        let _ = db::print_content();
+        return Ok(());
+    }
+
+    squire::load_env_file(cli_args.env_file);
     let config = settings::Config::new();
-    logger::init_logger(config.utc_logger, config.log_level);
+    logger::init_logger(config.utc_logger, config.log_level, &metadata);
+
     let db_conn = database::open();
     let initial_state = database::load_all(&db_conn);
     let initial_pending = database::load_pending(&db_conn);
@@ -70,6 +81,7 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(pending.clone()))
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_conn.clone()))
+            .app_data(web::Data::new(metadata.clone()))
             .route("/status", web::get().to(api::status))
             .route("/health", web::get().to(api::status))
             .route("/version", web::get().to(api::version))

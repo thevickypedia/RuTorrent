@@ -343,8 +343,10 @@ pub fn get_env_var(key: &str, default: Option<&str>) -> String {
 }
 
 /// Load dotenv file using the env var `env_file` or `ENV_FILE`
-pub fn load_env_file() {
-    let env_file = get_env_var("env_file", Some(".env"));
+pub fn load_env_file(mut env_file: String) {
+    if env_file.is_empty() {
+        env_file = get_env_var("env_file", Some(".env"));
+    }
     let env_file_path = std::env::current_dir().unwrap_or_default().join(env_file);
     let _ = dotenv::from_path(env_file_path.as_path());
 }
