@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+v0.1.3 (05/09/2026)
+-------------------
+- [2b85f31](https://github.com/thevickypedia/RuTorrent/commit/2b85f31136ca50f6f5659be1eed2d24c4929e764) chore: Release ``v0.1.3``
+- [705f1cc](https://github.com/thevickypedia/RuTorrent/commit/705f1cc05542e2bea0dbd4d1af29b295b1540d00) docs: Update documentation and project metadata
+- [40ffd00](https://github.com/thevickypedia/RuTorrent/commit/40ffd00f026044bfa625fe657b3624406c942409) ci: Update GHA to release to ``crates.io``
+- [71238c7](https://github.com/thevickypedia/RuTorrent/commit/71238c74bb080edc7dbb3b74504399b1f4a86808) docs: Update docstrings
+- [cf5a493](https://github.com/thevickypedia/RuTorrent/commit/cf5a493a95c64faa055bcda57c094ad9e61eb8a5) fix: Preserve existing OpenAPI components in ``utoipa`` modify hook
+- [24fe1da](https://github.com/thevickypedia/RuTorrent/commit/24fe1da81fa83387764e0b6fb6d62513f0d71e02) ci: Update GHA step for release notes and push latest release notes manually
+- [f81d3f3](https://github.com/thevickypedia/RuTorrent/commit/f81d3f32d0b8a2a5394d4fdc8ad859255dd8413a) chore: Update release notes for v0.1.2
+
 v0.1.2 (05/08/2026)
 -------------------
 - [587d031](https://github.com/thevickypedia/RuTorrent/commit/587d0316b527e5da629e2ead066ba729379b7255) chore: Release ``v0.1.2``
