@@ -38,7 +38,7 @@ pub async fn status() -> impl Responder {
         (status = 200, description = "API version", body = serde_json::Value)
     )
 )]
-pub async fn version(metadata: web::Data<constant::MetaData>,) -> impl Responder {
+pub async fn version(metadata: web::Data<constant::MetaData>) -> impl Responder {
     HttpResponse::Ok().json(json!({ "version": metadata.pkg_version }))
 }
 

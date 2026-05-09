@@ -2,7 +2,11 @@ use crate::settings::{PutItem, RsyncTrack, Status};
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
-/// Opens (or creates) the SQLite database and ensures the schema exists.
+/// Opens (or creates) the SQLite database and ensures the required schema exists.
+///
+/// # Returns
+///
+/// Returns an open `Connection` to the `rutorrent.db` SQLite database.
 pub fn open() -> Connection {
     let conn = Connection::open("rutorrent.db").expect("Failed to open database");
     conn.execute_batch(
@@ -32,7 +36,13 @@ pub fn open() -> Connection {
     conn
 }
 
-/// Inserts or replaces a tracked torrent entry.
+/// Inserts or replaces a tracked torrent entry in the `state` table.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `hash` - Unique torrent hash identifier.
+/// * `entry` - The `RsyncTrack` data to persist.
 pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     conn.execute(
@@ -55,6 +65,13 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
         .expect("Failed to upsert state");
 }
 
+/// Inserts or replaces a pending transfer entry in the `pending` table.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `tag` - Unique identifier for the pending item.
+/// * `item` - The `PutItem` data to store as pending.
 pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
     conn.execute(
         "INSERT OR REPLACE INTO pending
@@ -73,11 +90,26 @@ pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
     .expect("Failed to upsert pending");
 }
 
+/// Removes a pending transfer entry by its tag.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `tag` - Identifier of the pending entry to remove.
 pub fn remove_pending(conn: &Connection, tag: &str) {
     conn.execute("DELETE FROM pending WHERE tag = ?1", params![tag])
         .expect("Failed to remove pending");
 }
 
+/// Loads all pending transfer entries from the database into memory.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+///
+/// # Returns
+///
+/// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
 pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
     let mut stmt = conn
         .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy FROM pending")
@@ -103,13 +135,26 @@ pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
     .collect()
 }
 
-/// Removes a torrent entry by hash.
+/// Removes a torrent entry from the `state` table by hash.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `hash` - Unique torrent hash identifier.
 pub fn remove(conn: &Connection, hash: &str) {
     conn.execute("DELETE FROM state WHERE hash = ?1", params![hash])
         .expect("Failed to remove state");
 }
 
-/// Loads all persisted entries back into a HashMap on startup.
+/// Loads all pending transfer entries from the database into memory.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+///
+/// # Returns
+///
+/// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
 pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
     let mut stmt = conn
         .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, delete_after_copy FROM state")
@@ -154,6 +199,15 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
     .collect()
 }
 
+/// Encodes an internal `Status` enum into a database-friendly representation.
+///
+/// # Arguments
+///
+/// * `status` - The status to encode.
+///
+/// # Returns
+///
+/// Returns a tuple containing the status string and its associated progress value.
 fn encode_status(status: &Status) -> (&'static str, f64) {
     match status {
         Status::Downloading(p) => ("Downloading", *p),
@@ -163,8 +217,18 @@ fn encode_status(status: &Status) -> (&'static str, f64) {
     }
 }
 
-fn decode_status(s: &str, progress: f64) -> Status {
-    match s {
+/// Decodes a stored status string and progress value back into a `Status` enum.
+///
+/// # Arguments
+///
+/// * `status` - The stored status string.
+/// * `progress` - The stored progress value.
+///
+/// # Returns
+///
+/// Returns the reconstructed `Status` enum.
+fn decode_status(status: &str, progress: f64) -> Status {
+    match status {
         "Copying" => Status::Copying(progress),
         "Completed" => Status::Completed,
         "Failed" => Status::Failed,

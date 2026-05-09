@@ -33,11 +33,21 @@ impl Modify for SecurityAddon {
     }
 }
 
+/// Service handler that returns the constructed swagger UI endpoint with openapi docs.
+///
+/// # Returns
+///
+/// Returns the `SwaggerUi` object.
 pub fn service() -> SwaggerUi {
     let openapi = ApiDoc::openapi();
     SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi)
 }
 
+/// Function to redirect the page to `swagger-ui` endpoint.
+///
+/// # Returns
+///
+/// Returns a `HttpResponse` with a `Location` header.
 pub async fn redirector() -> HttpResponse {
     HttpResponse::Found()
         .append_header(("Location", "/swagger-ui/"))

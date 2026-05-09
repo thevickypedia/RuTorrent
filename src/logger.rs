@@ -14,10 +14,7 @@ use env_logger::Target;
 /// # Notes
 ///
 /// - This function should only be called once during application startup.
-pub fn init_logger(
-    config: &settings::Config,
-    metadata: &constant::MetaData,
-) {
+pub fn init_logger(config: &settings::Config, metadata: &constant::MetaData) {
     // Safe when executed in single threading
     unsafe {
         std::env::set_var(
