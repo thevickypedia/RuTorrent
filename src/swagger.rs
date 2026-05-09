@@ -24,6 +24,10 @@ pub struct ApiDoc;
 struct SecurityAddon;
 
 impl Modify for SecurityAddon {
+    /// Adds an API key security scheme to the OpenAPI components.
+    ///
+    /// This inserts an `apikey` header-based security scheme at the top level
+    /// so it is available in Swagger UI and other OpenAPI consumers.
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
         let components = openapi.components.get_or_insert_with(Default::default);
         components.add_security_scheme(

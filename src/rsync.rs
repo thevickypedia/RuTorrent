@@ -33,11 +33,11 @@ fn parse_progress(line: &str) -> Option<f64> {
 ///
 /// # Arguments
 ///
-/// * `state` - Shared application state used to track transfer progress and status
-/// * `hash` - Unique identifier for the transfer entry in the state
+/// * `state` - Shared application state used to track transfer progress and status.
+/// * `hash` - Unique identifier for the transfer entry in the state.
 /// * `name` - Human-readable name of the item being transferred (used for logging)
-/// * `source` - Local source path to be copied
-/// * `target` - Remote rsync target configuration (username, host, and destination path)
+/// * `source` - Local source path to be copied.
+/// * `put_item` - Reference to the `PutItem` object.
 ///
 /// # Notes
 ///

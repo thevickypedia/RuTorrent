@@ -10,11 +10,11 @@
 ### Installation
 
 ```shell
-cargo add RuTorrent
+cargo add rutorrent
 ```
 
 ### Usage
-```rust
+```rust,no_run
 use rutorrent;
 
 #[actix_rt::main]

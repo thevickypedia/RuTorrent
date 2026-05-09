@@ -30,13 +30,14 @@ async fn qb_get(client: &Client, url: String) -> Option<Value> {
 /// # Arguments
 ///
 /// * `array` - Array of existing torrents in QBitAPI.
-/// * `pending` - Shared map of pending torrent metadata keyed by tags
-/// * `state` - Shared state where active torrent tracking entries are stored
+/// * `pending` - Shared map of pending torrent metadata keyed by tags.
+/// * `state` - Shared state where active torrent tracking entries are stored.
+/// * `db_connection` - Database connection received through app data.
 async fn resolve_new_torrents(
     array: &Vec<Value>,
     pending: &settings::PendingMap,
     state: &settings::SharedState,
-    db_conn: &settings::DbConn,
+    db_connection: &settings::DBConnection,
 ) {
     let mut pending_lock = pending.write().await;
     let mut db = state.write().await;
@@ -67,7 +68,7 @@ async fn resolve_new_torrents(
                     put_item: item,
                 },
             );
-            if let Ok(conn) = db_conn.lock() {
+            if let Ok(conn) = db_connection.lock() {
                 database::remove_pending(&conn, tag);
                 database::upsert(&conn, &hash, db.get(&hash).unwrap());
             }
@@ -113,10 +114,11 @@ fn notifier(title: String, body: String, config: settings::Config) {
 ///
 /// # Arguments
 ///
-/// * `client` - Authenticated HTTP client for qBittorrent API requests
-/// * `state` - Shared state used to track torrent and transfer progress
-/// * `pending` - Shared map of pending torrent metadata
-/// * `config` - Application configuration containing API settings
+/// * `client` - Authenticated HTTP client for qBittorrent API requests.
+/// * `state` - Shared state used to track torrent and transfer progress.
+/// * `pending` - Shared map of pending torrent metadata.
+/// * `config` - Application configuration containing API settings.
+/// * `db_connection` - Database connection received through app data.
 ///
 /// # Notes
 ///
@@ -129,7 +131,7 @@ pub fn spawn_worker(
     state: settings::SharedState,
     pending: settings::PendingMap,
     config: settings::Config,
-    db_conn: settings::DbConn,
+    db_connection: settings::DBConnection,
 ) {
     tokio::spawn(async move {
         log::info!("Worker started");
@@ -159,7 +161,7 @@ pub fn spawn_worker(
                 };
 
                 log::trace!("Torrents active: {:?}", array);
-                resolve_new_torrents(array, &pending, &state, &db_conn).await;
+                resolve_new_torrents(array, &pending, &state, &db_connection).await;
             } else {
                 log::error!("Failed to get info from QBitAPI");
 
@@ -210,7 +212,7 @@ pub fn spawn_worker(
                 if !returned.contains(h.as_str()) {
                     log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
                     db.remove(h);
-                    if let Ok(conn) = db_conn.lock() {
+                    if let Ok(conn) = db_connection.lock() {
                         database::remove(&conn, h);
                     }
                 }
@@ -241,7 +243,7 @@ pub fn spawn_worker(
                             config_cloned,
                         );
                         db.remove(&hash);
-                        if let Ok(conn) = db_conn.lock() {
+                        if let Ok(conn) = db_connection.lock() {
                             database::remove(&conn, &hash);
                         }
                     }
@@ -279,7 +281,7 @@ pub fn spawn_worker(
                             }
                         }
                         db.remove(&hash);
-                        if let Ok(conn) = db_conn.lock() {
+                        if let Ok(conn) = db_connection.lock() {
                             database::remove(&conn, &hash);
                         }
                     }
@@ -342,7 +344,11 @@ pub fn get_env_var(key: &str, default: Option<&str>) -> String {
     default.unwrap_or_default().to_string()
 }
 
-/// Load dotenv file using the env var `env_file` or `ENV_FILE`
+/// Load dotenv file using the `env_file` CLI arg or an environment variable.
+///
+/// # Arguments
+///
+/// * `env_file` - Takes the `env_file` passed through CLI argument.
 pub fn load_env_file(mut env_file: String) {
     if env_file.is_empty() {
         env_file = get_env_var("env_file", Some(".env"));
@@ -356,11 +362,11 @@ pub fn load_env_file(mut env_file: String) {
 /// # Description
 /// A secret is considered strong if it satisfies all the following:
 ///
-///     - Has at least `min_length` characters
-///     - Contains at least 1 digit
-///     - Contains at least 1 symbol (non-alphanumeric, non-whitespace)
-///     - Contains at least 1 uppercase letter
-///     - Contains at least 1 lowercase letter
+///  - Has at least "min_length" characters
+///  - Contains at least 1 digit
+///  - Contains at least 1 symbol (non-alphanumeric, non-whitespace)
+///  - Contains at least 1 uppercase letter
+///  - Contains at least 1 lowercase letter
 ///
 /// # Arguments
 ///

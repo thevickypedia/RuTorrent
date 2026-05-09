@@ -230,6 +230,10 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 ///
 /// # Arguments
 ///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `pending` - Reference to the `PendingMap` object.
+/// * `config` - Reference to the `Config` object.
+/// * `db_connection` - Database connection received through app data.
 /// * `body` - Request body that takes `PutItem` object.
 ///
 /// #### Sample Request
@@ -280,7 +284,7 @@ pub async fn put_torrent(
     request: HttpRequest,
     pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
-    db_conn: web::Data<settings::DbConn>,
+    db_connection: web::Data<settings::DBConnection>,
     body: web::Json<Vec<settings::PutItem>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -343,7 +347,7 @@ pub async fn put_torrent(
             && !item.remote_path.is_empty()
         {
             pending_lock.insert(tag.clone(), item.clone());
-            if let Ok(conn) = db_conn.lock() {
+            if let Ok(conn) = db_connection.lock() {
                 database::upsert_pending(&conn, &tag, &item);
             }
         } else {

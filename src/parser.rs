@@ -1,5 +1,6 @@
 use crate::constant;
 
+/// Represents the command-line arguments parsed from the environment.
 #[derive(Debug, Clone)]
 pub struct Arguments {
     pub env_file: String,
@@ -8,9 +9,13 @@ pub struct Arguments {
 
 /// Parses and returns the command-line arguments.
 ///
+/// # Arguments
+///
+/// * `metadata` - Takes the project metadata as an argument.
+///
 /// # Returns
 ///
-/// A String notion of the argument, `env_file` if present.
+/// Returns the `Arguments` object with `env_file` and `read_db` variables.
 pub fn arguments(metadata: &constant::MetaData) -> Arguments {
     let args: Vec<String> = std::env::args().collect();
 
