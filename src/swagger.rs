@@ -1,4 +1,4 @@
-use crate::api;
+use crate::{api, settings};
 use actix_web::HttpResponse;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::Modify;
@@ -13,6 +13,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::put_torrent,
         api::delete_torrent
     ),
+    components(schemas(settings::PutItem)),
     security(
         ("apikey" = [])
     ),
@@ -24,12 +25,11 @@ struct SecurityAddon;
 
 impl Modify for SecurityAddon {
     fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let mut components = utoipa::openapi::Components::new();
+        let components = openapi.components.get_or_insert_with(Default::default);
         components.add_security_scheme(
             "apikey",
             SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("apikey"))),
         );
-        openapi.components = Some(components);
     }
 }
 

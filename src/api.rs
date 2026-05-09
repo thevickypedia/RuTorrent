@@ -230,9 +230,6 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 ///
 /// # Arguments
 ///
-/// * `request` - Reference to the `HttpRequest` object.
-/// * `pending` - Reference to the `PendingMap` object.
-/// * `config` - Reference to the `Config` object.
 /// * `body` - Request body that takes `PutItem` object.
 ///
 /// #### Sample Request
@@ -240,22 +237,23 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 /// curl -X PUT localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '[
-///     # Download (at custom local path) and transfer content to ssh://admin@192.168.1.102:/Users/admin/Sintel
+///     # Download (at custom local path) and transfer content to ssh://admin@192.168.1.102:/Users/admin/Sintel and delete after transfer
 ///     {
 ///       "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
 ///       "save_path": "/home/admin/Downloads"  # overrides the local `save_path`
 ///       "remote_host": "192.168.1.102",
 ///       "remote_username": "admin",
-///       "remote_path": "/Users/admin/Sintel"
+///       "remote_path": "/Users/admin/Sintel",
+///       "delete_after_copy": true
 ///     },
-///     # Download (at default local path) and transfer content to ssh://admin@192.168.1.100:/home/admin/Big_Buck
+///     # Download (at default local path) and transfer content to ssh://admin@192.168.1.100:/home/admin/Big_Buck retaining local content
 ///     {
 ///       "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
 ///       "remote_host": "192.168.1.100",
 ///       "remote_username": "admin",
 ///       "remote_path": "/home/admin/Big_Buck"
 ///     },
-///     # Download (at default local path) without any subsequent transfer
+///     # Download (at default local path) without any subsequent transfer (delete_after_copy does not apply without remote transfer)
 ///     {
 ///       "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
 ///     }

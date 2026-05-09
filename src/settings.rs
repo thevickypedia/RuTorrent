@@ -120,7 +120,7 @@ impl Config {
         let log = match default_log.parse::<LogOptions>() {
             Ok(log) => log,
             Err(err) => {
-                startup_error(&format!("{}", err));
+                startup_error(&err.to_string());
                 std::process::exit(1);
             }
         };
