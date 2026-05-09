@@ -12,7 +12,6 @@ jobs:
   rutorrent:
     uses: thevickypedia/rust-releaser/.github/workflows/entrypoint.yml@main
     with:
-      publish_crate: false
       build_linux_arm: false
       build_macos_arm: false
       build_windows_arm: false
