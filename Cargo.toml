@@ -27,7 +27,7 @@ rustdoc-args = ["--document-private-items"]
 
 [dependencies]
 utoipa = { version = "5.5.0", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web", "vendored"] }
 actix-web = "4.13.0"
 reqwest = { version = "0.13.3", features = ["cookies", "json", "form"] }
 serde = { version = "1.0.228", features = ["derive"] }
@@ -41,4 +41,4 @@ uuid = { version = "1.23.1", features = ["v4"] }
 dotenv = "0.15.0"
 url = "2.5.8"
 regex = "1.12.3"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
