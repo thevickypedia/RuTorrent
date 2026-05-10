@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+v0.1.4 (05/10/2026)
+-------------------
+- [f32e2f9](https://github.com/thevickypedia/RuTorrent/commit/f32e2f9e0039120bf8c1f598eeddf2c4f07e53ec) chore: Release ``v0.1.4``
+- [6b6107c](https://github.com/thevickypedia/RuTorrent/commit/6b6107cc74f584fdc6d4d2a2be9226845ff9e770) chore: Remove ``micro`` version pinning in project metadata
+- [cf1be79](https://github.com/thevickypedia/RuTorrent/commit/cf1be79cf352e3d2d6cfda4f2395358880b61114) perf: Improve error handling for run-time errors
+- [542bae4](https://github.com/thevickypedia/RuTorrent/commit/542bae4b4780236043e287ac14e999db8dc1706a) chore: Update dependencies
+- [3535ede](https://github.com/thevickypedia/RuTorrent/commit/3535edecafeb21a3a03d8907f6251914606bbfd4) chore: Update release notes for v0.1.3
+
 v0.1.3 (05/09/2026)
 -------------------
 - [2b85f31](https://github.com/thevickypedia/RuTorrent/commit/2b85f31136ca50f6f5659be1eed2d24c4929e764) chore: Release ``v0.1.3``
