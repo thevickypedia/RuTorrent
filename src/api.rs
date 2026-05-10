@@ -193,7 +193,13 @@ async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap
 fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
     let mut ret: Vec<settings::PutItem> = Vec::new();
     for item in body.iter() {
-        let url = Url::parse(&item.url).expect("Invalid URL");
+        let url = match Url::parse(&item.url) {
+            Ok(url) => url,
+            Err(e) => {
+                log::error!("Invalid URL '{}': {}", item.url, e);
+                return Vec::new();
+            }
+        };
         let query_pairs: Vec<(String, String)> = url
             .query_pairs()
             .map(|(key, value)| (key.into_owned(), value.into_owned()))

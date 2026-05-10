@@ -60,7 +60,7 @@ pub async fn run(
         put_item.remote_username, put_item.remote_host, put_item.remote_path
     );
 
-    let mut child = Command::new("rsync")
+    let child_result = Command::new("rsync")
         .args([
             "-az",
             "--progress",
@@ -70,8 +70,20 @@ pub async fn run(
             &remote,
         ])
         .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("rsync failed");
+        .stderr(std::process::Stdio::piped())
+        .spawn();
+
+    let mut child = match child_result {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("Failed to start rsync for {}: {}", name, e);
+            let mut db = state.write().await;
+            if let Some(entry) = db.get_mut(&hash) {
+                entry.status = settings::Status::Failed;
+            }
+            return;
+        }
+    };
 
     let stdout = child.stdout.take().unwrap();
     let mut lines = BufReader::new(stdout).lines();
@@ -87,7 +99,17 @@ pub async fn run(
         }
     }
 
-    let status = child.wait().await.expect("failed to wait on rsync");
+    let status = match child.wait().await {
+        Ok(status) => status,
+        Err(e) => {
+            log::error!("Failed waiting for rsync process for {}: {}", name, e);
+            let mut db = state.write().await;
+            if let Some(entry) = db.get_mut(&hash) {
+                entry.status = settings::Status::Failed;
+            }
+            return;
+        }
+    };
 
     if status.success() {
         log::info!("rsync complete: {}", name);

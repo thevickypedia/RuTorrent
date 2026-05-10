@@ -45,7 +45,7 @@ pub fn open() -> Connection {
 /// * `entry` - The `RsyncTrack` data to persist.
 pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
-    conn.execute(
+    match conn.execute(
         "INSERT OR REPLACE INTO state
             (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, delete_after_copy)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -61,8 +61,12 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
             entry.put_item.remote_path,
             entry.put_item.delete_after_copy as i32,
         ],
-    )
-        .expect("Failed to upsert state");
+    ) {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to upsert state for {}: {}", hash, e);
+        }
+    }
 }
 
 /// Inserts or replaces a pending transfer entry in the `pending` table.
@@ -73,7 +77,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
 /// * `tag` - Unique identifier for the pending item.
 /// * `item` - The `PutItem` data to store as pending.
 pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
-    conn.execute(
+    match conn.execute(
         "INSERT OR REPLACE INTO pending
             (tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -86,8 +90,12 @@ pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
             item.remote_path,
             item.delete_after_copy as i32,
         ],
-    )
-    .expect("Failed to upsert pending");
+    ) {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to upsert pending for {:?}: {}", item.hash, e);
+        }
+    }
 }
 
 /// Removes a pending transfer entry by its tag.
@@ -97,8 +105,12 @@ pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
 /// * `conn` - Active SQLite database connection.
 /// * `tag` - Identifier of the pending entry to remove.
 pub fn remove_pending(conn: &Connection, tag: &str) {
-    conn.execute("DELETE FROM pending WHERE tag = ?1", params![tag])
-        .expect("Failed to remove pending");
+    match conn.execute("DELETE FROM pending WHERE tag = ?1", params![tag]) {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to remove pending for {}: {}", tag, e);
+        }
+    }
 }
 
 /// Loads all pending transfer entries from the database into memory.
@@ -142,8 +154,12 @@ pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
 /// * `conn` - Active SQLite database connection.
 /// * `hash` - Unique torrent hash identifier.
 pub fn remove(conn: &Connection, hash: &str) {
-    conn.execute("DELETE FROM state WHERE hash = ?1", params![hash])
-        .expect("Failed to remove state");
+    match conn.execute("DELETE FROM state WHERE hash = ?1", params![hash]) {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to remove for {}: {}", hash, e);
+        }
+    }
 }
 
 /// Loads all pending transfer entries from the database into memory.
