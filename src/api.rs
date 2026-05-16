@@ -318,7 +318,10 @@ pub async fn put_torrent(
         let trackers = item.trackers.as_ref().unwrap().to_vec();
 
         if hashes.contains(&hash) {
-            response.push(HashMap::from([(name, 409.to_string())]));
+            response.push(HashMap::from([(
+                name,
+                "Conflict - Duplicate request".to_string(),
+            )]));
             continue;
         }
 
@@ -344,7 +347,7 @@ pub async fn put_torrent(
 
         if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
             log::error!("{:?}", e.status().to_string());
-            response.push(HashMap::from([(name, 400.to_string())]));
+            response.push(HashMap::from([(name, e.status().to_string())]));
             continue;
         }
 
@@ -360,7 +363,10 @@ pub async fn put_torrent(
         } else {
             log::info!("Adding torrent [{}]: {}", tag, item.url);
         };
-        response.push(HashMap::from([(name, 200.to_string())]));
+        response.push(HashMap::from([(
+            name,
+            format!("OK! Saving to: {}", item.save_path),
+        )]));
     }
 
     HttpResponse::Ok().json(response)
