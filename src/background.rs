@@ -198,7 +198,6 @@ pub fn spawn_worker(
 
             for t in arr {
                 let hash = t["hash"].as_str().unwrap_or("").to_string();
-                let progress = t["progress"].as_f64().unwrap_or(0.0);
 
                 let Some(entry) = db.get_mut(&hash) else {
                     continue;
@@ -265,6 +264,7 @@ pub fn spawn_worker(
                     }
 
                     settings::Status::Downloading(_) => {
+                        let progress = t["progress"].as_f64().unwrap_or(0.0);
                         entry.status = settings::Status::Downloading(progress);
                         if progress >= 1.0 {
                             log::info!("Download complete → rsync: {}", entry.name);
