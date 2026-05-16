@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+v0.1.5 (05/16/2026)
+-------------------
+- [ec75612](https://github.com/thevickypedia/RuTorrent/commit/ec756120aa2d3bd12aa541b82c8c0fc65fd3d3d0) chore: Release ``v0.1.5``
+- [1d6ff16](https://github.com/thevickypedia/RuTorrent/commit/1d6ff16acae8b046409e9d6913701bdff995c8cc) perf: Remove progress tracking for ``Copying`` status since it is unreliable
+- [8326e92](https://github.com/thevickypedia/RuTorrent/commit/8326e92fe450d840035986656c2a8b38bc6a3121) chore: Fetch ``progress`` of download only when needed
+- [f1bf14c](https://github.com/thevickypedia/RuTorrent/commit/f1bf14c8bccce7032306f665374181eaa5224f5d) chore: Improve response message for ``PUT /torrent`` endpoint
+- [d9af7df](https://github.com/thevickypedia/RuTorrent/commit/d9af7df867658b03f51d49315a333f842990a64f) refactor: Move background tasks and its support functions to a dedicated module
+- [70e12c8](https://github.com/thevickypedia/RuTorrent/commit/70e12c8fac59fa1692ceeac24d0f91d216cad553) perf: Re-architecture ``save_path`` to avoid mismatches during ``rsync`` and replace with a fixed value that is guaranteed to exist
+- [5208d2e](https://github.com/thevickypedia/RuTorrent/commit/5208d2e505086e4be888af501a95e42a7936f050) chore: Update release notes for v0.1.4
+
 v0.1.4 (05/10/2026)
 -------------------
 - [f32e2f9](https://github.com/thevickypedia/RuTorrent/commit/f32e2f9e0039120bf8c1f598eeddf2c4f07e53ec) chore: Release ``v0.1.4``
