@@ -122,7 +122,7 @@ pub async fn get_torrents(
 
         let status = match db.get(&hash) {
             Some(local) => match local.status {
-                settings::Status::Copying(p) => format!("Copying: {:.0}%", p * 100.0),
+                settings::Status::Copying => "Copying".to_string(),
                 settings::Status::Completed => "Completed".to_string(),
                 settings::Status::Failed => "Failed".to_string(),
                 settings::Status::Downloading(_) => {

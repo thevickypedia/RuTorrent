@@ -204,7 +204,7 @@ pub fn spawn_worker(
                 };
 
                 match entry.status {
-                    settings::Status::Copying(_) => continue,
+                    settings::Status::Copying => continue,
 
                     settings::Status::Failed => {
                         let config_cloned = config.clone();
@@ -268,7 +268,7 @@ pub fn spawn_worker(
                         entry.status = settings::Status::Downloading(progress);
                         if progress >= 1.0 {
                             log::info!("Download complete → rsync: {}", entry.name);
-                            entry.status = settings::Status::Copying(0.0);
+                            entry.status = settings::Status::Copying;
                             let state_clone = state.clone();
                             let hash_clone = hash.clone();
                             let name_clone = entry.name.clone();

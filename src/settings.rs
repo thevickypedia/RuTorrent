@@ -208,7 +208,7 @@ impl Config {
 #[derive(Clone, Debug, serde::Serialize)]
 pub enum Status {
     Downloading(f64),
-    Copying(f64),
+    Copying,
     Completed,
     Failed,
 }

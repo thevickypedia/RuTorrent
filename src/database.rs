@@ -227,7 +227,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
 fn encode_status(status: &Status) -> (&'static str, f64) {
     match status {
         Status::Downloading(p) => ("Downloading", *p),
-        Status::Copying(p) => ("Copying", *p),
+        Status::Copying => ("Copying", 0.0),
         Status::Completed => ("Completed", 1.0),
         Status::Failed => ("Failed", 0.0),
     }
@@ -245,7 +245,7 @@ fn encode_status(status: &Status) -> (&'static str, f64) {
 /// Returns the reconstructed `Status` enum.
 fn decode_status(status: &str, progress: f64) -> Status {
     match status {
-        "Copying" => Status::Copying(progress),
+        "Copying" => Status::Copying,
         "Completed" => Status::Completed,
         "Failed" => Status::Failed,
         _ => Status::Downloading(progress),
