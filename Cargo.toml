@@ -1,6 +1,6 @@
 [package]
 name = "rutorrent"
-version = "0.1.4"
+version = "0.1.5"
 description = "RuTorrent is a lightweight API that downloads magnet links and asynchronously transfers files to a remote server over SSH via rsync"
 license = "MIT"
 documentation = "https://docs.rs/rutorrent"
