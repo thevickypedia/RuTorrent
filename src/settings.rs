@@ -262,7 +262,7 @@ fn default_path() -> String {
 
 /// Gets the default save path from the `save_path` environment variable.
 fn default_save_path() -> String {
-    squire::get_env_var("save_path", None)
+    String::new()
 }
 
 /// Determines whether files should be deleted after copying.

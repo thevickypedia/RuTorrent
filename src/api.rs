@@ -1,4 +1,4 @@
-use crate::{constant, settings};
+use crate::{constant, savepath, settings};
 use crate::{database, qb};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
@@ -310,13 +310,12 @@ pub async fn put_torrent(
         .collect();
 
     let mut response: Vec<HashMap<String, String>> = Vec::new();
-    for item in resolve_payload(&body.into_inner()) {
+    for mut item in resolve_payload(&body.into_inner()) {
         let tag = Uuid::new_v4().to_string();
         let url = item.url.to_string();
         let name = item.name.as_ref().unwrap().to_string();
         let hash = item.hash.as_ref().unwrap().to_uppercase().to_string();
         let trackers = item.trackers.as_ref().unwrap().to_vec();
-        let save_path = item.save_path.to_string();
 
         if hashes.contains(&hash) {
             response.push(HashMap::from([(name, 409.to_string())]));
@@ -331,9 +330,11 @@ pub async fn put_torrent(
         );
 
         let mut params = vec![("urls", &url), ("tags", &tag)];
-        if !save_path.is_empty() {
-            params.push(("savepath", &save_path));
+        if item.save_path.is_empty() {
+            item.save_path = savepath::get_default_save_path(&client, &config, &name).await;
         }
+        log::info!("Destination for '{}': {}", name, item.save_path);
+        params.push(("savepath", &item.save_path));
 
         let resp = client
             .post(format!("{}/api/v2/torrents/add", config.qbit_url))

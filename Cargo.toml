@@ -41,3 +41,4 @@ dotenv = "0.15"
 url = "2.5"
 regex = "1.12"
 rusqlite = { version = "0.39", features = ["bundled"] }
+dirs = "6.0.0"

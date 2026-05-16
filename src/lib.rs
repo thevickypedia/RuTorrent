@@ -14,6 +14,7 @@ mod ntfy;
 mod parser;
 mod qb;
 mod rsync;
+mod savepath;
 mod settings;
 mod squire;
 mod swagger;

@@ -50,7 +50,6 @@ pub async fn run(
     state: settings::SharedState,
     hash: String,
     name: String,
-    source: String,
     put_item: settings::PutItem,
 ) {
     log::info!("Starting rsync for {}", name);
@@ -59,6 +58,7 @@ pub async fn run(
         "{}@{}:{}",
         put_item.remote_username, put_item.remote_host, put_item.remote_path
     );
+    log::info!("{} -> {}", &put_item.save_path, &remote);
 
     let child_result = Command::new("rsync")
         .args([
@@ -66,7 +66,7 @@ pub async fn run(
             "--progress",
             "--partial",
             "--inplace",
-            &source,
+            &put_item.save_path,
             &remote,
         ])
         .stdout(std::process::Stdio::piped())
