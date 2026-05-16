@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod api;
+mod background;
 mod constant;
 mod database;
 mod db;
@@ -57,7 +58,7 @@ pub async fn start() -> std::io::Result<()> {
         .await
         .expect("Failed to authenticate qBittorrent");
     let db_conn = Arc::new(std::sync::Mutex::new(db_conn));
-    squire::spawn_worker(
+    background::spawn_worker(
         client,
         state.clone(),
         pending.clone(),
