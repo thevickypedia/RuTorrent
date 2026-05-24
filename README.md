@@ -26,24 +26,30 @@ async fn main() -> std::io::Result<()> {
 ### Environment Variables
 - **HOST**: Hostname to run `rutorrent`. Defaults to `127.0.0.1`
 - **PORT**: Port to run `rutorrent`. Defaults to `3000`
+- **USERNAME**: Username to host/authenticate the UI.
+- **PASSWORD**: Password to host/authenticate the UI.
 - **APIKEY**: A random string to authenticate requests through the API interface.
 - **WORKERS**: Number of Actix workers to run the API. Defaults to number of CPUs.
 - **QBIT_URL**: Base URL for qbittorrent API. Defaults to `http://localhost:8080`
 - **QBIT_USERNAME**: Username for qbittorrent API
 - **QBIT_PASSWORD**: Password for qbittorrent API
+- **QBIT_TIMEOUT**: Timeout for qbittorrent API
 - **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
 - **LOG**: Enum value to log to a `file` or `stdout`. Defaults to `stdout`
 - **LOG_LEVEL**: Log level to set across `actix-web`, `actix-server` and `rurorrent`
-- **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
-- **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
-- **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
-- **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
 - **NTFY_URL**: Ntfy server URL for notifications.
 - **NTFY_TOPIC**: Subscribed ntfy topic for notifications.
 - **NTFY_USERNAME**: Username to authentication ntfy notifications.
 - **NTFY_PASSWORD**: Password to authentication ntfy notifications.
-- **TELEGRAM_BOT_TOKEN**: Telegram bot token.
+- **NTFY_TIMEOUT**: Timeout for the Ntfy request.
 - **TELEGRAM_CHAT_ID**: Chat ID where telegram notifications has to be sent.
+- **TELEGRAM_BOT_TOKEN**: Telegram bot token.
+- **TELEGRAM_TIMEOUT**: Timeout for the Telegram request.
+
+- **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
+- **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
+- **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
+- **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
 
 > [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:
@@ -117,12 +123,17 @@ ssh user@receiver_ip
    curl -X DELETE -H "apikey: ${APIKEY}" "http://localhost:3000/torrent?name=Big+Buck+Bunny"
     ```
 
+### Standalone UI
+> [!NOTE]  
+> Refer to the [rutorrent-ui] documentation for instructions on running the RuTorrent UI as a standalone service.
+
 ## License & copyright
 
 &copy; Vignesh Rao
 
 Licensed under the [MIT License][license]
 
+[rutorrent-ui]: https://github.com/thevickypedia/RuTorrent/blob/main/rutorrent-ui/README.md
 [rust-logo]: https://img.shields.io/badge/Made%20with-Rust-black?style=for-the-badge&logo=Rust
 [rust-src-page]: https://www.rust-lang.org/
 [gh-logo]: https://github.com/thevickypedia/RuTorrent/actions/workflows/rust.yml/badge.svg
