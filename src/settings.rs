@@ -62,6 +62,7 @@ pub struct Config {
     pub qbit_url: String,
     pub qbit_username: String,
     pub qbit_password: String,
+    pub qbit_timeout: u64,
 
     // RuTorrent logger config
     pub utc_logger: bool,
@@ -73,10 +74,12 @@ pub struct Config {
     pub ntfy_topic: String,
     pub ntfy_username: String,
     pub ntfy_password: String,
+    pub ntfy_timeout: u64,
 
     // Telegram notification config
     pub telegram_chat_id: String,
     pub telegram_bot_token: String,
+    pub telegram_timeout: u64,
 }
 
 /// Formats and prints the startup error message.
@@ -86,6 +89,11 @@ pub struct Config {
 /// * `msg` - Message to be printed.
 fn startup_error(msg: &str) {
     eprintln!("\nStartupError:\n\t{}\n", msg);
+}
+
+fn get_and_parse_timeout(key: &str, default: &str) -> u64 {
+    let value = squire::get_env_var(key, Some(default));
+    value.parse().unwrap_or(default.parse::<u64>().unwrap_or(1))
 }
 
 impl Config {
@@ -195,6 +203,10 @@ impl Config {
             };
         }
 
+        let qbit_timeout = get_and_parse_timeout("qbit_timeout", "3");
+        let ntfy_timeout = get_and_parse_timeout("ntfy_timeout", "3");
+        let telegram_timeout = get_and_parse_timeout("telegram_timeout", "3");
+
         Self {
             host,
             port,
@@ -205,6 +217,7 @@ impl Config {
             qbit_url,
             qbit_username,
             qbit_password,
+            qbit_timeout,
             utc_logger,
             log,
             log_level,
@@ -212,8 +225,10 @@ impl Config {
             ntfy_topic,
             ntfy_username,
             ntfy_password,
+            ntfy_timeout,
             telegram_bot_token,
             telegram_chat_id,
+            telegram_timeout,
         }
     }
 }
