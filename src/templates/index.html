@@ -483,7 +483,7 @@
 
     <div class="status-bar">
         <span class="accent">RuTorrent</span>
-        <span>v{{ version }}</span>
+        <span id="versionText">v—</span>
         <span id="lastUpdated">—</span>
     </div>
 </div>
@@ -609,6 +609,7 @@
     }
 
     function startDashboard() {
+        fetchVersion();
         fetchTorrents();
         if (pollTimer) {
             clearInterval(pollTimer);
@@ -656,6 +657,23 @@
         showView('loginView');
         toast('Logged out', 'success');
     });
+
+    // ── Fetch version ─────────────────────────────────────────
+    async function fetchVersion() {
+        try {
+            const resp = await fetch('/version');
+            if (!resp.ok) {
+                throw new Error('Failed to fetch version');
+            }
+            const data = await resp.json();
+            document.getElementById('versionText').textContent =
+                `v${data.version}`;
+        } catch (err) {
+            console.error(err);
+            document.getElementById('versionText').textContent =
+                'v?';
+        }
+    }
 
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
@@ -765,6 +783,9 @@
             document.getElementById('deleteBtn').disabled =
                 selectedNames.size === 0;
 
+            // TODO:
+            //  1. lastUpdated is not rendered in the UI
+            //  2. Use /GET torrent to produce timestamp
             document.getElementById('lastUpdated').textContent =
                 'Updated ' + new Date().toLocaleTimeString();
 

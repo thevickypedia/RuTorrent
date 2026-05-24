@@ -1,29 +1,12 @@
 use base64::{engine::general_purpose, Engine as _};
-use crate::{constant, settings};
+use crate::settings;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use minijinja::{context, Environment};
 use serde_json::json;
 
-fn build_env() -> Environment<'static> {
-    let mut env = Environment::new();
-    env.add_template("index.html", include_str!("templates/index.html"))
-        .unwrap();
-    env
-}
-
-pub async fn index_page(
-    metadata: web::Data<constant::MetaData>,
-) -> impl Responder {
-    let env = build_env();
-    let tmpl = env.get_template("index.html").unwrap();
-    let rendered = tmpl
-        .render(context! {
-            version => metadata.pkg_version,
-        })
-        .unwrap();
+pub async fn index_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
-        .body(rendered)
+        .body(include_str!("templates/index.html"))
 }
 
 fn base64_decode(value: &str) -> Result<String, Box<dyn std::error::Error>> {
