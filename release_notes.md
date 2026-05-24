@@ -1,6 +1,31 @@
 Release Notes
 =============
 
+v0.2.0 (05/24/2026)
+-------------------
+- [72b94c6](https://github.com/thevickypedia/RuTorrent/commit/72b94c6af67797887a073fb429dd44079eb13a79) chore: Release ``v0.2.0``
+- [dceb361](https://github.com/thevickypedia/RuTorrent/commit/dceb36149dadaf8c32ca5c012cd1c8998246edc0) docs: Update documentation for macro rules
+- [f6a5fb1](https://github.com/thevickypedia/RuTorrent/commit/f6a5fb173fc4b689dd164dcab77a6397386019e7) lint: Refactor code base
+- [ca718f8](https://github.com/thevickypedia/RuTorrent/commit/ca718f8e1b29405342baa63ac9a6976919b3eb58) docs: Update README.md
+- [b18179a](https://github.com/thevickypedia/RuTorrent/commit/b18179a092f100fe332f1bfd66809bf0e84e95b1) feat: Allow timeouts to be configured via env vars
+- [0ff1114](https://github.com/thevickypedia/RuTorrent/commit/0ff1114ddb276ede2c86f0d3e5ee6b4dfd800491) refactor: Change the warning/error macro rules along with an error message for QBitAPI auth error during startup
+- [c520978](https://github.com/thevickypedia/RuTorrent/commit/c520978ff780a12d3c86db84d099c52698017549) perf: Raise a warning if QBitAPI is not a known localhost
+- [0bf386a](https://github.com/thevickypedia/RuTorrent/commit/0bf386a61c60e0016533ade213aa5fe1cb2f0291) refactor: Add ``rutorrent-ui`` to be able to run the UI independently with a lightweight nginx container
+- [b248125](https://github.com/thevickypedia/RuTorrent/commit/b2481254e10e8e76ce24091c02caced1ee9122d3) perf: Remove CORS middleware settings
+- [49a42a7](https://github.com/thevickypedia/RuTorrent/commit/49a42a7cbccfcd628b07de6dafd2252b754a08e3) perf: Set auth header for UI in a conventional way
+- [8892757](https://github.com/thevickypedia/RuTorrent/commit/88927572c445c859f7edd644108f821d1b943636) docs: Update docstrings for UI
+- [fbb4612](https://github.com/thevickypedia/RuTorrent/commit/fbb4612d65fa54f450b98d3c7822142a9fec963b) perf: Ignore empty optional fields from torrent payload in the UI
+- [0375634](https://github.com/thevickypedia/RuTorrent/commit/037563476f42c46b565856e69296f349f22c41e1) refactor: Update logging for rsync action in ``PUT /torrent`` API
+- [e4f6bde](https://github.com/thevickypedia/RuTorrent/commit/e4f6bdeff02462fa3bdf07f2c5fa25d60355fe45) fix: Avoid showing the UI when ``username`` and ``password`` are not set via env vars
+- [45814a2](https://github.com/thevickypedia/RuTorrent/commit/45814a240ab72c1f566d5a61a8c9db3282929d6a) fix: Make sure ``lastUpdated`` doesn't get skipped during fetch ``GET /torrent``
+- [aef3f62](https://github.com/thevickypedia/RuTorrent/commit/aef3f62f316d718c5901ce45173e8ce88c83e332) refactor: Remove ``minijinja`` requirement and replace ``version`` with ``GET /version`` API call
+- [5631c5e](https://github.com/thevickypedia/RuTorrent/commit/5631c5eee2dbdb7c58a91958ca22b56e791bfabb) feat: Include CORS access controls for the web-ui
+- [26ed45b](https://github.com/thevickypedia/RuTorrent/commit/26ed45bc1ff5a6ac2bb4c638b067f2f768f48e00) refactor: Convert response handler for QB to structured enum
+- [0d34009](https://github.com/thevickypedia/RuTorrent/commit/0d340090b5933188b7500a6f6c1f87c0a42d01e3) style: Include support for mobile devices
+- [76086e4](https://github.com/thevickypedia/RuTorrent/commit/76086e4d9911bff5e3a3ce8d09cfc4fca44f597f) feat: Include a ``logout`` button and custom refresh drop down
+- [ca04c19](https://github.com/thevickypedia/RuTorrent/commit/ca04c195f436468bd9629d1d12562b61bfdd1431) feat: Add a username + password protected UI to manage torrents
+- [3512777](https://github.com/thevickypedia/RuTorrent/commit/35127777b26e65eef7d2f604e190f3032ab6b46c) chore: Update release notes for v0.1.5
+
 v0.1.5 (05/16/2026)
 -------------------
 - [ec75612](https://github.com/thevickypedia/RuTorrent/commit/ec756120aa2d3bd12aa541b82c8c0fc65fd3d3d0) chore: Release ``v0.1.5``
