@@ -185,6 +185,28 @@
         }
         .status-bar .accent { color: var(--accent); }
         .refresh-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+        .refresh-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--muted);
+        }
+
+        .refresh-select {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.5rem;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .refresh-select:focus {
+            border-color: var(--accent);
+        }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
         /* ══════════════════════════════
@@ -312,15 +334,23 @@
         <div class="header-actions">
             <button class="btn btn-danger" id="deleteBtn" disabled>Delete Selected</button>
             <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
-            <!-- TODO: Include a logout button to clear apikey from session storage -->
+            <button class="btn btn-ghost" id="logoutBtn">Logout</button>
         </div>
     </header>
 
     <main>
         <div class="toolbar">
             <div class="section-title">Active Torrents</div>
-            <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.65rem; color:var(--muted);">
-                <span class="refresh-dot"></span> auto-refresh 5s
+            <div class="refresh-controls">
+                <span class="refresh-dot"></span>
+                <span>auto-refresh</span>
+                <select id="refreshInterval" class="refresh-select">
+                    <option value="5000">5s</option>
+                    <option value="10000">10s</option>
+                    <option value="30000">30s</option>
+                    <option value="60000">60s</option>
+                    <option value="300000">5m</option>
+                </select>
             </div>
         </div>
 
@@ -402,6 +432,7 @@
     let apikey       = sessionStorage.getItem('apikey') || '';
     let selectedNames = new Set();
     let pollTimer    = null;
+    let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 5000;
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -468,10 +499,34 @@
 
     function startDashboard() {
         fetchTorrents();
-        if (pollTimer) clearInterval(pollTimer);
-        // TODO: Allow this to be configurable through a drop down
-        pollTimer = setInterval(fetchTorrents, 5000);  // 5 seconds
+        if (pollTimer) {
+            clearInterval(pollTimer);
+        }
+        pollTimer = setInterval(
+            fetchTorrents,
+            refreshInterval
+        );
+        const dropdown = document.getElementById('refreshInterval');
+        if (dropdown) {
+            dropdown.value = String(refreshInterval);
+        }
     }
+
+    document.addEventListener('change', e => {
+        if (e.target.id !== 'refreshInterval') {
+            return;
+        }
+        refreshInterval = Number(e.target.value);
+        localStorage.setItem(
+            'refreshInterval',
+            String(refreshInterval)
+        );
+        startDashboard();
+        toast(
+            `Refresh interval updated`,
+            'success'
+        );
+    });
 
     function handleUnauth() {
         clearInterval(pollTimer);
@@ -481,6 +536,15 @@
         document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
         document.getElementById('loginError').classList.add('visible');
     }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        clearInterval(pollTimer);
+        apikey = '';
+        sessionStorage.removeItem('apikey');
+        selectedNames.clear();
+        showView('loginView');
+        toast('Logged out', 'success');
+    });
 
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
