@@ -8,7 +8,10 @@ use std::time::Duration;
 /// * `config` - Reference to the `Config` object.
 /// * `message` - Message to be sent to the user.
 pub async fn send(config: &settings::Config, message: &str) {
-    let client = match Client::builder().timeout(Duration::from_secs(config.telegram_timeout)).build() {
+    let client = match Client::builder()
+        .timeout(Duration::from_secs(config.telegram_timeout))
+        .build()
+    {
         Ok(c) => c,
         Err(e) => {
             log::error!("Failed to build HTTP client: {}", e);

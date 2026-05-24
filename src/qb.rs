@@ -1,7 +1,7 @@
-use std::time::Duration;
 use crate::settings;
 use actix_web::HttpResponse;
 use reqwest::Client;
+use std::time::Duration;
 
 /// Creates an authenticated HTTP client for interacting with the qBittorrent Web API.
 ///

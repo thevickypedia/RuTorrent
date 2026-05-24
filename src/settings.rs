@@ -1,3 +1,4 @@
+use crate::display::warning;
 use crate::squire;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
@@ -5,7 +6,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
-use crate::display::warning;
 
 /// ### SharedState
 /// Shared application state for tracking active rsync operations.
@@ -150,10 +150,13 @@ impl Config {
         let qbit_password = squire::get_env_var("qbit_password", None);
         qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
 
-        if !qbit_url.contains("0.0.0.0") ||
-            !qbit_url.contains("localhost") ||
-            !qbit_url.contains("127.0.0.1") {
-            warning!("qbit_url appears to be a remote location. This will invalidate the rsync callback.");
+        if !qbit_url.contains("0.0.0.0")
+            || !qbit_url.contains("localhost")
+            || !qbit_url.contains("127.0.0.1")
+        {
+            warning!(
+                "qbit_url appears to be a remote location. This will invalidate the rsync callback."
+            );
         }
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
