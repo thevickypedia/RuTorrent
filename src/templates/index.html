@@ -829,14 +829,21 @@
         const url = document.getElementById('f-url').value.trim();
         if (!url) { toast('Magnet URL is required', 'error'); return; }
 
-        const payload = [{
+        const basePayload = {
             url,
-            save_path:         document.getElementById('f-save').value.trim(),
-            remote_host:       document.getElementById('f-host').value.trim(),
-            remote_username:   document.getElementById('f-user').value.trim(),
-            remote_path:       document.getElementById('f-path').value.trim(),
             delete_after_copy: document.getElementById('f-delete').checked,
-        }];
+        };
+
+        const savePath = document.getElementById('f-save').value.trim();
+        const remoteHost = document.getElementById('f-host').value.trim();
+        const remoteUsername = document.getElementById('f-user').value.trim();
+        const remotePath = document.getElementById('f-path').value.trim();
+
+        if (savePath) { basePayload.save_path = savePath; }
+        if (remoteHost) { basePayload.remote_host = remoteHost; }
+        if (remoteUsername) { basePayload.remote_username = remoteUsername; }
+        if (remotePath) { basePayload.remote_path = remotePath; }
+        const payload = [basePayload];
 
         const btn = document.getElementById('submitAdd');
         btn.disabled = true; btn.textContent = 'Queueing…';
