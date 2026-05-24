@@ -27,7 +27,7 @@ This launches the RuTorrent frontend independently using NGINX.
 
 ### Template Reuse
 
-The Docker Compose configuration is designed to reuse the existing `index.html` located in [templates] directory.
+The Docker Compose configuration is designed to download the latest `index.html` (from GitHub) located in [templates] directory.
 
 This ensures consistency between the embedded UI and the standalone deployment while avoiding duplication of frontend assets.
 
