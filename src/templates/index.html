@@ -563,7 +563,6 @@
         const errorMsg = document.getElementById('loginError');
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
-        const authHeaderValue = username + ',' + password;
 
         btn.disabled = true;
         btn.textContent = 'Authenticating…';
@@ -574,7 +573,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': btoa(authHeaderValue)
+                    'Authorization': 'Basic ' + btoa(username + ':' + password)
                 },
             });
 

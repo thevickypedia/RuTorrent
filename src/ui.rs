@@ -71,10 +71,17 @@ pub async fn authenticator(
             return HttpResponse::Unauthorized().finish()
         },
     };
-    let encoded = match auth_header.to_str() {
+    let auth_header = match auth_header.to_str() {
         Ok(header) => header,
         Err(err) => {
             log::warn!("{}", err);
+            return HttpResponse::Unauthorized().finish()
+        },
+    };
+    let encoded = match auth_header.strip_prefix("Basic ") {
+        Some(value) => value,
+        None => {
+            log::warn!("Authorization header missing Basic prefix");
             return HttpResponse::Unauthorized().finish()
         },
     };
@@ -85,13 +92,13 @@ pub async fn authenticator(
             return HttpResponse::Unauthorized().finish()
         },
     };
-    let auth_header = decoded.split(",").collect::<Vec<&str>>();
-    if auth_header.len() != 2 {
+    let auth_parts = decoded.splitn(2, ':').collect::<Vec<&str>>();
+    if auth_parts.len() != 2 {
         log::warn!("Expected two Authorization headers, received {:?}", auth_header);
         return HttpResponse::Unauthorized().finish();
     }
-    let username = auth_header.first().unwrap().to_string();
-    let password = auth_header.last().unwrap().to_string();
+    let username = auth_parts[0].to_string();
+    let password = auth_parts[1].to_string();
     if username == config.username && password == config.password {
         return HttpResponse::Ok().json(json!({ "apikey": config.apikey }))
     }
