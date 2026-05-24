@@ -360,8 +360,8 @@
             font-size: 0.62rem;
             color: var(--muted);
             display: flex;
-            gap: 2rem;
             align-items: center;
+            justify-content: space-between;
         }
 
         .status-bar .accent {
@@ -886,9 +886,13 @@
     </main>
 
     <div class="status-bar">
-        <span class="accent">RuTorrent</span>
-        <span id="versionText">v—</span>
-        <span id="lastUpdated">—</span>
+        <div style="display:flex; gap:2rem; align-items:center;">
+            <span class="accent">RuTorrent</span>
+            <span id="versionText">v—</span>
+            <span id="lastUpdated">—</span>
+        </div>
+
+        <span id="sessionRemaining">-</span>
     </div>
 </div>
 
@@ -947,7 +951,9 @@
     let apikey = sessionStorage.getItem('apikey') || '';
     let selectedNames = new Set();
     let pollTimer = null;
-    let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 5000;
+    let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
+    let sessionCountdown = null;
+    let sessionExpiresAt = 0;
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -985,6 +991,7 @@
                 const data = await resp.json();
                 apikey = data.apikey;
                 sessionStorage.setItem('apikey', apikey);
+                startSessionTimer();
                 showView('dashView');
                 startDashboard();
             } else {
@@ -1009,6 +1016,36 @@
     // ── Dashboard ─────────────────────────────────────────────
     function authHeaders() {
         return {'Content-Type': 'application/json', 'apikey': apikey};
+    }
+
+    function startSessionTimer() {
+        clearInterval(sessionCountdown);
+        sessionExpiresAt = Date.now() + (30 * 60 * 1000);
+        updateSessionRemaining();
+        sessionCountdown = setInterval(() => {
+            updateSessionRemaining();
+            if (Date.now() >= sessionExpiresAt) {
+                clearInterval(sessionCountdown);
+                handleUnauth();
+            }
+        }, 1000);
+    }
+
+    function updateSessionRemaining() {
+        const remaining =
+            Math.max(0, sessionExpiresAt - Date.now());
+        const totalSeconds =
+            Math.floor(remaining / 1000);
+        const minutes =
+            String(Math.floor(totalSeconds / 60))
+                .padStart(2, '0');
+        const seconds =
+            String(totalSeconds % 60)
+                .padStart(2, '0');
+        document.getElementById(
+            'sessionRemaining'
+        ).textContent =
+            `Session: ${minutes}:${seconds}`;
     }
 
     function startDashboard() {
@@ -1045,6 +1082,7 @@
 
     function handleUnauth() {
         clearInterval(pollTimer);
+        clearInterval(sessionCountdown);
         apikey = '';
         sessionStorage.removeItem('apikey');
         showView('loginView');
@@ -1054,6 +1092,7 @@
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
         clearInterval(pollTimer);
+        clearInterval(sessionCountdown);
         apikey = '';
         sessionStorage.removeItem('apikey');
         selectedNames.clear();
