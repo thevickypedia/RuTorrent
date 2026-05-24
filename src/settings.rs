@@ -53,7 +53,6 @@ pub struct Config {
     pub port: u16,
     pub username: String,
     pub password: String,
-    pub allowed_origins: Vec<String>,
 
     pub apikey: String,
     pub workers: usize,
@@ -106,15 +105,6 @@ impl Config {
             .unwrap();
         let username = squire::get_env_var("username", None);
         let password = squire::get_env_var("password", None);
-        let default_allowed = format!(
-            "http://{host}:{port},http://0.0.0.0:{port},http://localhost:{port}",
-            host = host,
-            port = port
-        );
-        let allowed_origins = squire::get_env_var("allowed_origins", Some(&default_allowed))
-            .split(',')
-            .map(String::from)
-            .collect();
 
         let apikey = squire::get_env_var("apikey", None);
         if apikey.is_empty() {
@@ -203,7 +193,6 @@ impl Config {
             port,
             username,
             password,
-            allowed_origins,
             apikey,
             workers,
             qbit_url,

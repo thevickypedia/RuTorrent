@@ -1,7 +1,6 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-use actix_cors::Cors;
 use actix_web::http::header;
 use actix_web::{web, App, HttpServer};
 use std::sync::Arc;
@@ -81,20 +80,7 @@ pub async fn start() -> std::io::Result<()> {
     );
 
     HttpServer::new(move || {
-        let mut cors = Cors::default()
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-            .allowed_headers(vec![
-                header::CONTENT_TYPE,
-                header::AUTHORIZATION,
-                header::HeaderName::from_static("apikey"),
-            ])
-            .max_age(3600);
-        for origin in &config.allowed_origins {
-            cors = cors.allowed_origin(origin.as_str());
-        }
-
         App::new()
-            .wrap(cors)
             .app_data(web::Data::new(state.clone()))
             .app_data(web::Data::new(pending.clone()))
             .app_data(web::Data::new(config.clone()))
