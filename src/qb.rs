@@ -34,9 +34,26 @@ pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
     };
 
     let resp = request.send().await;
-    handle_response(resp, "LOGIN").await?;
+    handle_response(resp, ResponseContext::Login).await?;
 
     Ok(client)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResponseContext {
+    Login,
+    AddTorrent,
+    DeleteTorrent,
+}
+
+impl ResponseContext {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ResponseContext::Login => "LOGIN",
+            ResponseContext::AddTorrent => "ADD Torrent",
+            ResponseContext::DeleteTorrent => "DELETE Torrent",
+        }
+    }
 }
 
 /// Handles and validates an HTTP response from the qBittorrent Web API.
@@ -60,14 +77,18 @@ pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
 /// - qBittorrent considers a request successful if the body is empty or equals `"Ok."`.
 pub async fn handle_response(
     resp: Result<reqwest::Response, reqwest::Error>,
-    context: &str,
+    context: ResponseContext,
 ) -> Result<(), HttpResponse> {
     match resp {
         Ok(r) => {
             let status = r.status();
             let body = r.text().await.unwrap_or_default();
 
-            log::info!("{} -> HTTP {} body: {:?}", context, status, body);
+            if context == ResponseContext::Login {
+                log::debug!("{} -> HTTP {} body: {:?}", context.as_str(), status, body);
+            } else {
+                log::info!("{} -> HTTP {} body: {:?}", context.as_str(), status, body);
+            }
 
             if !status.is_success() {
                 return Err(HttpResponse::InternalServerError().body(body));
@@ -81,7 +102,7 @@ pub async fn handle_response(
             Ok(())
         }
         Err(e) => {
-            log::info!("{} request failed: {}", context, e);
+            log::info!("{} request failed: {}", context.as_str(), e);
             Err(HttpResponse::InternalServerError().body("Request failed"))
         }
     }

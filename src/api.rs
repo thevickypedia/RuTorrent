@@ -345,7 +345,7 @@ pub async fn put_torrent(
             .send()
             .await;
 
-        if let Err(e) = qb::handle_response(resp, "ADD torrent").await {
+        if let Err(e) = qb::handle_response(resp, qb::ResponseContext::AddTorrent).await {
             log::error!("{:?}", e.status().to_string());
             response.push(HashMap::from([(name, e.status().to_string())]));
             continue;
@@ -478,7 +478,7 @@ pub async fn delete_torrent(
         .send()
         .await;
 
-    if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
+    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
         return e;
     }
 

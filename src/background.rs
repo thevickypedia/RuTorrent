@@ -242,7 +242,7 @@ pub fn spawn_worker(
                                 .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
                                 .send()
                                 .await;
-                            if let Err(e) = qb::handle_response(resp, "DELETE torrent").await {
+                            if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
                                 log::error!("Failed to delete torrent: {}", e.status());
                                 if std::path::Path::new(&entry.put_item.save_path).exists()
                                     && let Err(err) =
