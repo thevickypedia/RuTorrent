@@ -687,6 +687,9 @@
                 return;
             }
 
+            document.getElementById('lastUpdated').textContent =
+                'Updated ' + new Date().toLocaleTimeString();
+
             const data    = await resp.json();
             const entries = Object.entries(data);
             const body    = document.getElementById('torrentBody');
@@ -706,7 +709,6 @@
             }
 
             const validNames = new Set(entries.map(([n]) => n));
-
             selectedNames.forEach(name => {
                 if (!validNames.has(name)) {
                     selectedNames.delete(name);
@@ -727,18 +729,14 @@
                 <td>${badge(status)}</td>
             </tr>
         `).join('');
-
             body.querySelectorAll('tr').forEach(row => {
                 row.addEventListener('click', e => {
-
                     if (e.target.tagName !== 'INPUT') {
                         const cb = row.querySelector('input');
                         cb.checked = !cb.checked;
                     }
-
                     const cb   = row.querySelector('input');
                     const name = row.dataset.name;
-
                     if (cb.checked) {
                         selectedNames.add(name);
                         row.classList.add('selected');
@@ -746,27 +744,20 @@
                         selectedNames.delete(name);
                         row.classList.remove('selected');
                     }
-
                     document.getElementById('deleteBtn').disabled =
                         selectedNames.size === 0;
                 });
             });
-
             const selectAll = document.getElementById('selectAll');
-
             selectAll.checked =
                 entries.length > 0 &&
                 selectedNames.size === entries.length;
-
             selectAll.onclick = () => {
                 const checked = selectAll.checked;
-
                 body.querySelectorAll('tr').forEach(row => {
                     const cb = row.querySelector('input');
                     const name = row.dataset.name;
-
                     cb.checked = checked;
-
                     if (checked) {
                         selectedNames.add(name);
                         row.classList.add('selected');
@@ -775,20 +766,11 @@
                         row.classList.remove('selected');
                     }
                 });
-
                 document.getElementById('deleteBtn').disabled =
                     selectedNames.size === 0;
             };
-
             document.getElementById('deleteBtn').disabled =
                 selectedNames.size === 0;
-
-            // TODO:
-            //  1. lastUpdated is not rendered in the UI
-            //  2. Use /GET torrent to produce timestamp
-            document.getElementById('lastUpdated').textContent =
-                'Updated ' + new Date().toLocaleTimeString();
-
         } catch (err) {
             console.error(err);
         }
