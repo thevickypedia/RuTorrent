@@ -3,8 +3,22 @@ use crate::settings;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde_json::json;
 
+/// API endpoint to render the UI.
+///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Status
+/// * `200`: HTML content of the index page.
+/// * `501`: Username or password not set on server side.
+///
+/// # Returns
+///
+/// Returns the HTTPResponse with `Content-Type` header set to `text/html` and `body` as content of the HTML file.
 pub async fn index_page(config: web::Data<settings::Config>) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
+        log::warn!("Username and password are required to access the UI");
         return HttpResponse::NotImplemented().finish();
     }
     HttpResponse::Ok()
@@ -12,17 +26,42 @@ pub async fn index_page(config: web::Data<settings::Config>) -> impl Responder {
         .body(include_str!("templates/index.html"))
 }
 
+/// Helper function to base64 decode the header string.
+///
+/// # Arguments
+///
+/// * `value` - Base64 encoded string to decode.
+///
+/// # Returns
+///
+/// Returns the decoded string if successful, otherwise an error.
 fn base64_decode(value: &str) -> Result<String, Box<dyn std::error::Error>> {
     let decoded = general_purpose::STANDARD.decode(value)?;
     let result = String::from_utf8(decoded)?;
     Ok(result)
 }
 
+/// API endpoint to authenticate the UI.
+///
+/// # Arguments
+///
+/// - `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Status
+/// * `200`: Successfully authenticated with JSON object as `{"apikey": "ApiKeyValue"}`
+/// * `401`: Invalid credentials or missing authorization header.
+/// * `501`: Username or password not set on server side.
+///
+/// # Returns
+///
+/// Returns an `HttpResponse` object with the apikey if successful.
 pub async fn authenticator(
     request: HttpRequest,
     config: web::Data<settings::Config>,
 ) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
+        log::warn!("Username and password are required to authenticate the UI");
         return HttpResponse::NotImplemented().finish();
     }
     let auth_header = match request.headers().get("Authorization") {
