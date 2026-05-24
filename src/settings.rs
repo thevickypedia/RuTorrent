@@ -1,4 +1,5 @@
 use crate::squire;
+use crate::{display::ansi};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
@@ -78,6 +79,28 @@ pub struct Config {
     pub telegram_bot_token: String,
 }
 
+macro_rules! warning {
+    ($($arg:tt)*) => {{
+        eprintln!();
+        let head = "=".repeat(81);
+        let pre = "-".repeat(36);
+        eprintln!("{yellow}{head}{reset}", head = head, yellow = ansi::YELLOW, reset = ansi::RESET);
+        eprintln!("{bold}{yellow}{pre} WARNING {pre}{reset}", bold = ansi::BOLD, yellow = ansi::YELLOW, reset = ansi::RESET, pre = pre);
+        eprintln!("{yellow}{head}{reset}", head = head, yellow = ansi::YELLOW, reset = ansi::RESET);
+
+        eprintln!(
+            "{red}[{}:{}] {}{reset}",
+            file!(),
+            line!(),
+            format!($($arg)*),
+            red = ansi::RED,
+            reset = ansi::RESET
+        );
+
+        eprintln!();
+    }};
+}
+
 /// Formats and prints the startup error message.
 ///
 /// # Arguments
@@ -140,6 +163,12 @@ impl Config {
         let qbit_username = squire::get_env_var("qbit_username", None);
         let qbit_password = squire::get_env_var("qbit_password", None);
         qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
+
+        if !qbit_url.contains("0.0.0.0") ||
+            !qbit_url.contains("localhost") ||
+            !qbit_url.contains("127.0.0.1") {
+            warning!("qbit_url appears to be a remote location. This will invalidate the rsync callback.");
+        }
 
         let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
         let default_log = squire::get_env_var("log", Some("stdout"));
