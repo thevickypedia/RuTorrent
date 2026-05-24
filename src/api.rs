@@ -356,13 +356,17 @@ pub async fn put_torrent(
             && !item.remote_username.is_empty()
             && !item.remote_path.is_empty()
         {
+            log::info!("Rsync location: {}:{}", item.remote_host, item.remote_path);
             pending_lock.insert(tag.clone(), item.clone());
             if let Ok(conn) = db_connection.lock() {
+                log::debug!("Updated database for rsync");
                 database::upsert_pending(&conn, &tag, &item);
+            } else {
+                log::error!("Failed to update database for rsync");
             }
         } else {
-            log::info!("Adding torrent [{}]: {}", tag, item.url);
-        };
+            log::warn!("No rsync location set");
+        }
         response.push(HashMap::from([(
             name,
             format!("OK! Saving to: {}", item.save_path),
