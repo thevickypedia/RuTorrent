@@ -51,6 +51,9 @@ pub struct Config {
     // RuTorrent API config
     pub host: String,
     pub port: u16,
+    pub username: String,
+    pub password: String,
+
     pub apikey: String,
     pub workers: usize,
 
@@ -100,6 +103,9 @@ impl Config {
         let port = squire::get_env_var("port", Some("3000"))
             .parse::<u16>()
             .unwrap();
+        let username = squire::get_env_var("username", None);
+        let password = squire::get_env_var("password", None);
+
         let apikey = squire::get_env_var("apikey", None);
         if apikey.is_empty() {
             startup_error("'apikey' is empty");
@@ -185,6 +191,8 @@ impl Config {
         Self {
             host,
             port,
+            username,
+            password,
             apikey,
             workers,
             qbit_url,

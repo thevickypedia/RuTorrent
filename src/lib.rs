@@ -20,6 +20,7 @@ mod settings;
 mod squire;
 mod swagger;
 mod telegram;
+mod ui;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
@@ -92,7 +93,8 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::delete().to(api::delete_torrent))
             .route("/swagger", web::get().to(swagger::redirector))
             .route("/ui", web::get().to(swagger::redirector))
-            .route("/", web::get().to(swagger::redirector))
+            .route("/authenticator", web::post().to(ui::authenticator))
+            .route("/", web::get().to(ui::index_page))
             .service(swagger::service())
     })
     .bind((host, port))?

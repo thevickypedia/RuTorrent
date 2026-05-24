@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuTorrent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:         #0a0a0b;
+            --surface:    #111113;
+            --surface-hi: #18181c;
+            --border:     #232328;
+            --border-hi:  #3a3a44;
+            --accent:     #e8ff47;
+            --accent-dim: #b8cc2a;
+            --text:       #e2e2e6;
+            --muted:      #6b6b78;
+            --error:      #ff4f4f;
+            --warn:       #ffb347;
+            --ok:         #47ffb3;
+            --mono:       'JetBrains Mono', monospace;
+            --display:    'Syne', sans-serif;
+        }
+
+        html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px; }
+
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* ── VIEWS ── */
+        .view { display: none; }
+        .view.active { display: flex; }
+
+        /* ══════════════════════════════
+           LOGIN VIEW
+        ══════════════════════════════ */
+        #loginView {
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .login-card {
+            width: 100%; max-width: 420px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 3rem 2.5rem;
+            position: relative;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .login-card::before, .login-card::after {
+            content: ''; position: absolute;
+            width: 12px; height: 12px;
+            border-color: var(--accent); border-style: solid;
+        }
+        .login-card::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+        .login-card::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo { font-family: var(--display); font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); margin-bottom: 0.25rem; }
+        .tagline { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 2.5rem; }
+
+        .field { margin-bottom: 1.25rem; }
+        .field.inline { margin-bottom: 0; }
+
+        label {
+            display: block; font-size: 0.62rem; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"] {
+            width: 100%; background: var(--bg); border: 1px solid var(--border);
+            color: var(--text); font-family: var(--mono); font-size: 0.875rem;
+            padding: 0.65rem 0.875rem; outline: none; transition: border-color 0.15s;
+            -webkit-appearance: none;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus { border-color: var(--accent); }
+        input::placeholder { color: var(--muted); opacity: 0.5; }
+
+        .error-msg { margin-top: 1rem; font-size: 0.72rem; color: var(--error); letter-spacing: 0.05em; display: none; }
+        .error-msg.visible { display: block; }
+
+        /* ══════════════════════════════
+           DASHBOARD VIEW
+        ══════════════════════════════ */
+        #dashView {
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .header-logo { font-family: var(--display); font-size: 1.3rem; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; }
+        .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+        main { padding: 2rem; flex: 1; overflow-y: auto; }
+
+        .toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+
+        /* Table */
+        .torrent-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); }
+        .torrent-table thead tr { background: var(--surface); border-bottom: 1px solid var(--border); }
+        .torrent-table th {
+            padding: 0.6rem 1rem; text-align: left;
+            font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase;
+            color: var(--muted); font-weight: 400;
+        }
+        .torrent-table th:first-child { width: 40px; }
+        .torrent-table tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+        .torrent-table tbody tr:hover    { background: var(--surface-hi); }
+        .torrent-table tbody tr.selected { background: rgba(232,255,71,0.05); border-color: rgba(232,255,71,0.2); }
+        .torrent-table td { padding: 0.8rem 1rem; font-size: 0.8rem; }
+        .torrent-table td:first-child { text-align: center; }
+
+        input[type="checkbox"].torrent-check {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--border-hi);
+            background: var(--bg);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.15s;
+            border-radius: 3px;
+        }
+
+        input[type="checkbox"].torrent-check:checked {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        input[type="checkbox"].torrent-check:checked::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid #000;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .badge { display: inline-block; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.2rem 0.5rem; border: 1px solid; }
+        .badge-downloading { color: var(--warn);  border-color: rgba(255,179,71,0.3);  background: rgba(255,179,71,0.07); }
+        .badge-copying     { color: #7eb8ff;       border-color: rgba(126,184,255,0.3); background: rgba(126,184,255,0.07); }
+        .badge-completed   { color: var(--ok);     border-color: rgba(71,255,179,0.3);  background: rgba(71,255,179,0.07); }
+        .badge-failed      { color: var(--error);  border-color: rgba(255,79,79,0.3);   background: rgba(255,79,79,0.07); }
+
+        .empty-state { padding: 4rem; text-align: center; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.1em; }
+
+        /* Status bar */
+        .status-bar {
+            background: var(--surface); border-top: 1px solid var(--border);
+            padding: 0.4rem 2rem; font-size: 0.62rem; color: var(--muted);
+            display: flex; gap: 2rem; align-items: center;
+        }
+        .status-bar .accent { color: var(--accent); }
+        .refresh-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* ══════════════════════════════
+           SHARED: Buttons
+        ══════════════════════════════ */
+        .btn {
+            font-family: var(--mono); font-size: 0.7rem; font-weight: 600;
+            letter-spacing: 0.1em; text-transform: uppercase;
+            padding: 0.6rem 1.1rem; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-primary  { background: var(--accent); color: #0a0a0b; border-color: var(--accent); }
+        .btn-primary:not(:disabled):hover  { background: var(--accent-dim); border-color: var(--accent-dim); }
+        .btn-primary:not(:disabled):active { transform: scale(0.99); }
+
+        .btn-danger   { background: transparent; color: var(--error); border-color: var(--error); }
+        .btn-danger:not(:disabled):hover  { background: rgba(255,79,79,0.1); }
+
+        .btn-ghost    { background: transparent; color: var(--muted); border-color: var(--border); }
+        .btn-ghost:not(:disabled):hover   { color: var(--text); border-color: var(--border-hi); }
+
+        /* ══════════════════════════════
+           SHARED: Modal
+        ══════════════════════════════ */
+        .modal-backdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 100;
+            align-items: center; justify-content: center; padding: 2rem;
+        }
+        .modal-backdrop.open { display: flex; }
+
+        .modal {
+            background: var(--surface); border: 1px solid var(--border);
+            width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+            padding: 2rem; position: relative;
+            animation: modalIn 0.2s ease both;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.97) translateY(8px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; }
+        .modal-title  { font-family: var(--display); font-size: 1rem; font-weight: 700; color: var(--accent); }
+        .modal-close  { background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; line-height: 1; padding: 0.2rem; }
+        .modal-close:hover { color: var(--text); }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .field.full { grid-column: 1 / -1; }
+        .field-hint { font-size: 0.6rem; color: var(--muted); opacity: 0.6; margin-top: 0.25rem; }
+
+        .section-divider {
+            font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+            color: var(--muted); border-top: 1px solid var(--border);
+            padding-top: 1rem; margin: 0.25rem 0 0; grid-column: 1 / -1;
+        }
+
+        .toggle-field { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0; }
+        .toggle {
+            appearance: none; width: 32px; height: 18px;
+            background: var(--border); border-radius: 9px;
+            cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0;
+        }
+        .toggle::after {
+            content: ''; position: absolute; top: 3px; left: 3px;
+            width: 12px; height: 12px; background: var(--muted);
+            border-radius: 50%; transition: transform 0.2s, background 0.2s;
+        }
+        .toggle:checked { background: rgba(232,255,71,0.2); }
+        .toggle:checked::after { transform: translateX(14px); background: var(--accent); }
+        .toggle-label { font-size: 0.75rem; color: var(--text); text-transform: none; letter-spacing: 0; margin-bottom: 0; }
+
+        .modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+
+        /* ══════════════════════════════
+           SHARED: Toast
+        ══════════════════════════════ */
+        .toast-area { position: fixed; bottom: 3rem; right: 1.5rem; z-index: 200; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast {
+            background: var(--surface); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            padding: 0.75rem 1rem; font-size: 0.72rem; color: var(--text);
+            animation: toastIn 0.2s ease both; max-width: 320px;
+        }
+        .toast.error   { border-left-color: var(--error); }
+        .toast.success { border-left-color: var(--ok); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     LOGIN VIEW
+══════════════════════════════ -->
+<div id="loginView" class="view active">
+    <div class="login-card">
+        <div class="logo">RuTorrent</div>
+        <div class="tagline">Torrent Manager // Auth Required</div>
+
+        <div class="field">
+            <label for="username">Username</label>
+            <input id="username" type="text" placeholder="user" autocomplete="username">
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button class="btn btn-primary" id="loginBtn" style="width:100%; margin-top:2rem;">Authenticate →</button>
+        <div class="error-msg" id="loginError">Authentication failed. Check your credentials.</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     DASHBOARD VIEW
+══════════════════════════════ -->
+<div id="dashView" class="view">
+    <header>
+        <div class="header-logo">RuTorrent</div>
+        <div class="header-actions">
+            <button class="btn btn-danger" id="deleteBtn" disabled>Delete Selected</button>
+            <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
+            <!-- TODO: Include a logout button to clear apikey from session storage -->
+        </div>
+    </header>
+
+    <main>
+        <div class="toolbar">
+            <div class="section-title">Active Torrents</div>
+            <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.65rem; color:var(--muted);">
+                <span class="refresh-dot"></span> auto-refresh 5s
+            </div>
+        </div>
+
+        <table class="torrent-table">
+            <thead>
+            <tr>
+                <th style="width:44px;">
+                    <input type="checkbox" id="selectAll">
+                </th>
+                <th>Name</th>
+                <th>Status</th>
+            </tr>
+            </thead>
+            <tbody id="torrentBody">
+            <tr><td colspan="3" class="empty-state">Loading…</td></tr>
+            </tbody>
+        </table>
+    </main>
+
+    <div class="status-bar">
+        <span class="accent">RuTorrent</span>
+        <span>v{{ version }}</span>
+        <span id="lastUpdated">—</span>
+    </div>
+</div>
+
+<!-- Add Torrent Modal -->
+<div class="modal-backdrop" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Add Torrent</div>
+            <button class="modal-close" id="closeModal">✕</button>
+        </div>
+
+        <div class="form-grid">
+            <div class="field full">
+                <label for="f-url">Magnet URL <span style="color:var(--error)">*</span></label>
+                <input type="text" id="f-url" placeholder="magnet:?xt=urn:btih:…">
+            </div>
+            <div class="field full">
+                <label for="f-save">Local Save Path</label>
+                <input type="text" id="f-save" placeholder="Leave blank for default">
+                <div class="field-hint">Overrides the default qBittorrent save path</div>
+            </div>
+
+            <div class="section-divider">Remote Transfer (optional)</div>
+
+            <div class="field">
+                <label for="f-host">Remote Host</label>
+                <input type="text" id="f-host" placeholder="192.168.1.100">
+            </div>
+            <div class="field">
+                <label for="f-user">Remote Username</label>
+                <input type="text" id="f-user" placeholder="admin">
+            </div>
+            <div class="field full">
+                <label for="f-path">Remote Path</label>
+                <input type="text" id="f-path" placeholder="/home/admin/Movies">
+            </div>
+            <div class="field full">
+                <div class="toggle-field">
+                    <input type="checkbox" class="toggle" id="f-delete">
+                    <label class="toggle-label" for="f-delete">Delete local files after transfer</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelModal">Cancel</button>
+            <button class="btn btn-primary" id="submitAdd">Queue Torrent →</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-area" id="toastArea"></div>
+
+<script>
+    // ── State ─────────────────────────────────────────────────
+    let apikey       = sessionStorage.getItem('apikey') || '';
+    let selectedNames = new Set();
+    let pollTimer    = null;
+
+    // ── Views ─────────────────────────────────────────────────
+    function showView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    // On load: if we have a stored apikey, go straight to dashboard
+    if (apikey) {
+        showView('dashView');
+        startDashboard();
+    }
+
+    // ── Login ─────────────────────────────────────────────────
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+        const btn      = document.getElementById('loginBtn');
+        const errorMsg = document.getElementById('loginError');
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const authHeaderValue = username + ',' + password;
+
+        btn.disabled = true;
+        btn.textContent = 'Authenticating…';
+        errorMsg.classList.remove('visible');
+
+        try {
+            const resp = await fetch('/authenticator', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': btoa(authHeaderValue)
+                },
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                apikey = data.apikey;
+                sessionStorage.setItem('apikey', apikey);
+                showView('dashView');
+                startDashboard();
+            } else {
+                errorMsg.classList.add('visible');
+            }
+        } catch {
+            errorMsg.textContent = 'Network error. Is the server running?';
+            errorMsg.classList.add('visible');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Authenticate →';
+        }
+    });
+
+    // Allow Enter key on login inputs
+    ['username', 'password'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') document.getElementById('loginBtn').click();
+        });
+    });
+
+    // ── Dashboard ─────────────────────────────────────────────
+    function authHeaders() {
+        return { 'Content-Type': 'application/json', 'apikey': apikey };
+    }
+
+    function startDashboard() {
+        fetchTorrents();
+        if (pollTimer) clearInterval(pollTimer);
+        // TODO: Allow this to be configurable through a drop down
+        pollTimer = setInterval(fetchTorrents, 5000);  // 5 seconds
+    }
+
+    function handleUnauth() {
+        clearInterval(pollTimer);
+        apikey = '';
+        sessionStorage.removeItem('apikey');
+        showView('loginView');
+        document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
+        document.getElementById('loginError').classList.add('visible');
+    }
+
+    // ── Fetch torrents ─────────────────────────────────────────
+    async function fetchTorrents() {
+        try {
+            const resp = await fetch('/torrent', {
+                headers: authHeaders()
+            });
+
+            if (resp.status === 401) {
+                handleUnauth();
+                return;
+            }
+
+            const data    = await resp.json();
+            const entries = Object.entries(data);
+            const body    = document.getElementById('torrentBody');
+
+            if (entries.length === 0) {
+                body.innerHTML = `
+                <tr>
+                    <td colspan="3" class="empty-state">
+                        No active torrents
+                    </td>
+                </tr>
+            `;
+
+                selectedNames.clear();
+                document.getElementById('deleteBtn').disabled = true;
+                return;
+            }
+
+            const validNames = new Set(entries.map(([n]) => n));
+
+            selectedNames.forEach(name => {
+                if (!validNames.has(name)) {
+                    selectedNames.delete(name);
+                }
+            });
+
+            body.innerHTML = entries.map(([name, status]) => `
+            <tr class="${selectedNames.has(name) ? 'selected' : ''}" data-name="${esc(name)}">
+                <td>
+                    <input
+                        class="torrent-check"
+                        type="checkbox"
+                        value="${esc(name)}"
+                        ${selectedNames.has(name) ? 'checked' : ''}
+                    >
+                </td>
+                <td>${esc(name)}</td>
+                <td>${badge(status)}</td>
+            </tr>
+        `).join('');
+
+            body.querySelectorAll('tr').forEach(row => {
+                row.addEventListener('click', e => {
+
+                    if (e.target.tagName !== 'INPUT') {
+                        const cb = row.querySelector('input');
+                        cb.checked = !cb.checked;
+                    }
+
+                    const cb   = row.querySelector('input');
+                    const name = row.dataset.name;
+
+                    if (cb.checked) {
+                        selectedNames.add(name);
+                        row.classList.add('selected');
+                    } else {
+                        selectedNames.delete(name);
+                        row.classList.remove('selected');
+                    }
+
+                    document.getElementById('deleteBtn').disabled =
+                        selectedNames.size === 0;
+                });
+            });
+
+            const selectAll = document.getElementById('selectAll');
+
+            selectAll.checked =
+                entries.length > 0 &&
+                selectedNames.size === entries.length;
+
+            selectAll.onclick = () => {
+                const checked = selectAll.checked;
+
+                body.querySelectorAll('tr').forEach(row => {
+                    const cb = row.querySelector('input');
+                    const name = row.dataset.name;
+
+                    cb.checked = checked;
+
+                    if (checked) {
+                        selectedNames.add(name);
+                        row.classList.add('selected');
+                    } else {
+                        selectedNames.delete(name);
+                        row.classList.remove('selected');
+                    }
+                });
+
+                document.getElementById('deleteBtn').disabled =
+                    selectedNames.size === 0;
+            };
+
+            document.getElementById('deleteBtn').disabled =
+                selectedNames.size === 0;
+
+            document.getElementById('lastUpdated').textContent =
+                'Updated ' + new Date().toLocaleTimeString();
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // ── Delete ─────────────────────────────────────────────────
+    document.getElementById('deleteBtn').addEventListener('click', async () => {
+        if (selectedNames.size === 0) return;
+        const btn = document.getElementById('deleteBtn');
+        btn.disabled = true;
+        btn.textContent = 'Deleting…';
+        const names = [...selectedNames];
+        try {
+            await Promise.all(
+                names.map(async name => {
+                    const resp = await fetch(
+                        `/torrent?name=${encodeURIComponent(name)}`,
+                        {
+                            method: 'DELETE',
+                            headers: authHeaders(),
+                        }
+                    );
+                    if (resp.status === 401) {
+                        handleUnauth();
+                        return;
+                    }
+                    if (!resp.ok) {
+                        throw new Error(`${name}: ${await resp.text()}`);
+                    }
+                })
+            );
+            toast(`Deleted ${names.length} torrent(s)`, 'success');
+            selectedNames.clear();
+            await fetchTorrents();
+        } catch (err) {
+            toast(err.message || 'Delete failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Delete Selected';
+        }
+    });
+
+    // ── Add Torrent Modal ──────────────────────────────────────
+    document.getElementById('addBtn').addEventListener('click', () => document.getElementById('addModal').classList.add('open'));
+    document.getElementById('closeModal').addEventListener('click', closeAdd);
+    document.getElementById('cancelModal').addEventListener('click', closeAdd);
+    document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeAdd(); });
+
+    function closeAdd() {
+        document.getElementById('addModal').classList.remove('open');
+        ['f-url','f-save','f-host','f-user','f-path'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('f-delete').checked = false;
+    }
+
+    document.getElementById('submitAdd').addEventListener('click', async () => {
+        const url = document.getElementById('f-url').value.trim();
+        if (!url) { toast('Magnet URL is required', 'error'); return; }
+
+        const payload = [{
+            url,
+            save_path:         document.getElementById('f-save').value.trim(),
+            remote_host:       document.getElementById('f-host').value.trim(),
+            remote_username:   document.getElementById('f-user').value.trim(),
+            remote_path:       document.getElementById('f-path').value.trim(),
+            delete_after_copy: document.getElementById('f-delete').checked,
+        }];
+
+        const btn = document.getElementById('submitAdd');
+        btn.disabled = true; btn.textContent = 'Queueing…';
+
+        try {
+            const resp = await fetch('/torrent', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(payload) });
+            if (resp.status === 401) { handleUnauth(); return; }
+
+            const data = await resp.json();
+            const [name, status] = Object.entries(data[0])[0];
+
+            if (status.startsWith('OK')) {
+                toast(`Queued: ${name}`, 'success');
+                closeAdd();
+                await fetchTorrents();
+            } else {
+                toast(`${name}: ${status}`, 'error');
+            }
+        } catch { toast('Network error', 'error'); }
+        finally { btn.disabled = false; btn.textContent = 'Queue Torrent →'; }
+    });
+
+    // ── Helpers ───────────────────────────────────────────────
+    function badge(status) {
+        const s = status.toLowerCase();
+        if (s.startsWith('downloading')) return `<span class="badge badge-downloading">${esc(status)}</span>`;
+        if (s === 'copying')             return `<span class="badge badge-copying">Copying</span>`;
+        if (s === 'completed')           return `<span class="badge badge-completed">Completed</span>`;
+        if (s === 'failed')              return `<span class="badge badge-failed">Failed</span>`;
+        return `<span class="badge">${esc(status)}</span>`;
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function toast(msg, type = 'info') {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        document.getElementById('toastArea').appendChild(el);
+        setTimeout(() => el.remove(), 10000);
+    }
+</script>
+</body>
+</html>
