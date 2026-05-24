@@ -1,7 +1,6 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-use actix_web::http::header;
 use actix_web::{web, App, HttpServer};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -11,6 +10,7 @@ mod background;
 mod constant;
 mod database;
 mod db;
+mod display;
 mod logger;
 mod ntfy;
 mod parser;
@@ -56,9 +56,12 @@ pub async fn start() -> std::io::Result<()> {
     let state: settings::SharedState = Arc::new(RwLock::new(initial_state));
     let pending: settings::PendingMap = Arc::new(RwLock::new(initial_pending));
 
-    let client = qb::client(&config)
-        .await
-        .expect("Failed to authenticate qBittorrent");
+    let client = match qb::client(&config).await {
+        Ok(client) => client,
+        Err(_) => {
+            error!("Failed to authenticate qBittorrent");
+        }
+    };
     let db_conn = Arc::new(std::sync::Mutex::new(db_conn));
     background::spawn_worker(
         client,

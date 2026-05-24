@@ -1,11 +1,11 @@
 use crate::squire;
-use crate::{display::ansi};
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
+use crate::display::warning;
 
 /// ### SharedState
 /// Shared application state for tracking active rsync operations.
@@ -77,28 +77,6 @@ pub struct Config {
     // Telegram notification config
     pub telegram_chat_id: String,
     pub telegram_bot_token: String,
-}
-
-macro_rules! warning {
-    ($($arg:tt)*) => {{
-        eprintln!();
-        let head = "=".repeat(81);
-        let pre = "-".repeat(36);
-        eprintln!("{yellow}{head}{reset}", head = head, yellow = ansi::YELLOW, reset = ansi::RESET);
-        eprintln!("{bold}{yellow}{pre} WARNING {pre}{reset}", bold = ansi::BOLD, yellow = ansi::YELLOW, reset = ansi::RESET, pre = pre);
-        eprintln!("{yellow}{head}{reset}", head = head, yellow = ansi::YELLOW, reset = ansi::RESET);
-
-        eprintln!(
-            "{red}[{}:{}] {}{reset}",
-            file!(),
-            line!(),
-            format!($($arg)*),
-            red = ansi::RED,
-            reset = ansi::RESET
-        );
-
-        eprintln!();
-    }};
 }
 
 /// Formats and prints the startup error message.
