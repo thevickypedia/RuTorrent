@@ -3,7 +3,10 @@ use crate::settings;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde_json::json;
 
-pub async fn index_page() -> impl Responder {
+pub async fn index_page(config: web::Data<settings::Config>) -> impl Responder {
+    if config.username.is_empty() || config.password.is_empty() {
+        return HttpResponse::NotImplemented().finish();
+    }
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(include_str!("templates/index.html"))
@@ -19,6 +22,9 @@ pub async fn authenticator(
     request: HttpRequest,
     config: web::Data<settings::Config>,
 ) -> impl Responder {
+    if config.username.is_empty() || config.password.is_empty() {
+        return HttpResponse::NotImplemented().finish();
+    }
     let auth_header = match request.headers().get("Authorization") {
         Some(head) => head,
         None => {
