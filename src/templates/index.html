@@ -1079,7 +1079,7 @@
 <div class="modal-backdrop" id="retryModal">
     <div class="modal">
         <div class="modal-header">
-            <div class="modal-title">Retry Transfer</div>
+            <div id="retry-modal-title" class="modal-title"></div>
             <button class="modal-close" id="closeRetryModal">&#x2715;</button>
         </div>
         <div class="form-grid">
@@ -1130,6 +1130,8 @@
     let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
     let sortKey = sessionStorage.getItem('sortKey') || 'status';
     let sortDirection = sessionStorage.getItem('sortDirection') || 'asc';
+    const timeout = 3 * 1000;  // 3 seconds timeout
+    const sessionExpiry = 30 * 60 * 1000;  // 30 minutes session
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -1166,12 +1168,13 @@
                     'Content-Type': 'application/json',
                     'Authorization': 'Basic ' + btoa(username + ':' + password)
                 },
+                signal: AbortSignal.timeout(timeout)
             });
 
             if (resp.ok) {
                 const data = await resp.json();
                 apikey = data.apikey;
-                sessionExpiresAt = Date.now() + (30 * 60 * 1000);
+                sessionExpiresAt = Date.now() + (sessionExpiry);
                 sessionStorage.setItem('apikey', apikey);
                 sessionStorage.setItem('sessionExpiresAt', `${sessionExpiresAt}`);
                 startSessionTimer();
@@ -1297,7 +1300,10 @@
     // ── Fetch version ─────────────────────────────────────────
     async function fetchVersion() {
         try {
-            const resp = await fetch('/version');
+            const resp = await fetch(
+                '/version',
+                {signal: AbortSignal.timeout(timeout)}
+            );
             if (!resp.ok) {
                 throw new Error('Failed to fetch version');
             }
@@ -1306,6 +1312,7 @@
                 `v${data.version}`;
         } catch (err) {
             console.error(err);
+            toast('Failed to fetch version', 'error');
             document.getElementById('versionText').textContent =
                 'v?';
         }
@@ -1406,7 +1413,8 @@
     async function fetchTorrents() {
         try {
             const resp = await fetch('/torrent', {
-                headers: authHeaders()
+                headers: authHeaders(),
+                signal: AbortSignal.timeout(timeout)
             });
 
             if (resp.status === 401) {
@@ -1504,6 +1512,7 @@
                 selectedNames.size === 0;
         } catch (err) {
             console.error(err);
+            toast('Failed to fetch torrents', 'error');
         }
     }
 
@@ -1532,7 +1541,8 @@
                         {
                             method: 'DELETE',
                             headers: authHeaders(),
-                        }
+                            signal: AbortSignal.timeout(timeout)
+                        },
                     );
                     if (resp.status === 401) {
                         handleUnauth();
@@ -1607,7 +1617,8 @@
             const resp = await fetch('/torrent', {
                 method: 'PUT',
                 headers: authHeaders(),
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(timeout)
             });
             if (resp.status === 401) {
                 handleUnauth();
@@ -1635,13 +1646,26 @@
     // ── Helpers ───────────────────────────────────────────────
     function badge(status) {
         const s = status.toLowerCase();
-        if (s.startsWith('downloading')) return `<span class="badge badge-downloading">${esc(status)}</span>`;
+        if (s.startsWith('downloading')) {
+            const percent = getPercent(status);
+            if (percent >= 100) {
+                return `
+            <span class="badge badge-copying">Ready To Copy</span>
+            <button class="retry-btn"
+                    title="Start transfer"
+                    onclick="doRetry(this, event)">
+                <span class="retry-icon">⧉</span>
+            </button>
+        `;
+            }
+            return `<span class="badge badge-downloading">${esc(status)}</span>`;
+        }
         if (s === 'copying') return `<span class="badge badge-copying">Copying</span>`;
         if (s === 'completed') return `<span class="badge badge-completed">Completed</span>`;
         if (s === 'failed') return `<span class="badge badge-failed">Failed</span>`;
         if (s === 'copyerror') return `
             <span class="badge badge-copy-error">Copy Error</span>
-            <button class="retry-btn" title="Retry rsync" onclick="doRetry(this, event)">
+            <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
                 <span class="retry-icon">↻</span>
             </button>`;
         return `<span class="badge">${esc(status)}</span>`;
@@ -1651,7 +1675,10 @@
     let _retryBtn = null;
 
     function doRetry(btn, event) {
-        event.stopPropagation();
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
         const name = btn.closest('tr').dataset.name;
         _retryBtn = btn;
         document.getElementById('r-name').value = name;
@@ -1660,6 +1687,7 @@
         document.getElementById('r-path').value = '';
         document.getElementById('r-timeout').value = '';
         document.getElementById('r-delete').checked = false;
+        document.getElementById('retry-modal-title').innerHTML = btn.title;
         document.getElementById('retryModal').classList.add('open');
     }
 
@@ -1704,6 +1732,7 @@
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(timeout)
             });
             if (resp.status === 401) {
                 handleUnauth();
