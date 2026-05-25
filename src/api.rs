@@ -125,7 +125,7 @@ pub async fn get_torrents(
                 settings::Status::Copying => "Copying".to_string(),
                 settings::Status::Completed => "Completed".to_string(),
                 settings::Status::Failed => "Failed".to_string(),
-                settings::Status::CopyError  => "CopyError".to_string(),
+                settings::Status::CopyError => "CopyError".to_string(),
                 settings::Status::Downloading(_) => {
                     format!("Downloading: {:.0}%", progress * 100.0)
                 }
@@ -536,7 +536,7 @@ pub async fn retry_torrent(
     }
 
     if body.name.is_empty() {
-        return HttpResponse::BadRequest().body("Missing name")
+        return HttpResponse::BadRequest().body("Missing name");
     }
 
     // Find the hash for the given name in state
@@ -545,12 +545,10 @@ pub async fn retry_torrent(
         let found = db.iter().find(|(_, entry)| entry.name == body.name);
         match found {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
-            Some((hash, entry)) => {
-                match entry.status {
-                    settings::Status::CopyError => (hash.clone(), entry.put_item.clone()),
-                    _ => return HttpResponse::BadRequest().body("Torrent is not in CopyError state"),
-                }
-            }
+            Some((hash, entry)) => match entry.status {
+                settings::Status::CopyError => (hash.clone(), entry.put_item.clone()),
+                _ => return HttpResponse::BadRequest().body("Torrent is not in CopyError state"),
+            },
         }
     };
 
@@ -563,8 +561,8 @@ pub async fn retry_torrent(
     }
 
     let state_clone = state.as_ref().clone();
-    let hash_clone  = hash.clone();
-    let name_clone  = body.name.clone();
+    let hash_clone = hash.clone();
+    let name_clone = body.name.clone();
     if !body.remote_host.is_empty() {
         put_item.remote_host = body.remote_host.clone();
     }

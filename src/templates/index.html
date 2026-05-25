@@ -433,8 +433,12 @@
         }
 
         @keyframes spin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .empty-state {
@@ -1081,24 +1085,24 @@
         <div class="form-grid">
             <div class="field full">
                 <label for="r-name">Torrent</label>
-                <input type="text" id="r-name" readonly
-                       style="opacity:0.5; cursor:default; border-color:var(--border);">
+                <input id="r-name" readonly style="opacity:0.5; cursor:default; border-color:var(--border);"
+                       type="text">
             </div>
             <div class="field">
                 <label for="r-host">Remote Host</label>
-                <input type="text" id="r-host" placeholder="192.168.1.100">
+                <input id="r-host" placeholder="192.168.1.100" type="text">
             </div>
             <div class="field">
                 <label for="r-user">Remote Username</label>
-                <input type="text" id="r-user" placeholder="admin">
+                <input id="r-user" placeholder="admin" type="text">
             </div>
             <div class="field full">
                 <label for="r-path">Remote Path</label>
-                <input type="text" id="r-path" placeholder="/home/admin/Movies">
+                <input id="r-path" placeholder="/home/admin/Movies" type="text">
             </div>
             <div class="field full">
                 <div class="toggle-field">
-                    <input type="checkbox" class="toggle" id="r-delete">
+                    <input class="toggle" id="r-delete" type="checkbox">
                     <label class="toggle-label" for="r-delete">Delete local files after transfer</label>
                 </div>
             </div>
@@ -1509,7 +1513,9 @@
                 ? `Delete ALL ${selectedNames.size} torrents?\n\nThis action cannot be undone.`
                 : `Delete ${selectedNames.size} selected torrent(s)?`
         );
-        if (!confirmed) { return; }
+        if (!confirmed) {
+            return;
+        }
         const btn = document.getElementById('deleteBtn');
         btn.disabled = true;
         btn.textContent = 'Deleting…';
@@ -1665,16 +1671,19 @@
 
     document.getElementById('submitRetry').addEventListener('click', async () => {
         const name = document.getElementById('r-name').value;
-        const btn  = document.getElementById('submitRetry');
+        const btn = document.getElementById('submitRetry');
         btn.disabled = true;
         btn.textContent = 'Retrying…';
-        if (_retryBtn) { _retryBtn.classList.add('spinning'); _retryBtn.disabled = true; }
+        if (_retryBtn) {
+            _retryBtn.classList.add('spinning');
+            _retryBtn.disabled = true;
+        }
 
         const payload = {
             name,
-            remote_host:       document.getElementById('r-host').value.trim(),
-            remote_username:   document.getElementById('r-user').value.trim(),
-            remote_path:       document.getElementById('r-path').value.trim(),
+            remote_host: document.getElementById('r-host').value.trim(),
+            remote_username: document.getElementById('r-user').value.trim(),
+            remote_path: document.getElementById('r-path').value.trim(),
             delete_after_copy: document.getElementById('r-delete').checked,
         };
 
@@ -1684,7 +1693,10 @@
                 headers: authHeaders(),
                 body: JSON.stringify(payload),
             });
-            if (resp.status === 401) { handleUnauth(); return; }
+            if (resp.status === 401) {
+                handleUnauth();
+                return;
+            }
             if (resp.ok) {
                 toast(`Retry queued: ${name}`, 'success');
                 closeRetry();
@@ -1697,7 +1709,10 @@
         } finally {
             btn.disabled = false;
             btn.textContent = 'Retry →';
-            if (_retryBtn) { _retryBtn.classList.remove('spinning'); _retryBtn.disabled = false; }
+            if (_retryBtn) {
+                _retryBtn.classList.remove('spinning');
+                _retryBtn.disabled = false;
+            }
         }
     });
 
