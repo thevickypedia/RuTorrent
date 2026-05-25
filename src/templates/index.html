@@ -763,16 +763,41 @@
             }
 
             .torrent-table thead {
-                display: none;
+                display: table-header-group;
+            }
+
+            .torrent-table thead tr {
+                display: table;
+                width: 100%;
+                table-layout: fixed;
+                background: transparent;
+            }
+
+            .torrent-table th {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.62rem;
+            }
+
+            .sortable {
+                cursor: pointer;
+            }
+
+            .sortable.active {
+                color: var(--accent);
+            }
+
+            .sort-indicator {
+                margin-left: 0.2rem;
             }
 
             .torrent-table tbody {
                 display: flex;
                 flex-direction: column;
                 gap: 0.75rem;
+                margin-top: 0.75rem;
             }
 
-            .torrent-table tr {
+            .torrent-table tbody tr {
                 display: flex;
                 flex-direction: column;
                 background: var(--surface);
@@ -1162,6 +1187,7 @@
         apikey = '';
         sessionStorage.removeItem('apikey');
         sessionStorage.removeItem('sessionExpiresAt');
+        selectedNames.clear();
         showView('loginView');
         document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
         document.getElementById('loginError').classList.add('visible');
@@ -1307,6 +1333,7 @@
 
             if (rawData.length === 0) {
                 document.getElementById('torrentCount').textContent = '(0)';
+                document.getElementById('selectAll').checked = false;
                 body.innerHTML = `
                 <tr>
                     <td colspan="3" class="empty-state">
