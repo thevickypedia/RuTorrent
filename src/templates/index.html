@@ -961,7 +961,7 @@
     let pollTimer = null;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
     let sessionCountdown = null;
-    let sessionExpiresAt = 0;
+    let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -971,8 +971,13 @@
 
     // On load: if we have a stored apikey, go straight to dashboard
     if (apikey) {
-        showView('dashView');
-        startDashboard();
+        if (!sessionExpiresAt) {
+            handleUnauth();
+        } else {
+            showView('dashView');
+            startSessionTimer();
+            startDashboard();
+        }
     }
 
     // ── Login ─────────────────────────────────────────────────
@@ -998,7 +1003,9 @@
             if (resp.ok) {
                 const data = await resp.json();
                 apikey = data.apikey;
+                sessionExpiresAt = Date.now() + (30 * 60 * 1000);
                 sessionStorage.setItem('apikey', apikey);
+                sessionStorage.setItem('sessionExpiresAt', `${sessionExpiresAt}`);
                 startSessionTimer();
                 showView('dashView');
                 startDashboard();
@@ -1027,13 +1034,20 @@
     }
 
     function startSessionTimer() {
-        clearInterval(sessionCountdown);
-        sessionExpiresAt = Date.now() + (30 * 60 * 1000);
+        if (sessionCountdown) {
+            clearInterval(sessionCountdown);
+            sessionCountdown = null;
+        }
+        if (!sessionExpiresAt || sessionExpiresAt < Date.now()) {
+            handleUnauth();
+            return;
+        }
         updateSessionRemaining();
         sessionCountdown = setInterval(() => {
             updateSessionRemaining();
             if (Date.now() >= sessionExpiresAt) {
                 clearInterval(sessionCountdown);
+                sessionCountdown = null;
                 handleUnauth();
             }
         }, 1000);
@@ -1093,6 +1107,7 @@
         clearInterval(sessionCountdown);
         apikey = '';
         sessionStorage.removeItem('apikey');
+        sessionStorage.removeItem('sessionExpiresAt');
         showView('loginView');
         document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
         document.getElementById('loginError').classList.add('visible');
@@ -1103,6 +1118,7 @@
         clearInterval(sessionCountdown);
         apikey = '';
         sessionStorage.removeItem('apikey');
+        sessionStorage.removeItem('sessionExpiresAt');
         selectedNames.clear();
         showView('loginView');
         toast('Logged out', 'success');
