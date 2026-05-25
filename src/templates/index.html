@@ -10,7 +10,8 @@
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <link href="https://thevickypedia.github.io/open-source/images/logo/rust.ico" name="favicon" property="og:image"
           rel="icon">
-    <link href="https://thevickypedia.github.io/open-source/images/logo/rust.png" name="apple-touch-icon" property="og:image"
+    <link href="https://thevickypedia.github.io/open-source/images/logo/rust.png" name="apple-touch-icon"
+          property="og:image"
           rel="apple-touch-icon">
     <meta content="no-cache, no-store, must-revalidate" http-equiv="content-type">
     <meta content="no-cache" http-equiv="refresh">
@@ -240,6 +241,11 @@
             letter-spacing: 0.2em;
             text-transform: uppercase;
             color: var(--muted);
+        }
+
+        #torrentCount {
+            color: var(--accent);
+            margin-left: 0.35rem;
         }
 
         /* Table */
@@ -897,7 +903,10 @@
 
     <main>
         <div class="toolbar">
-            <div class="section-title">Active Torrents</div>
+            <div class="section-title">
+                Active Torrents
+                <span id="torrentCount">(0)</span>
+            </div>
             <div class="refresh-controls">
                 <span class="refresh-dot"></span>
                 <span>auto-refresh</span>
@@ -1297,6 +1306,7 @@
             const body = document.getElementById('torrentBody');
 
             if (rawData.length === 0) {
+                document.getElementById('torrentCount').textContent = '(0)';
                 body.innerHTML = `
                 <tr>
                     <td colspan="3" class="empty-state">
@@ -1311,6 +1321,7 @@
             }
 
             const entries = sortEntries(rawData);
+            document.getElementById('torrentCount').textContent = `(${entries.length})`;
             const validNames = new Set(entries.map(([n]) => n));
             selectedNames.forEach(name => {
                 if (!validNames.has(name)) {
@@ -1382,6 +1393,14 @@
     // ── Delete ─────────────────────────────────────────────────
     document.getElementById('deleteBtn').addEventListener('click', async () => {
         if (selectedNames.size === 0) return;
+        const totalRows = document.querySelectorAll('#torrentBody tr[data-name]').length;
+        const deletingAll = selectedNames.size === totalRows;
+        const confirmed = confirm(
+            deletingAll
+                ? `Delete ALL ${selectedNames.size} torrents?\n\nThis action cannot be undone.`
+                : `Delete ${selectedNames.size} selected torrent(s)?`
+        );
+        if (!confirmed) { return; }
         const btn = document.getElementById('deleteBtn');
         btn.disabled = true;
         btn.textContent = 'Deleting…';
