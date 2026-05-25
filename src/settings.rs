@@ -151,8 +151,8 @@ impl Config {
         qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
 
         if !qbit_url.contains("0.0.0.0")
-            || !qbit_url.contains("localhost")
-            || !qbit_url.contains("127.0.0.1")
+            && !qbit_url.contains("localhost")
+            && !qbit_url.contains("127.0.0.1")
         {
             warning!(
                 "qbit_url appears to be a remote location. This will invalidate the rsync callback."
