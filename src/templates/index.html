@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>RuTorrent WebUI</title>
-    <meta property="og:type" content="FileBrowser">
+    <meta content="RuTorrent WebUI" property="og:type">
     <meta content="WebUI for RuTorrent API" name="description">
-    <meta name="keywords" content="Rust, HTML, CSS, JavaScript, RuTorrent">
-    <meta name="author" content="Vignesh Rao">
+    <meta content="Rust, HTML, CSS, JavaScript, RuTorrent" name="keywords">
+    <meta content="Vignesh Rao" name="author">
     <meta content="width=device-width, initial-scale=1" name="viewport">
-    <link name="favicon" property="og:image" rel="icon" href="https://thevickypedia.github.io/open-source/images/logo/rust.ico">
-    <link name="apple-touch-icon" property="og:image" rel="apple-touch-icon" href="https://thevickypedia.github.io/open-source/images/logo/rust.png">
-    <meta http-equiv="content-type" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="refresh" content="no-cache">
+    <link href="https://thevickypedia.github.io/open-source/images/logo/rust.ico" name="favicon" property="og:image"
+          rel="icon">
+    <link href="https://thevickypedia.github.io/open-source/images/logo/rust.png" name="apple-touch-icon" property="og:image"
+          rel="apple-touch-icon">
+    <meta content="no-cache, no-store, must-revalidate" http-equiv="content-type">
+    <meta content="no-cache" http-equiv="refresh">
     <link href="https://fonts.googleapis.com" rel="preconnect">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@700;800&display=swap"
           rel="stylesheet">
@@ -300,6 +302,40 @@
             position: relative;
             transition: all 0.15s;
             border-radius: 3px;
+        }
+
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .sortable:hover {
+            color: var(--text);
+        }
+
+        .sortable.active {
+            color: var(--accent);
+        }
+
+        .sort-indicator {
+            display: inline-block;
+            width: 10px;
+            margin-left: 0.35rem;
+            opacity: 0.5;
+        }
+
+        .sortable.active .sort-indicator {
+            opacity: 1;
+        }
+
+        .sortable.asc .sort-indicator::before {
+            content: '↑';
+        }
+
+        .sortable.desc .sort-indicator::before {
+            content: '↓';
         }
 
         input[type="checkbox"].torrent-check:checked {
@@ -881,8 +917,14 @@
                 <th style="width:44px;">
                     <input id="selectAll" type="checkbox">
                 </th>
-                <th id="sortName" style="cursor:pointer;">Name ↕</th>
-                <th id="sortStatus" style="cursor:pointer;">Status ↕</th>
+                <th class="sortable" id="sortName">
+                    Name
+                    <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" id="sortStatus">
+                    Status
+                    <span class="sort-indicator"></span>
+                </th>
             </tr>
             </thead>
             <tbody id="torrentBody">
@@ -1074,6 +1116,7 @@
 
     function startDashboard() {
         fetchVersion();
+        updateSortUI();
         fetchTorrents();
         if (pollTimer) {
             clearInterval(pollTimer);
@@ -1144,23 +1187,57 @@
     }
 
     function getPercent(str) {
-        return parseInt(str.match(/\d+/)?.[0] || '0', 10);
+        return parseInt(
+            str.match(/\d+/)?.[0] || '0',
+            10
+        );
     }
 
     function sortEntries(entries) {
-        return entries.sort((a, b) => {
+        return [...entries].sort((a, b) => {
             let result = 0;
 
             if (sortKey === 'name') {
-                result = a[0].localeCompare(b[0]);
+                result = a[0].localeCompare(
+                    b[0],
+                    undefined,
+                    {
+                        numeric: true,
+                        sensitivity: 'base'
+                    }
+                );
             } else if (sortKey === 'status') {
-                result = getPercent(a[1]) - getPercent(b[1]);
+                result =
+                    getPercent(a[1]) -
+                    getPercent(b[1]);
             }
 
             return sortDirection === 'asc'
                 ? result
                 : -result;
         });
+    }
+
+    function updateSortUI() {
+        document
+            .querySelectorAll('.sortable')
+            .forEach(el => {
+                el.classList.remove(
+                    'active',
+                    'asc',
+                    'desc'
+                );
+            });
+
+        const active =
+            sortKey === 'name'
+                ? document.getElementById('sortName')
+                : document.getElementById('sortStatus');
+
+        active.classList.add(
+            'active',
+            sortDirection
+        );
     }
 
     function setSort(key) {
@@ -1174,17 +1251,31 @@
             sortDirection = 'asc';
         }
 
-        sessionStorage.setItem('sortKey', sortKey);
-        sessionStorage.setItem('sortDirection', sortDirection);
+        sessionStorage.setItem(
+            'sortKey',
+            sortKey
+        );
 
+        sessionStorage.setItem(
+            'sortDirection',
+            sortDirection
+        );
+
+        updateSortUI();
         fetchTorrents();
     }
 
-    document.getElementById('sortName')
-        .addEventListener('click', () => setSort('name'));
+    document
+        .getElementById('sortName')
+        .addEventListener('click', () => {
+            setSort('name');
+        });
 
-    document.getElementById('sortStatus')
-        .addEventListener('click', () => setSort('status'));
+    document
+        .getElementById('sortStatus')
+        .addEventListener('click', () => {
+            setSort('status');
+        });
 
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
