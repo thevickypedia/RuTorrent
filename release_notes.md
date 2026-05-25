@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+v0.3.1 (05/25/2026)
+-------------------
+- [8f62cc9](https://github.com/thevickypedia/RuTorrent/commit/8f62cc96f19790bc2d7fa9821dcd08fc8fb723ed) chore: Release ``v0.3.1``
+- [66e437f](https://github.com/thevickypedia/RuTorrent/commit/66e437fb4573b48f98da09e1e1197373504c4475) docs: Update README.md
+- [6f9cee0](https://github.com/thevickypedia/RuTorrent/commit/6f9cee015559ea591d1e81f83eb5196f47479fe3) perf: Pause polling ``GET /torrent`` when any modal is opened
+- [82a1ce7](https://github.com/thevickypedia/RuTorrent/commit/82a1ce728eddd28539105c4258fe93fb8bbafc9a) refactor: Update code comments and remove TODOs
+- [dbc4ab8](https://github.com/thevickypedia/RuTorrent/commit/dbc4ab86d7618d5efa7607385d85e04c66cd17cd) feat: Include a specific status to distinguish download-only vs download+rsync and enable ``POST /retry`` for any finished status in the WebUI
+- [47eaf48](https://github.com/thevickypedia/RuTorrent/commit/47eaf48e9662d5605843897c2ac5493c1e9508fa) feat: Include an option to start transfer for downloaded torrents, set timeouts for WebUI requests, and add toast messages for failures
+- [57f255d](https://github.com/thevickypedia/RuTorrent/commit/57f255dd0d92d059b7e4eb2f2eb606e8fcd8d5a4) chore: Update release notes for v0.3.0
+
 v0.3.0 (05/25/2026)
 -------------------
 - [f433aef](https://github.com/thevickypedia/RuTorrent/commit/f433aef783536b68d99c4f6552692844d3c1c177) chore: Release ``v0.3.0``
