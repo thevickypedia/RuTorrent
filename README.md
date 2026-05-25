@@ -51,6 +51,7 @@ async fn main() -> std::io::Result<()> {
 - **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent` [OR] `POST /retry`
 - **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent` [OR] `POST /retry`
 - **RSYNC_TIMEOUT**: Default `ConnectTimeout` ssh in rsync. Can be overridden in `PUT /torrent` [OR] `POST /retry`
+- **DELETE_AFTER_COPY**: Boolean flag to be a leecher. Can be overridden in `PUT /torrent` [OR] `POST /retry`
 
 > [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:
