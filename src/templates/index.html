@@ -400,6 +400,12 @@
             background: rgba(255, 79, 79, 0.07);
         }
 
+        .retry-icon {
+            font-size: 12px;
+            line-height: 12px;
+            display: inline-block;
+        }
+
         .retry-btn {
             display: inline-flex;
             align-items: center;
@@ -1065,6 +1071,45 @@
     </div>
 </div>
 
+<!-- Retry Modal -->
+<div class="modal-backdrop" id="retryModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Retry Transfer</div>
+            <button class="modal-close" id="closeRetryModal">&#x2715;</button>
+        </div>
+        <div class="form-grid">
+            <div class="field full">
+                <label for="r-name">Torrent</label>
+                <input type="text" id="r-name" readonly
+                       style="opacity:0.5; cursor:default; border-color:var(--border);">
+            </div>
+            <div class="field">
+                <label for="r-host">Remote Host</label>
+                <input type="text" id="r-host" placeholder="192.168.1.100">
+            </div>
+            <div class="field">
+                <label for="r-user">Remote Username</label>
+                <input type="text" id="r-user" placeholder="admin">
+            </div>
+            <div class="field full">
+                <label for="r-path">Remote Path</label>
+                <input type="text" id="r-path" placeholder="/home/admin/Movies">
+            </div>
+            <div class="field full">
+                <div class="toggle-field">
+                    <input type="checkbox" class="toggle" id="r-delete">
+                    <label class="toggle-label" for="r-delete">Delete local files after transfer</label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelRetryModal">Cancel</button>
+            <button class="btn btn-primary" id="submitRetry">Retry &#x2192;</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast-area" id="toastArea"></div>
 
 <script>
@@ -1587,27 +1632,62 @@
         if (s === 'copyerror') return `
             <span class="badge badge-copy-error">Copy Error</span>
             <button class="retry-btn" title="Retry rsync" onclick="doRetry(this, event)">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10.5 2A5 5 0 1 0 11 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M8.5 2H10.5V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <span class="retry-icon">↻</span>
             </button>`;
         return `<span class="badge">${esc(status)}</span>`;
     }
 
-    async function doRetry(btn, event) {
+    // ── Retry Modal ───────────────────────────────────────────
+    let _retryBtn = null;
+
+    function doRetry(btn, event) {
         event.stopPropagation();
         const name = btn.closest('tr').dataset.name;
-        btn.classList.add('spinning');
+        _retryBtn = btn;
+        document.getElementById('r-name').value = name;
+        document.getElementById('r-host').value = '';
+        document.getElementById('r-user').value = '';
+        document.getElementById('r-path').value = '';
+        document.getElementById('r-delete').checked = false;
+        document.getElementById('retryModal').classList.add('open');
+    }
+
+    function closeRetry() {
+        document.getElementById('retryModal').classList.remove('open');
+        _retryBtn = null;
+    }
+
+    document.getElementById('closeRetryModal').addEventListener('click', closeRetry);
+    document.getElementById('cancelRetryModal').addEventListener('click', closeRetry);
+    document.getElementById('retryModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('retryModal')) closeRetry();
+    });
+
+    document.getElementById('submitRetry').addEventListener('click', async () => {
+        const name = document.getElementById('r-name').value;
+        const btn  = document.getElementById('submitRetry');
         btn.disabled = true;
+        btn.textContent = 'Retrying…';
+        if (_retryBtn) { _retryBtn.classList.add('spinning'); _retryBtn.disabled = true; }
+
+        const payload = {
+            name,
+            remote_host:       document.getElementById('r-host').value.trim(),
+            remote_username:   document.getElementById('r-user').value.trim(),
+            remote_path:       document.getElementById('r-path').value.trim(),
+            delete_after_copy: document.getElementById('r-delete').checked,
+        };
+
         try {
-            const resp = await fetch(`/retry?name=${encodeURIComponent(name)}`, {
+            const resp = await fetch('/retry', {
                 method: 'POST',
                 headers: authHeaders(),
+                body: JSON.stringify(payload),
             });
             if (resp.status === 401) { handleUnauth(); return; }
             if (resp.ok) {
                 toast(`Retry queued: ${name}`, 'success');
+                closeRetry();
                 await fetchTorrents();
             } else {
                 toast(`Retry failed: ${await resp.text()}`, 'error');
@@ -1615,10 +1695,11 @@
         } catch {
             toast('Network error', 'error');
         } finally {
-            btn.classList.remove('spinning');
             btn.disabled = false;
+            btn.textContent = 'Retry →';
+            if (_retryBtn) { _retryBtn.classList.remove('spinning'); _retryBtn.disabled = false; }
         }
-    }
+    });
 
     function esc(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
