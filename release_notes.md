@@ -1,6 +1,29 @@
 Release Notes
 =============
 
+v0.3.0 (05/25/2026)
+-------------------
+- [f433aef](https://github.com/thevickypedia/RuTorrent/commit/f433aef783536b68d99c4f6552692844d3c1c177) chore: Release ``v0.3.0``
+- [9ca2123](https://github.com/thevickypedia/RuTorrent/commit/9ca2123990628142369f7ab6e0f430f72122a266) chore: Update requirements
+- [f282c66](https://github.com/thevickypedia/RuTorrent/commit/f282c66ff6850348563f0e253aafeb62a1a2d6f1) docs: Update docstrings
+- [eea445c](https://github.com/thevickypedia/RuTorrent/commit/eea445c851d5306c814904a77d9ae55f52d2aed7) feat: Add a new feature to set ``rsync_timeout`` for SSH
+- [d15f085](https://github.com/thevickypedia/RuTorrent/commit/d15f0859f21357133c1d8ab379d8f3f42f81b8d5) lint: Refactor codebase
+- [77e2da1](https://github.com/thevickypedia/RuTorrent/commit/77e2da188add0093f159b7441c22b50b5ae870a4) feat: Display a retry modal in the WebUI with custom data to override
+- [15dca82](https://github.com/thevickypedia/RuTorrent/commit/15dca82517e274e057047f37d670d04ceba71d89) perf: Set connection timeout for rsync
+- [3e4c952](https://github.com/thevickypedia/RuTorrent/commit/3e4c95260240d9949e3245dfa71fc6d8330925a6) fix: Fix the condition to display QBitAPI localhost warning
+- [394b76c](https://github.com/thevickypedia/RuTorrent/commit/394b76c36512d7ed7baa0bb968f7f56fab49ec1b) feat: Allow a payload for ``POST /retry`` endpoint override rsync parameters
+- [bb47d9a](https://github.com/thevickypedia/RuTorrent/commit/bb47d9a112e5c7086fc379aa5b1a18a88a450288) feat: Include an option to retry via the WebUI
+- [d5ea3b8](https://github.com/thevickypedia/RuTorrent/commit/d5ea3b865cf824650c8531c0d0ae0aef4ccb43c2) feat: Add a new feature to retry failed rsync
+- [aa4a96e](https://github.com/thevickypedia/RuTorrent/commit/aa4a96e251ca5faa221b16ce4f4b48698057512c) fix: Display missing sort option for mobile phones
+- [4f180b0](https://github.com/thevickypedia/RuTorrent/commit/4f180b0b4824752d7b8355a8294d1a61bd99af5c) feat: Prompt a confirmation dialog before performing ``/DELETE torrent`` in the WebUI
+- [064080d](https://github.com/thevickypedia/RuTorrent/commit/064080d67137c7d05c15de5c8896ba2507ca4f8f) style: Upgrade the sorting view in the WebUI
+- [bd65fc3](https://github.com/thevickypedia/RuTorrent/commit/bd65fc391ef50eb7321fdd4b9178af0f624bf938) style: Create sortable entries in the UI
+- [b4ccb5d](https://github.com/thevickypedia/RuTorrent/commit/b4ccb5da6a295bbe987a756a1b3b70ab6f72030a) refactor: Store session expiry in client side storage to avoid lossing it during hard-refresh
+- [c4eef47](https://github.com/thevickypedia/RuTorrent/commit/c4eef4734a96dc1167a3ab690ccd21a15467abfd) style: Update HTML headers for the WebUI
+- [6245a6f](https://github.com/thevickypedia/RuTorrent/commit/6245a6f924749587f95451d09279518c36603d15) feat: Create a client side session manager
+- [543ed03](https://github.com/thevickypedia/RuTorrent/commit/543ed037c8c44b592305442d31f5a043ce3444b8) refactor: Replace manual copy of index template with run-time download from GitHub for standalone UI
+- [e3558d9](https://github.com/thevickypedia/RuTorrent/commit/e3558d98b0315bc513eb4c95e4bb60a4d55282d8) chore: Update release notes for v0.2.0
+
 v0.2.0 (05/24/2026)
 -------------------
 - [72b94c6](https://github.com/thevickypedia/RuTorrent/commit/72b94c6af67797887a073fb429dd44079eb13a79) chore: Release ``v0.2.0``
