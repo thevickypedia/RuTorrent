@@ -258,7 +258,7 @@ pub struct RsyncTrack {
 
 /// ### PutItem
 /// Represents an incoming request to add a new torrent with optional rsync target details.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize, Debug)]
 pub struct PutItem {
     pub url: String,
 
@@ -269,6 +269,21 @@ pub struct PutItem {
     #[serde(default = "default_save_path")]
     pub save_path: String,
 
+    #[serde(default = "default_host")]
+    pub remote_host: String,
+    #[serde(default = "default_username")]
+    pub remote_username: String,
+    #[serde(default = "default_path")]
+    pub remote_path: String,
+    #[serde(default = "default_delete_after_copy")]
+    pub delete_after_copy: bool,
+}
+
+/// ### RetryOptions
+/// Represents an incoming request to retry a failed copy.
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize, Debug)]
+pub struct RetryOptions {
+    pub name: String,
     #[serde(default = "default_host")]
     pub remote_host: String,
     #[serde(default = "default_username")]
