@@ -125,6 +125,7 @@ pub async fn get_torrents(
                 settings::Status::Copying => "Copying".to_string(),
                 settings::Status::Completed => "Completed".to_string(),
                 settings::Status::Failed => "Failed".to_string(),
+                settings::Status::CopyError  => "CopyError".to_string(),
                 settings::Status::Downloading(_) => {
                     format!("Downloading: {:.0}%", progress * 100.0)
                 }
@@ -488,4 +489,88 @@ pub async fn delete_torrent(
 
     log::info!("Successfully deleted {}", identifier);
     HttpResponse::Ok().json("Deleted")
+}
+
+/// API endpoint to retry a failed rsync transfer.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `state` - Reference to the `SharedState` object.
+/// * `config` - Reference to the `Config` object.
+/// * `query` - Query parameters: `name` (required).
+///
+/// #### Sample Request
+/// ```shell
+/// curl -X POST "http://localhost:3000/retry?name=Foo+Bar+1080p"
+/// ```
+///
+/// #### Status
+/// * `200`: Retry queued.
+/// * `400`: Torrent is not in `CopyError` state.
+/// * `404`: Torrent not found in state.
+///
+/// # Returns
+///
+/// Returns a JSON string indicating the result.
+#[utoipa::path(
+    post,
+    path = "/retry",
+    params(
+        ("name" = String, Query, description = "Torrent name")
+    ),
+    responses(
+        (status = 200, description = "Retry queued", body = String),
+        (status = 400, description = "Not in CopyError state", body = String),
+        (status = 404, description = "Not found", body = String),
+    )
+)]
+pub async fn retry_torrent(
+    request: HttpRequest,
+    state: web::Data<settings::SharedState>,
+    config: web::Data<settings::Config>,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+
+    let name = match query.get("name") {
+        Some(i) => i,
+        None => return HttpResponse::BadRequest().body("Missing name"),
+    };
+
+    // Find the hash for the given name in state
+    // TODO: Allow to override certain/all of put item
+    let (hash, put_item) = {
+        let db = state.read().await;
+        let found = db.iter().find(|(_, entry)| entry.name == *name);
+        match found {
+            None => return HttpResponse::NotFound().body("Torrent not found in state"),
+            Some((hash, entry)) => {
+                match entry.status {
+                    settings::Status::CopyError => (hash.clone(), entry.put_item.clone()),
+                    _ => return HttpResponse::BadRequest().body("Torrent is not in CopyError state"),
+                }
+            }
+        }
+    };
+
+    // Transition back to Copying and re-spawn rsync
+    {
+        let mut db = state.write().await;
+        if let Some(entry) = db.get_mut(&hash) {
+            entry.status = settings::Status::Copying;
+        }
+    }
+
+    let state_clone = state.as_ref().clone();
+    let hash_clone  = hash.clone();
+    let name_clone  = name.clone();
+    tokio::spawn(async move {
+        crate::rsync::run(state_clone, hash_clone, name_clone, put_item).await;
+    });
+
+    log::info!("Retry queued for: {}", name);
+    HttpResponse::Ok().json("Retry queued")
 }

@@ -95,6 +95,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/torrent", web::get().to(api::get_torrents))
             .route("/torrent", web::put().to(api::put_torrent))
             .route("/torrent", web::delete().to(api::delete_torrent))
+            .route("/retry",   web::post().to(api::retry_torrent))
             .route("/swagger", web::get().to(swagger::redirector))
             .route("/ui", web::get().to(swagger::redirector))
             .route("/authenticator", web::post().to(ui::authenticator))

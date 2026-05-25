@@ -80,7 +80,7 @@ impl Ansi {
 #[macro_export]
 macro_rules! warning {
     ($($arg:tt)*) => {{
-        use crate::display::Ansi;
+        use $crate::display::Ansi;
 
         eprintln!();
         let head = "=".repeat(81);
@@ -149,7 +149,7 @@ macro_rules! warning {
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {{
-        use crate::display::Ansi;
+        use $crate::display::Ansi;
 
         eprintln!();
         let head = "=".repeat(81);

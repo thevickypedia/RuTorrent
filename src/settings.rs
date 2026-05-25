@@ -244,6 +244,7 @@ pub enum Status {
     Copying,
     Completed,
     Failed,
+    CopyError,
 }
 
 /// ### RsyncTrack

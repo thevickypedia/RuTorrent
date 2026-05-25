@@ -45,7 +45,7 @@ pub async fn run(
             log::error!("Failed to start rsync for {}: {}", name, e);
             let mut db = state.write().await;
             if let Some(entry) = db.get_mut(&hash) {
-                entry.status = settings::Status::Failed;
+                entry.status = settings::Status::CopyError;
             }
             return;
         }
@@ -63,7 +63,7 @@ pub async fn run(
             log::error!("Failed waiting for rsync process for {}: {}", name, e);
             let mut db = state.write().await;
             if let Some(entry) = db.get_mut(&hash) {
-                entry.status = settings::Status::Failed;
+                entry.status = settings::Status::CopyError;
             }
             return;
         }
@@ -90,7 +90,7 @@ pub async fn run(
         e.status = if status.success() {
             settings::Status::Completed
         } else {
-            settings::Status::Failed
+            settings::Status::CopyError
         };
     }
 }

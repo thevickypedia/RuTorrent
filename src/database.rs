@@ -230,6 +230,7 @@ fn encode_status(status: &Status) -> (&'static str, f64) {
         Status::Copying => ("Copying", 0.0),
         Status::Completed => ("Completed", 1.0),
         Status::Failed => ("Failed", 0.0),
+        Status::CopyError => ("CopyError", 0.0),
     }
 }
 
@@ -248,6 +249,7 @@ fn decode_status(status: &str, progress: f64) -> Status {
         "Copying" => Status::Copying,
         "Completed" => Status::Completed,
         "Failed" => Status::Failed,
+        "CopyError" => Status::CopyError,
         _ => Status::Downloading(progress),
     }
 }

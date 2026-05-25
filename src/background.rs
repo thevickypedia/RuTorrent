@@ -204,7 +204,7 @@ pub fn spawn_worker(
                 };
 
                 match entry.status {
-                    settings::Status::Copying => continue,
+                    settings::Status::Copying | settings::Status::CopyError => continue,
 
                     settings::Status::Failed => {
                         let config_cloned = config.clone();
