@@ -499,11 +499,33 @@ pub async fn delete_torrent(
 /// * `request` - Reference to the `HttpRequest` object.
 /// * `state` - Reference to the `SharedState` object.
 /// * `config` - Reference to the `Config` object.
-/// * `query` - Query parameters: `name` (required).
+/// * `body` - Request body that takes `RetryOptions` object.
 ///
 /// #### Sample Request
 /// ```shell
-/// curl -X POST "http://localhost:3000/retry?name=Foo+Bar+1080p"
+/// curl -X POST localhost:3000/retry \
+///   -H "Content-Type: application/json" \
+///   -d '[
+///     # Retry transfer to ssh://admin@192.168.1.102:/Users/admin/Sintel and delete after transfer
+///     {
+///       "name": "Sintel"
+///       "remote_host": "192.168.1.102",
+///       "remote_username": "admin",
+///       "remote_path": "/Users/admin/Sintel",
+///       "delete_after_copy": true
+///     },
+///     # Retry transfer to ssh://admin@192.168.1.100:/home/admin/Big_Buck retaining local content
+///     {
+///       "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
+///       "remote_host": "192.168.1.100",
+///       "remote_username": "admin",
+///       "remote_path": "/home/admin/Big_Buck"
+///     },
+///     # Retry without any overridden values
+///     {
+///       "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
+///     }
+///   ]'
 /// ```
 ///
 /// #### Status
