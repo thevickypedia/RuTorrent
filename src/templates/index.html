@@ -881,8 +881,8 @@
                 <th style="width:44px;">
                     <input id="selectAll" type="checkbox">
                 </th>
-                <th>Name</th>
-                <th>Status</th>
+                <th id="sortName" style="cursor:pointer;">Name ↕</th>
+                <th id="sortStatus" style="cursor:pointer;">Status ↕</th>
             </tr>
             </thead>
             <tbody id="torrentBody">
@@ -962,6 +962,8 @@
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
     let sessionCountdown = null;
     let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
+    let sortKey = sessionStorage.getItem('sortKey') || 'status';
+    let sortDirection = sessionStorage.getItem('sortDirection') || 'asc';
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -1141,6 +1143,49 @@
         }
     }
 
+    function getPercent(str) {
+        return parseInt(str.match(/\d+/)?.[0] || '0', 10);
+    }
+
+    function sortEntries(entries) {
+        return entries.sort((a, b) => {
+            let result = 0;
+
+            if (sortKey === 'name') {
+                result = a[0].localeCompare(b[0]);
+            } else if (sortKey === 'status') {
+                result = getPercent(a[1]) - getPercent(b[1]);
+            }
+
+            return sortDirection === 'asc'
+                ? result
+                : -result;
+        });
+    }
+
+    function setSort(key) {
+        if (sortKey === key) {
+            sortDirection =
+                sortDirection === 'asc'
+                    ? 'desc'
+                    : 'asc';
+        } else {
+            sortKey = key;
+            sortDirection = 'asc';
+        }
+
+        sessionStorage.setItem('sortKey', sortKey);
+        sessionStorage.setItem('sortDirection', sortDirection);
+
+        fetchTorrents();
+    }
+
+    document.getElementById('sortName')
+        .addEventListener('click', () => setSort('name'));
+
+    document.getElementById('sortStatus')
+        .addEventListener('click', () => setSort('status'));
+
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
         try {
@@ -1157,10 +1202,10 @@
                 'Updated ' + new Date().toLocaleTimeString();
 
             const data = await resp.json();
-            const entries = Object.entries(data);
+            const rawData = Object.entries(data);
             const body = document.getElementById('torrentBody');
 
-            if (entries.length === 0) {
+            if (rawData.length === 0) {
                 body.innerHTML = `
                 <tr>
                     <td colspan="3" class="empty-state">
@@ -1174,6 +1219,7 @@
                 return;
             }
 
+            const entries = sortEntries(rawData);
             const validNames = new Set(entries.map(([n]) => n));
             selectedNames.forEach(name => {
                 if (!validNames.has(name)) {
