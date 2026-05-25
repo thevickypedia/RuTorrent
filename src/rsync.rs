@@ -34,6 +34,7 @@ pub async fn run(
     log::info!("{} -> {}", &put_item.save_path, &remote);
 
     let child_result = Command::new("rsync")
+        .env("RSYNC_RSH", "ssh -o ConnectTimeout=5")
         .args(["-az", &put_item.save_path, &remote])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -81,7 +82,7 @@ pub async fn run(
             "rsync failed for {} with status {}. stderr: {}",
             name,
             status,
-            err_output
+            err_output.strip_suffix("\n").unwrap(),
         );
     }
 

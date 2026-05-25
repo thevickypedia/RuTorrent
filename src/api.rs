@@ -565,7 +565,6 @@ pub async fn retry_torrent(
     let state_clone = state.as_ref().clone();
     let hash_clone  = hash.clone();
     let name_clone  = body.name.clone();
-    log::info!("Before: {:?}", put_item);
     if !body.remote_host.is_empty() {
         put_item.remote_host = body.remote_host.clone();
     }
@@ -576,7 +575,6 @@ pub async fn retry_torrent(
         put_item.remote_path = body.remote_path.clone();
     }
     put_item.delete_after_copy = body.delete_after_copy.clone();
-    log::info!("After: {:?}", put_item);
     tokio::spawn(async move {
         crate::rsync::run(state_clone, hash_clone, name_clone, put_item).await;
     });
