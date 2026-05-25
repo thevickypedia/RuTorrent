@@ -394,6 +394,12 @@
             background: rgba(255, 79, 79, 0.07);
         }
 
+        .badge-downloaded {
+            color: #c084fc;
+            border-color: rgba(192, 132, 252, 0.3);
+            background: rgba(192, 132, 252, 0.07);
+        }
+
         .badge-copy-error {
             color: var(--error);
             border-color: rgba(255, 79, 79, 0.3);
@@ -1079,7 +1085,7 @@
 <div class="modal-backdrop" id="retryModal">
     <div class="modal">
         <div class="modal-header">
-            <div id="retry-modal-title" class="modal-title"></div>
+            <div class="modal-title" id="retry-modal-title"></div>
             <button class="modal-close" id="closeRetryModal">&#x2715;</button>
         </div>
         <div class="form-grid">
@@ -1102,7 +1108,7 @@
             </div>
             <div class="field full">
                 <label for="r-timeout">Rsync Timeout</label>
-                <input id="r-timeout" placeholder="3" type="number" max="30" min="1">
+                <input id="r-timeout" max="30" min="1" placeholder="3" type="number">
             </div>
             <div class="field full">
                 <div class="toggle-field">
@@ -1325,6 +1331,17 @@
         );
     }
 
+    function statusWeight(status) {
+        const s = status.toLowerCase();
+        if (s === 'copyerror') return 0;
+        if (s === 'failed') return 1;
+        if (s.startsWith('downloading')) return 2 + getPercent(status) / 100;
+        if (s === 'copying') return 4;
+        if (s === 'downloaded') return 5;
+        if (s === 'completed') return 6;
+        return 3;
+    }
+
     function sortEntries(entries) {
         return [...entries].sort((a, b) => {
             let result = 0;
@@ -1339,9 +1356,7 @@
                     }
                 );
             } else if (sortKey === 'status') {
-                result =
-                    getPercent(a[1]) -
-                    getPercent(b[1]);
+                result = statusWeight(a[1]) - statusWeight(b[1]);
             }
 
             return sortDirection === 'asc'
@@ -1646,23 +1661,30 @@
     // ── Helpers ───────────────────────────────────────────────
     function badge(status) {
         const s = status.toLowerCase();
+        if (s.includes('→ copy queued'))
+            return `<span class="badge badge-downloading">${esc(status)}</span>`;
         if (s.startsWith('downloading')) {
-            const percent = getPercent(status);
-            if (percent >= 100) {
-                return `
-            <span class="badge badge-copying">Ready To Copy</span>
-            <button class="retry-btn"
-                    title="Start transfer"
-                    onclick="doRetry(this, event)">
-                <span class="retry-icon">⧉</span>
-            </button>
-        `;
-            }
             return `<span class="badge badge-downloading">${esc(status)}</span>`;
         }
-        if (s === 'copying') return `<span class="badge badge-copying">Copying</span>`;
-        if (s === 'completed') return `<span class="badge badge-completed">Completed</span>`;
-        if (s === 'failed') return `<span class="badge badge-failed">Failed</span>`;
+        if (s === 'copying')
+            return `<span class="badge badge-copying">Copying</span>`;
+        if (s === 'downloaded') return `
+            <span class="badge badge-downloaded">Downloaded</span>
+            <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
+                    style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+                <span class="retry-icon">⧉</span>
+            </button>`;
+        // TODO: The status completed may be redundant
+        if (s === 'completed')
+            return `<span class="badge badge-completed">Completed</span>`;
+        if (s === 'transferred') return `
+            <span class="badge badge-completed">Completed</span>
+            <button class="retry-btn" title="Restart Rsync" onclick="doRetry(this, event)"
+                    style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+                <span class="retry-icon">⧉</span>
+            </button>`;
+        if (s === 'failed')
+            return `<span class="badge badge-failed">Failed</span>`;
         if (s === 'copyerror') return `
             <span class="badge badge-copy-error">Copy Error</span>
             <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">

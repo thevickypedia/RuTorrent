@@ -239,10 +239,13 @@ impl Config {
 /// ### Status
 /// Represents the current status of a torrent or transfer.
 #[derive(Clone, Debug, serde::Serialize)]
+// TODO: The status completed may not be necessary since delete_after_copy will remove the entry from the DB
 pub enum Status {
     Downloading(f64),
+    DownloadComplete, // download-only, no rsync was ever configured
     Copying,
-    Completed,
+    Transferred, // rsync finished, delete_after_copy = false, files kept locally
+    Completed,   // rsync finished + files deleted (delete_after_copy = true)
     Failed,
     CopyError,
 }
@@ -315,7 +318,9 @@ fn default_path() -> String {
 
 /// Gets the default rsync timeout from `rsync_timeout` environment variable.
 fn default_timeout() -> u8 {
-    squire::get_env_var("rsync_timeout", None).parse::<u8>().unwrap_or(3)
+    squire::get_env_var("rsync_timeout", None)
+        .parse::<u8>()
+        .unwrap_or(3)
 }
 
 /// Gets the default save path from the `save_path` environment variable.

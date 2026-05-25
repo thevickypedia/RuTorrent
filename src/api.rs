@@ -123,13 +123,23 @@ pub async fn get_torrents(
         let status = match db.get(&hash) {
             Some(local) => match local.status {
                 settings::Status::Copying => "Copying".to_string(),
+                settings::Status::Transferred => "Transferred".to_string(),
                 settings::Status::Completed => "Completed".to_string(),
+                settings::Status::DownloadComplete => "Downloaded".to_string(),
                 settings::Status::Failed => "Failed".to_string(),
                 settings::Status::CopyError => "CopyError".to_string(),
                 settings::Status::Downloading(_) => {
-                    format!("Downloading: {:.0}%", progress * 100.0)
+                    let has_rsync = !local.put_item.remote_host.is_empty()
+                        && !local.put_item.remote_username.is_empty()
+                        && !local.put_item.remote_path.is_empty();
+                    if has_rsync {
+                        format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
+                    } else {
+                        format!("Downloading: {:.0}%", progress * 100.0)
+                    }
                 }
             },
+            // Not in state — download-only torrent still in qBit, not tracked
             None => format!("Downloading: {:.0}%", progress * 100.0),
         };
 
@@ -354,20 +364,20 @@ pub async fn put_torrent(
         }
 
         // Only keep rsync info if ALL fields are present
-        if !item.remote_host.is_empty()
+        let has_rsync = !item.remote_host.is_empty()
             && !item.remote_username.is_empty()
-            && !item.remote_path.is_empty()
-        {
+            && !item.remote_path.is_empty();
+        if has_rsync {
             log::info!("Rsync location: {}:{}", item.remote_host, item.remote_path);
-            pending_lock.insert(tag.clone(), item.clone());
-            if let Ok(conn) = db_connection.lock() {
-                log::debug!("Updated database for rsync");
-                database::upsert_pending(&conn, &tag, &item);
-            } else {
-                log::error!("Failed to update database for rsync");
-            }
         } else {
-            log::warn!("No rsync location set");
+            log::info!("No rsync location set, download-only");
+        }
+        pending_lock.insert(tag.clone(), item.clone());
+        if let Ok(conn) = db_connection.lock() {
+            log::debug!("Updated database for pending");
+            database::upsert_pending(&conn, &tag, &item);
+        } else {
+            log::error!("Failed to update database for pending");
         }
         response.push(HashMap::from([(
             name,
@@ -569,8 +579,10 @@ pub async fn retry_torrent(
         match found {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
             Some((hash, entry)) => match entry.status {
-                settings::Status::CopyError => (hash.clone(), entry.put_item.clone()),
-                _ => return HttpResponse::BadRequest().body("Torrent is not in CopyError state"),
+                settings::Status::CopyError
+                | settings::Status::DownloadComplete
+                | settings::Status::Transferred => (hash.clone(), entry.put_item.clone()),
+                _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
             },
         }
     };

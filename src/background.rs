@@ -204,7 +204,10 @@ pub fn spawn_worker(
                 };
 
                 match entry.status {
-                    settings::Status::Copying | settings::Status::CopyError => continue,
+                    settings::Status::Copying
+                    | settings::Status::CopyError
+                    | settings::Status::DownloadComplete
+                    | settings::Status::Transferred => continue,
 
                     settings::Status::Failed => {
                         let config_cloned = config.clone();
@@ -259,35 +262,71 @@ pub fn spawn_worker(
                                 }
                             }
                         }
-                        db.remove(&hash);
-                        if let Ok(conn) = db_connection.lock() {
-                            database::remove(&conn, &hash);
+                        if put_item_clone.delete_after_copy {
+                            db.remove(&hash);
+                            if let Ok(conn) = db_connection.lock() {
+                                database::remove(&conn, &hash);
+                            }
+                        } else {
+                            // rsync done, files kept locally
+                            if let Some(entry) = db.get_mut(&hash) {
+                                entry.status = settings::Status::Transferred;
+                            }
+                            if let Ok(conn) = db_connection.lock() {
+                                database::upsert(&conn, &hash, db.get(&hash).unwrap());
+                            }
                         }
                     }
 
                     settings::Status::Downloading(_) => {
                         let progress = t["progress"].as_f64().unwrap_or(0.0);
+                        let state_str = t["state"].as_str().unwrap_or("");
                         entry.status = settings::Status::Downloading(progress);
-                        if progress >= 1.0 {
-                            log::info!("Download complete → rsync: {}", entry.name);
-                            entry.status = settings::Status::Copying;
-                            let state_clone = state.clone();
-                            let hash_clone = hash.clone();
-                            let name_clone = entry.name.clone();
-                            let put_item_clone = entry.put_item.clone();
-                            // Kick off transfer in the background
-                            tokio::spawn(async move {
-                                rsync::run(state_clone, hash_clone, name_clone, put_item_clone)
-                                    .await;
-                            });
-                            // Kick off download complete notification in the background
-                            let config_cloned = config.clone();
-                            let name_clone = entry.name.clone();
-                            notifier(
-                                "RuTorrent: Download Complete".to_string(),
-                                format!("{} has been downloaded", name_clone),
-                                config_cloned,
-                            );
+                        let download_complete = matches!(
+                            state_str,
+                            "uploading"
+                                | "stalledUP"
+                                | "pausedUP"
+                                | "queuedUP"
+                                | "forcedUP"
+                                | "checkingUP"
+                        );
+                        if download_complete {
+                            let has_rsync = !entry.put_item.remote_host.is_empty()
+                                && !entry.put_item.remote_username.is_empty()
+                                && !entry.put_item.remote_path.is_empty();
+                            if has_rsync {
+                                log::info!("Download complete → rsync: {}", entry.name);
+                                entry.status = settings::Status::Copying;
+                                let state_clone = state.clone();
+                                let hash_clone = hash.clone();
+                                let name_clone = entry.name.clone();
+                                let put_item_clone = entry.put_item.clone();
+                                // Kick off transfer in the background
+                                tokio::spawn(async move {
+                                    rsync::run(state_clone, hash_clone, name_clone, put_item_clone)
+                                        .await;
+                                });
+                                // Kick off download complete notification in the background
+                                let config_cloned = config.clone();
+                                let name_clone = entry.name.clone();
+                                notifier(
+                                    "RuTorrent: Download Complete".to_string(),
+                                    format!("{} has been downloaded", name_clone),
+                                    config_cloned,
+                                );
+                            } else {
+                                log::info!("Download complete (no rsync): {}", entry.name);
+                                entry.status = settings::Status::DownloadComplete;
+                                if let Ok(conn) = db_connection.lock() {
+                                    database::upsert(&conn, &hash, entry);
+                                }
+                                notifier(
+                                    "RuTorrent: Download Complete".to_string(),
+                                    format!("{} has been downloaded", entry.name),
+                                    config.clone(),
+                                );
+                            }
                         }
                     }
                 }
