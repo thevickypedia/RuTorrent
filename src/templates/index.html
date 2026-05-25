@@ -1131,6 +1131,7 @@
     let apikey = sessionStorage.getItem('apikey') || '';
     let selectedNames = new Set();
     let pollTimer = null;
+    let pollPaused = false;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
     let sessionCountdown = null;
     let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
@@ -1210,6 +1211,44 @@
         return {'Content-Type': 'application/json', 'apikey': apikey};
     }
 
+    function stopPolling() {
+        pollPaused = true;
+
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling() {
+        if (pollPaused) {
+            pollPaused = false;
+        }
+
+        if (pollTimer) {
+            clearInterval(pollTimer);
+        }
+
+        pollTimer = setInterval(
+            fetchTorrents,
+            refreshInterval
+        );
+    }
+
+    function pausePollingForModal() {
+        stopPolling();
+    }
+
+    function resumePollingAfterModal() {
+        const anyModalOpen = document.querySelector(
+            '.modal-backdrop.open'
+        );
+
+        if (!anyModalOpen) {
+            startPolling();
+        }
+    }
+
     function startSessionTimer() {
         if (sessionCountdown) {
             clearInterval(sessionCountdown);
@@ -1251,13 +1290,7 @@
         fetchVersion();
         updateSortUI();
         fetchTorrents();
-        if (pollTimer) {
-            clearInterval(pollTimer);
-        }
-        pollTimer = setInterval(
-            fetchTorrents,
-            refreshInterval
-        );
+        startPolling();
         const dropdown = document.getElementById('refreshInterval');
         if (dropdown) {
             dropdown.value = String(refreshInterval);
@@ -1424,8 +1457,35 @@
             setSort('status');
         });
 
+    document
+        .getElementById('selectAll')
+        .addEventListener('change', e => {
+            const checked = e.target.checked;
+            document
+                .querySelectorAll('#torrentBody tr[data-name]')
+                .forEach(row => {
+                    const cb =
+                        row.querySelector('.torrent-check');
+                    const name =
+                        row.dataset.name;
+                    cb.checked = checked;
+                    if (checked) {
+                        selectedNames.add(name);
+                        row.classList.add('selected');
+                    } else {
+                        selectedNames.delete(name);
+                        row.classList.remove('selected');
+                    }
+                });
+            document.getElementById('deleteBtn').disabled =
+                selectedNames.size === 0;
+        });
+
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
+        if (document.querySelector('.modal-backdrop.open')) {
+            return;
+        }
         try {
             const resp = await fetch('/torrent', {
                 headers: authHeaders(),
@@ -1498,33 +1558,11 @@
                         selectedNames.delete(name);
                         row.classList.remove('selected');
                     }
-                    document.getElementById('deleteBtn').disabled =
-                        selectedNames.size === 0;
+                    document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
                 });
             });
-            const selectAll = document.getElementById('selectAll');
-            selectAll.checked =
-                entries.length > 0 &&
-                selectedNames.size === entries.length;
-            selectAll.onclick = () => {
-                const checked = selectAll.checked;
-                body.querySelectorAll('tr').forEach(row => {
-                    const cb = row.querySelector('input');
-                    const name = row.dataset.name;
-                    cb.checked = checked;
-                    if (checked) {
-                        selectedNames.add(name);
-                        row.classList.add('selected');
-                    } else {
-                        selectedNames.delete(name);
-                        row.classList.remove('selected');
-                    }
-                });
-                document.getElementById('deleteBtn').disabled =
-                    selectedNames.size === 0;
-            };
-            document.getElementById('deleteBtn').disabled =
-                selectedNames.size === 0;
+            document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
+            document.getElementById('selectAll').checked = entries.length > 0 && selectedNames.size === entries.length;
         } catch (err) {
             console.error(err);
             toast('Failed to fetch torrents', 'error');
@@ -1580,7 +1618,10 @@
     });
 
     // ── Add Torrent Modal ──────────────────────────────────────
-    document.getElementById('addBtn').addEventListener('click', () => document.getElementById('addModal').classList.add('open'));
+    document.getElementById('addBtn').addEventListener('click', () => {
+        pausePollingForModal();
+        document.getElementById('addModal').classList.add('open');
+    });
     document.getElementById('closeModal').addEventListener('click', closeAdd);
     document.getElementById('cancelModal').addEventListener('click', closeAdd);
     document.getElementById('addModal').addEventListener('click', e => {
@@ -1589,6 +1630,7 @@
 
     function closeAdd() {
         document.getElementById('addModal').classList.remove('open');
+        resumePollingAfterModal();
         ['f-url', 'f-save', 'f-host', 'f-user', 'f-path'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('f-delete').checked = false;
     }
@@ -1710,12 +1752,14 @@
         document.getElementById('r-timeout').value = '';
         document.getElementById('r-delete').checked = false;
         document.getElementById('retry-modal-title').innerHTML = btn.title;
+        pausePollingForModal();
         document.getElementById('retryModal').classList.add('open');
     }
 
     function closeRetry() {
         document.getElementById('retryModal').classList.remove('open');
         _retryBtn = null;
+        resumePollingAfterModal();
     }
 
     document.getElementById('closeRetryModal').addEventListener('click', closeRetry);
