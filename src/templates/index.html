@@ -1674,11 +1674,11 @@
                     style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
                 <span class="retry-icon">⧉</span>
             </button>`;
-        // TODO: The status completed may be redundant
         if (s === 'completed')
+            // MARK: Soon to be deleted status
             return `<span class="badge badge-completed">Completed</span>`;
         if (s === 'transferred') return `
-            <span class="badge badge-completed">Completed</span>
+            <span class="badge badge-completed">Transferred</span>
             <button class="retry-btn" title="Restart Rsync" onclick="doRetry(this, event)"
                     style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
                 <span class="retry-icon">⧉</span>

@@ -261,8 +261,6 @@ pub fn spawn_worker(
                                     );
                                 }
                             }
-                        }
-                        if put_item_clone.delete_after_copy {
                             db.remove(&hash);
                             if let Ok(conn) = db_connection.lock() {
                                 database::remove(&conn, &hash);

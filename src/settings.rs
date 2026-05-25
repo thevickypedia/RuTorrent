@@ -239,15 +239,14 @@ impl Config {
 /// ### Status
 /// Represents the current status of a torrent or transfer.
 #[derive(Clone, Debug, serde::Serialize)]
-// TODO: The status completed may not be necessary since delete_after_copy will remove the entry from the DB
 pub enum Status {
     Downloading(f64),
-    DownloadComplete, // download-only, no rsync was ever configured
-    Copying,
-    Transferred, // rsync finished, delete_after_copy = false, files kept locally
-    Completed,   // rsync finished + files deleted (delete_after_copy = true)
-    Failed,
-    CopyError,
+    DownloadComplete, // Torrent download-only completed
+    Copying,          // Rsync/copy operation currently running
+    Transferred,      // Rsync/copy completed successfully
+    CopyError,        // Rsync/copy failed
+    Failed,           // Generic terminal failure
+    Completed,        // Temporary until copied, then Transferred [OR] removed entirely
 }
 
 /// ### RsyncTrack
