@@ -258,7 +258,7 @@ pub struct RsyncTrack {
 
 /// ### PutItem
 /// Represents an incoming request to add a new torrent with optional rsync target details.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize, Debug)]
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PutItem {
     pub url: String,
 
@@ -275,13 +275,15 @@ pub struct PutItem {
     pub remote_username: String,
     #[serde(default = "default_path")]
     pub remote_path: String,
+    #[serde(default = "default_timeout")]
+    pub rsync_timeout: u8,
     #[serde(default = "default_delete_after_copy")]
     pub delete_after_copy: bool,
 }
 
 /// ### RetryOptions
 /// Represents an incoming request to retry a failed copy.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize, Debug)]
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RetryOptions {
     pub name: String,
     #[serde(default = "default_host")]
@@ -290,6 +292,8 @@ pub struct RetryOptions {
     pub remote_username: String,
     #[serde(default = "default_path")]
     pub remote_path: String,
+    #[serde(default = "default_timeout")]
+    pub rsync_timeout: u8,
     #[serde(default = "default_delete_after_copy")]
     pub delete_after_copy: bool,
 }
@@ -307,6 +311,11 @@ fn default_username() -> String {
 /// Gets the default remote path from the `remote_path` environment variable.
 fn default_path() -> String {
     squire::get_env_var("remote_path", None)
+}
+
+/// Gets the default rsync timeout from `rsync_timeout` environment variable.
+fn default_timeout() -> u8 {
+    squire::get_env_var("rsync_timeout", None).parse::<u8>().unwrap_or(3)
 }
 
 /// Gets the default save path from the `save_path` environment variable.

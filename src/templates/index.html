@@ -1101,6 +1101,10 @@
                 <input id="r-path" placeholder="/home/admin/Movies" type="text">
             </div>
             <div class="field full">
+                <label for="r-timeout">Rsync Timeout</label>
+                <input id="r-timeout" placeholder="3" type="number" max="30" min="1">
+            </div>
+            <div class="field full">
                 <div class="toggle-field">
                     <input class="toggle" id="r-delete" type="checkbox">
                     <label class="toggle-label" for="r-delete">Delete local files after transfer</label>
@@ -1654,6 +1658,7 @@
         document.getElementById('r-host').value = '';
         document.getElementById('r-user').value = '';
         document.getElementById('r-path').value = '';
+        document.getElementById('r-timeout').value = '';
         document.getElementById('r-delete').checked = false;
         document.getElementById('retryModal').classList.add('open');
     }
@@ -1679,12 +1684,19 @@
             _retryBtn.disabled = true;
         }
 
+        const rHost = document.getElementById('r-host');
+        const rUser = document.getElementById('r-user');
+        const rPath = document.getElementById('r-path');
+        const rTimeout = document.getElementById('r-timeout');
+        const rDelete = document.getElementById('r-delete');
+
         const payload = {
             name,
-            remote_host: document.getElementById('r-host').value.trim(),
-            remote_username: document.getElementById('r-user').value.trim(),
-            remote_path: document.getElementById('r-path').value.trim(),
-            delete_after_copy: document.getElementById('r-delete').checked,
+            remote_host: rHost ? rHost.value.trim() : '',
+            remote_username: rUser ? rUser.value.trim() : '',
+            remote_path: rPath ? rPath.value.trim() : '',
+            rsync_timeout: rTimeout ? parseInt(rTimeout.value.trim(), 10) || 0 : 0, // provide default
+            delete_after_copy: rDelete ? rDelete.checked : false, // provide default
         };
 
         try {

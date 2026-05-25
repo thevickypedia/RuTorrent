@@ -20,6 +20,7 @@ pub fn open() -> Connection {
             remote_host TEXT NOT NULL,
             remote_user TEXT NOT NULL,
             remote_path TEXT NOT NULL,
+            rsync_timeout INTEGER NOT NULL DEFAULT 3,
             delete_after_copy INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS pending (
@@ -29,6 +30,7 @@ pub fn open() -> Connection {
             remote_host TEXT NOT NULL,
             remote_user TEXT NOT NULL,
             remote_path TEXT NOT NULL,
+            rsync_timeout INTEGER NOT NULL DEFAULT 3,
             delete_after_copy INTEGER NOT NULL DEFAULT 0
         );",
     )
@@ -47,8 +49,8 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     match conn.execute(
         "INSERT OR REPLACE INTO state
-            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, delete_after_copy)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             hash,
             entry.name,
@@ -59,6 +61,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
             entry.put_item.remote_host,
             entry.put_item.remote_username,
             entry.put_item.remote_path,
+            entry.put_item.rsync_timeout,
             entry.put_item.delete_after_copy as i32,
         ],
     ) {
@@ -79,8 +82,8 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
 pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
     match conn.execute(
         "INSERT OR REPLACE INTO pending
-            (tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            (tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             tag,
             item.url,
@@ -88,6 +91,7 @@ pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
             item.remote_host,
             item.remote_username,
             item.remote_path,
+            item.rsync_timeout,
             item.delete_after_copy as i32,
         ],
     ) {
@@ -124,7 +128,7 @@ pub fn remove_pending(conn: &Connection, tag: &str) {
 /// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
 pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
     let mut stmt = conn
-        .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, delete_after_copy FROM pending")
+        .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy FROM pending")
         .expect("Failed to prepare load_pending query");
 
     stmt.query_map([], |row| {
@@ -138,7 +142,8 @@ pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
             remote_host: row.get(3)?,
             remote_username: row.get(4)?,
             remote_path: row.get(5)?,
-            delete_after_copy: row.get::<_, i32>(6)? != 0,
+            rsync_timeout: row.get(6)?,
+            delete_after_copy: row.get::<_, i32>(7)? != 0,
         };
         Ok((tag, item))
     })
@@ -173,7 +178,7 @@ pub fn remove(conn: &Connection, hash: &str) {
 /// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
 pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
     let mut stmt = conn
-        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, delete_after_copy FROM state")
+        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy FROM state")
         .expect("Failed to prepare load query");
 
     stmt.query_map([], |row| {
@@ -186,7 +191,8 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
         let remote_host: String = row.get(6)?;
         let remote_username: String = row.get(7)?;
         let remote_path: String = row.get(8)?;
-        let delete_after_copy: i32 = row.get(9)?;
+        let rsync_timeout: u8 = row.get(9)?;
+        let delete_after_copy: i32 = row.get(10)?;
 
         let status = decode_status(&status_str, progress);
         let put_item = PutItem {
@@ -198,6 +204,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
             remote_host,
             remote_username,
             remote_path,
+            rsync_timeout,
             delete_after_copy: delete_after_copy != 0,
         };
 

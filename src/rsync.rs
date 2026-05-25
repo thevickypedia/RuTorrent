@@ -34,7 +34,7 @@ pub async fn run(
     log::info!("{} -> {}", &put_item.save_path, &remote);
 
     let child_result = Command::new("rsync")
-        .env("RSYNC_RSH", "ssh -o ConnectTimeout=5")
+        .env("RSYNC_RSH", format!("ssh -o ConnectTimeout={}", put_item.rsync_timeout))
         .args(["-az", &put_item.save_path, &remote])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

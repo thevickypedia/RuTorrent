@@ -46,10 +46,11 @@ async fn main() -> std::io::Result<()> {
 - **TELEGRAM_BOT_TOKEN**: Telegram bot token.
 - **TELEGRAM_TIMEOUT**: Timeout for the Telegram request.
 
-- **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent`
-- **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent`
-- **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent`
 - **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
+- **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent` [OR] `POST /retry`
+- **REMOTE_USER**: Username for the remote host. Can be overridden in `PUT /torrent` [OR] `POST /retry`
+- **REMOTE_PATH**: Default path to copy in remote host. Can be overridden in `PUT /torrent` [OR] `POST /retry`
+- **RSYNC_TIMEOUT**: Default `ConnectTimeout` ssh in rsync. Can be overridden in `PUT /torrent` [OR] `POST /retry`
 
 > [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:

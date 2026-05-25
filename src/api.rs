@@ -227,6 +227,7 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
             remote_host: item.remote_host.to_string(),
             remote_username: item.remote_username.to_string(),
             remote_path: item.remote_path.to_string(),
+            rsync_timeout: item.rsync_timeout.to_owned(),
             delete_after_copy: item.delete_after_copy,
         });
     }
@@ -572,7 +573,10 @@ pub async fn retry_torrent(
     if !body.remote_path.is_empty() {
         put_item.remote_path = body.remote_path.clone();
     }
-    put_item.delete_after_copy = body.delete_after_copy.clone();
+    if body.rsync_timeout != 0 {
+        put_item.rsync_timeout = body.rsync_timeout;
+    }
+    put_item.delete_after_copy = body.delete_after_copy;
     tokio::spawn(async move {
         crate::rsync::run(state_clone, hash_clone, name_clone, put_item).await;
     });
