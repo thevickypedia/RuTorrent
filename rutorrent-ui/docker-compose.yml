@@ -4,7 +4,7 @@ services:
     container_name: rutorrent-ui
 
     ports:
-      - "8080:80"
+      - "${RUTORRENT_WEBUI_PORT:-8000}:80"
 
     volumes:
       - ./html:/usr/share/nginx/html
@@ -13,9 +13,9 @@ services:
 
     command: >
       /bin/sh -c "
+      apk add --no-cache curl && 
       if [ ! -f /usr/share/nginx/html/index.html ]; then
-        wget -O /usr/share/nginx/html/index.html \
-          https://raw.githubusercontent.com/thevickypedia/RuTorrent/main/src/templates/index.html;
+        curl -o /usr/share/nginx/html/index.html 'https://raw.githubusercontent.com/thevickypedia/RuTorrent/main/src/templates/index.html';
       fi &&
       nginx -g 'daemon off;'
       "
