@@ -29,7 +29,7 @@ pub async fn run(
 
     let remote = format!(
         "{}@{}:{}",
-        put_item.remote_username, put_item.remote_host, put_item.remote_path
+        put_item.remote_username, put_item.remote_host, put_item.remote_path.trim()
     );
     log::info!("{} -> {}", &put_item.save_path, &remote);
 
@@ -38,7 +38,7 @@ pub async fn run(
             "RSYNC_RSH",
             format!("ssh -o ConnectTimeout={}", put_item.rsync_timeout),
         )
-        .args(["-az", &put_item.save_path, &remote])
+        .args(["-az", put_item.save_path.trim(), &remote])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn();

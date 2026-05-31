@@ -348,6 +348,7 @@ pub async fn put_torrent(
         if item.save_path.is_empty() {
             item.save_path = savepath::get_default_save_path(&client, &config, &name).await;
         }
+        item.save_path = item.save_path.trim().to_string();
         log::info!("Destination for '{}': {}", name, item.save_path);
         params.push(("savepath", &item.save_path));
 
@@ -368,6 +369,7 @@ pub async fn put_torrent(
             && !item.remote_username.is_empty()
             && !item.remote_path.is_empty();
         if has_rsync {
+            item.remote_path = item.remote_path.trim().to_string();
             log::info!("Rsync location: {}:{}", item.remote_host, item.remote_path);
         } else {
             log::info!("No rsync location set, download-only");
