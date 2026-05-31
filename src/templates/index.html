@@ -1308,7 +1308,7 @@
         );
         startDashboard();
         toast(
-            `Refresh interval updated`,
+            'Refresh interval updated',
             'success'
         );
     });
@@ -1344,14 +1344,14 @@
                 {signal: AbortSignal.timeout(timeout)}
             );
             if (!resp.ok) {
-                throw new Error('Failed to fetch version');
+                throw new Error(`Failed to fetch version: ${resp.statusText || resp.status}`);
             }
             const data = await resp.json();
             document.getElementById('versionText').textContent =
                 `v${data.version}`;
         } catch (err) {
             console.error(err);
-            toast('Failed to fetch version', 'error');
+            toast(err.message || `Failed to fetch version: ${err.description}`, 'error');
             document.getElementById('versionText').textContent =
                 'v?';
         }
@@ -1491,10 +1491,12 @@
                 headers: authHeaders(),
                 signal: AbortSignal.timeout(timeout)
             });
-
             if (resp.status === 401) {
                 handleUnauth();
                 return;
+            }
+            if (!resp.ok) {
+                throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
             }
 
             document.getElementById('lastUpdated').textContent =
@@ -1565,7 +1567,7 @@
             document.getElementById('selectAll').checked = entries.length > 0 && selectedNames.size === entries.length;
         } catch (err) {
             console.error(err);
-            toast('Failed to fetch torrents', 'error');
+            toast(err.message || `Failed to fetch torrents: ${err.statusText || err.status}`, 'error');
         }
     }
 
@@ -1610,7 +1612,7 @@
             selectedNames.clear();
             await fetchTorrents();
         } catch (err) {
-            toast(err.message || 'Delete failed', 'error');
+            toast(err.message || `Delete failed: ${err.description}`, 'error');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Delete Selected';
@@ -1681,6 +1683,9 @@
                 handleUnauth();
                 return;
             }
+            if (!resp.ok) {
+                throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
+            }
 
             const data = await resp.json();
             const [name, status] = Object.entries(data[0])[0];
@@ -1692,8 +1697,8 @@
             } else {
                 toast(`${name}: ${status}`, 'error');
             }
-        } catch {
-            toast('Network error', 'error');
+        } catch (err) {
+            toast(err.message || `Network error: ${err.description}`, 'error');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Queue Torrent →';
@@ -1809,10 +1814,10 @@
                 closeRetry();
                 await fetchTorrents();
             } else {
-                toast(`Retry failed: ${await resp.text()}`, 'error');
+                toast(`Retry failed: ${resp.statusText} [${resp.status}] - ${await resp.text()}`, 'error');
             }
-        } catch {
-            toast('Network error', 'error');
+        } catch (err) {
+            toast(err.message || `Network error: ${err.description}`, 'error');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Retry →';

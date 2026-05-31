@@ -29,7 +29,9 @@ pub async fn run(
 
     let remote = format!(
         "{}@{}:{}",
-        put_item.remote_username, put_item.remote_host, put_item.remote_path.trim()
+        put_item.remote_username,
+        put_item.remote_host,
+        put_item.remote_path.trim()
     );
     log::info!("{} -> {}", &put_item.save_path, &remote);
 

@@ -154,6 +154,10 @@ impl Config {
             && !qbit_url.contains("localhost")
             && !qbit_url.contains("127.0.0.1")
         {
+            // NOTE: Since QBitTorrentAPI does not have a built-in callback function,
+            // the current process monitors ongoing downloads and then triggers rsync
+            // This requires both QBitTorrent and RuTorrent to run on the same device
+            // TODO: Replace QbitTorrent with a reliable torrent crate - all in one place
             warning!(
                 "qbit_url appears to be a remote location. This will invalidate the rsync callback."
             );

@@ -96,7 +96,7 @@ pub async fn handle_response(
             }
 
             if !status.is_success() {
-                return Err(HttpResponse::InternalServerError().body(body));
+                return Err(HttpResponse::ServiceUnavailable().body(body));
             }
 
             // qBittorrent success contract
@@ -108,7 +108,7 @@ pub async fn handle_response(
         }
         Err(e) => {
             log::info!("{} request failed: {}", context.as_str(), e);
-            Err(HttpResponse::InternalServerError().body("Request failed"))
+            Err(HttpResponse::ServiceUnavailable().body("Request failed"))
         }
     }
 }
