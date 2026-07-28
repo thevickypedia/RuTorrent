@@ -44,6 +44,7 @@ async fn resolve_new_torrents(
                     name,
                     status: settings::Status::Downloading(0.0),
                     put_item: item,
+                    in_qbit: true,
                 },
             );
             if let Ok(conn) = db_connection.lock() {
@@ -121,7 +122,15 @@ pub fn spawn_worker(
             {
                 let p = pending.read().await;
                 let s = state.read().await;
-                if p.is_empty() && s.is_empty() {
+                // With `data_storage` enabled, entries are kept in `state` forever,
+                // so it's never empty on its own. Base the idle check on whether
+                // anything is still known to qBittorrent instead.
+                let has_active = if config.data_storage {
+                    s.values().any(|v| v.in_qbit)
+                } else {
+                    !s.is_empty()
+                };
+                if p.is_empty() && !has_active {
                     continue;
                 }
             }
@@ -160,7 +169,12 @@ pub fn spawn_worker(
             ------------------------------*/
             let hashes: Vec<String> = {
                 let db = state.read().await;
-                db.keys().cloned().collect()
+                db.iter()
+                    // Once we know a hash is gone from qBittorrent, no point asking
+                    // qBittorrent about it again on every tick.
+                    .filter(|(_, v)| !config.data_storage || v.in_qbit)
+                    .map(|(h, _)| h.clone())
+                    .collect()
             };
 
             if hashes.is_empty() {
@@ -183,15 +197,31 @@ pub fn spawn_worker(
 
             let mut db = state.write().await;
 
-            // Remove entries that QBitAPI no longer knows about (deleted via WebUI).
+            // Handle entries that QBitAPI no longer knows about (deleted manually,
+            // via `delete_after_copy`, or via the WebUI's own delete button).
             let returned: std::collections::HashSet<&str> =
                 arr.iter().filter_map(|t| t["hash"].as_str()).collect();
             hashes.iter().for_each(|h| {
                 if !returned.contains(h.as_str()) {
-                    log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
-                    db.remove(h);
-                    if let Ok(conn) = db_connection.lock() {
-                        database::remove(&conn, h);
+                    if config.data_storage {
+                        log::info!(
+                            "Torrent removed from QBitAPI, keeping in RuTorrent's state: {}",
+                            h
+                        );
+                        if let Some(entry) = db.get_mut(h) {
+                            entry.in_qbit = false;
+                        }
+                        if let Ok(conn) = db_connection.lock()
+                            && let Some(entry) = db.get(h)
+                        {
+                            database::upsert(&conn, h, entry);
+                        }
+                    } else {
+                        log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
+                        db.remove(h);
+                        if let Ok(conn) = db_connection.lock() {
+                            database::remove(&conn, h);
+                        }
                     }
                 }
             });
@@ -221,9 +251,15 @@ pub fn spawn_worker(
                             ),
                             config_cloned,
                         );
-                        db.remove(&hash);
-                        if let Ok(conn) = db_connection.lock() {
-                            database::remove(&conn, &hash);
+                        if config.data_storage {
+                            if let Ok(conn) = db_connection.lock() {
+                                database::upsert(&conn, &hash, entry);
+                            }
+                        } else {
+                            db.remove(&hash);
+                            if let Ok(conn) = db_connection.lock() {
+                                database::remove(&conn, &hash);
+                            }
                         }
                     }
 
@@ -261,9 +297,23 @@ pub fn spawn_worker(
                                     );
                                 }
                             }
-                            db.remove(&hash);
-                            if let Ok(conn) = db_connection.lock() {
-                                database::remove(&conn, &hash);
+                            if config.data_storage {
+                                // Torrent + files removed from qBittorrent, but the
+                                // transfer itself succeeded - keep the record.
+                                if let Some(entry) = db.get_mut(&hash) {
+                                    entry.status = settings::Status::Transferred;
+                                    entry.in_qbit = false;
+                                }
+                                if let Ok(conn) = db_connection.lock()
+                                    && let Some(entry) = db.get(&hash)
+                                {
+                                    database::upsert(&conn, &hash, entry);
+                                }
+                            } else {
+                                db.remove(&hash);
+                                if let Ok(conn) = db_connection.lock() {
+                                    database::remove(&conn, &hash);
+                                }
                             }
                         } else {
                             // rsync done, files kept locally

@@ -21,7 +21,8 @@ pub fn open() -> Connection {
             remote_user TEXT NOT NULL,
             remote_path TEXT NOT NULL,
             rsync_timeout INTEGER NOT NULL DEFAULT 3,
-            delete_after_copy INTEGER NOT NULL DEFAULT 0
+            delete_after_copy INTEGER NOT NULL DEFAULT 0,
+            in_qbit     INTEGER NOT NULL DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS pending (
             tag         TEXT PRIMARY KEY,
@@ -35,6 +36,16 @@ pub fn open() -> Connection {
         );",
     )
     .expect("Failed to create schema");
+
+    // Migrate pre-existing databases that were created before `in_qbit` existed.
+    // `CREATE TABLE IF NOT EXISTS` above is a no-op on a table that already exists,
+    // so older databases need the column added explicitly. Errors are swallowed
+    // since they only occur when the column is already present.
+    let _ = conn.execute(
+        "ALTER TABLE state ADD COLUMN in_qbit INTEGER NOT NULL DEFAULT 1",
+        [],
+    );
+
     conn
 }
 
@@ -49,8 +60,8 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     match conn.execute(
         "INSERT OR REPLACE INTO state
-            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             hash,
             entry.name,
@@ -63,6 +74,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
             entry.put_item.remote_path,
             entry.put_item.rsync_timeout,
             entry.put_item.delete_after_copy as i32,
+            entry.in_qbit as i32,
         ],
     ) {
         Ok(_) => (),
@@ -167,7 +179,30 @@ pub fn remove(conn: &Connection, hash: &str) {
     }
 }
 
-/// Loads all pending transfer entries from the database into memory.
+/// Marks a `state` row as no longer present in qBittorrent without deleting it.
+///
+/// Used instead of [`remove`] when `data_storage` is enabled, so RuTorrent's own
+/// record (and therefore the WebUI) keeps showing the torrent with its last known
+/// status even after qBittorrent itself no longer has it.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `hash` - Unique torrent hash identifier.
+#[allow(unused)]
+pub fn mark_removed_from_qbit(conn: &Connection, hash: &str) {
+    match conn.execute(
+        "UPDATE state SET in_qbit = 0 WHERE hash = ?1",
+        params![hash],
+    ) {
+        Ok(_) => (),
+        Err(e) => {
+            log::error!("Failed to mark {} as removed from qBittorrent: {}", hash, e);
+        }
+    }
+}
+
+/// Loads all tracked torrent entries from the database into memory.
 ///
 /// # Arguments
 ///
@@ -175,10 +210,10 @@ pub fn remove(conn: &Connection, hash: &str) {
 ///
 /// # Returns
 ///
-/// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
+/// Returns a `HashMap<String, RsyncTrack>` mapping each tracked hash to its associated `RsyncTrack`.
 pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
     let mut stmt = conn
-        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy FROM state")
+        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit FROM state")
         .expect("Failed to prepare load query");
 
     stmt.query_map([], |row| {
@@ -193,6 +228,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
         let remote_path: String = row.get(8)?;
         let rsync_timeout: u8 = row.get(9)?;
         let delete_after_copy: i32 = row.get(10)?;
+        let in_qbit: i32 = row.get(11)?;
 
         let status = decode_status(&status_str, progress);
         let put_item = PutItem {
@@ -214,6 +250,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
                 name,
                 status,
                 put_item,
+                in_qbit: in_qbit != 0,
             },
         ))
     })

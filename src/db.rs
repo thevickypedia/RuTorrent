@@ -1,4 +1,5 @@
-use rusqlite::{Connection, Result};
+use crate::database;
+use rusqlite::Result;
 
 /// Custom script to read the database on demand.
 ///
@@ -14,16 +15,19 @@ use rusqlite::{Connection, Result};
 /// === STATE ===
 ///   [08ada5a7] Sintel — Downloading (0%)
 ///   [dd8255ec] Big Buck Bunny — Downloading (0%)
-///   [2c6b6858] Ubuntu 22.04 LTS — Downloading (0%)
+///   [2c6b6858] Ubuntu 22.04 LTS — Downloading (100%) [removed from qBit]
 ///
 /// === PENDING ===
 ///   (empty)
 /// ```
 pub fn print_content() -> Result<()> {
-    let conn = Connection::open("rutorrent.db")?;
+    // Goes through `database::open()` (rather than opening the file directly)
+    // so schema creation and the `in_qbit` column migration always run first,
+    // even when `--read_db` is invoked before the app has ever started normally.
+    let conn = database::open();
 
     println!("\n=== STATE ===");
-    let mut stmt = conn.prepare("SELECT hash, name, status, progress FROM state")?;
+    let mut stmt = conn.prepare("SELECT hash, name, status, progress, in_qbit FROM state")?;
     let mut rows = stmt.query([])?;
     let mut count = 0;
     while let Some(row) = rows.next()? {
@@ -31,12 +35,18 @@ pub fn print_content() -> Result<()> {
         let name: String = row.get(1)?;
         let status: String = row.get(2)?;
         let progress: f64 = row.get(3)?;
+        let in_qbit: i32 = row.get(4)?;
         println!(
-            "  [{}] {} — {} ({:.0}%)",
+            "  [{}] {} — {} ({:.0}%){}",
             &hash[..8],
             name,
             status,
-            progress * 100.0
+            progress * 100.0,
+            if in_qbit == 0 {
+                " [removed from qBit]"
+            } else {
+                ""
+            }
         );
         count += 1;
     }

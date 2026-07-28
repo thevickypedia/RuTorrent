@@ -111,42 +111,91 @@ pub async fn get_torrents(
     let mut map = HashMap::new();
     let array = get_existing(&client, &config).await;
 
-    if array.is_empty() {
+    if !config.data_storage {
+        // Legacy behavior: entirely driven by qBittorrent's live torrent list.
+        // Anything qBittorrent no longer knows about simply won't appear here.
+        if array.is_empty() {
+            return HttpResponse::Ok().json(map);
+        }
+
+        for t in array.iter() {
+            let name = t["name"].to_string();
+            let hash = t["hash"].to_string();
+            let progress = t["progress"].parse::<f64>().unwrap();
+            let status = match db.get(&hash) {
+                Some(local) => resolve_status(local, Some(progress)),
+                // Not in state — download-only torrent still in qBit, not tracked
+                None => format!("Downloading: {:.0}%", progress * 100.0),
+            };
+            map.insert(name, status);
+        }
+
         return HttpResponse::Ok().json(map);
     }
 
+    // `data_storage` enabled: RuTorrent's own state/DB is the source of truth,
+    // so every torrent it has ever tracked is always shown — even after it's
+    // gone from qBittorrent (deleted manually, via `delete_after_copy`, or via
+    // this app's own delete button).
+    for (hash, local) in db.iter() {
+        let live_progress = array
+            .iter()
+            .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()))
+            .and_then(|t| t.get("progress"))
+            .and_then(|p| p.parse::<f64>().ok());
+        map.insert(local.name.clone(), resolve_status(local, live_progress));
+    }
+
+    // Also surface torrents currently in qBittorrent that were never tracked
+    // by this app at all (e.g. added directly through qBittorrent).
     for t in array.iter() {
-        let name = t["name"].to_string();
-        let hash = t["hash"].to_string();
-        let progress = t["progress"].parse::<f64>().unwrap();
-
-        let status = match db.get(&hash) {
-            Some(local) => match local.status {
-                settings::Status::Copying => "Copying".to_string(),
-                settings::Status::Transferred => "Transferred".to_string(),
-                settings::Status::Completed => "Completed".to_string(),
-                settings::Status::DownloadComplete => "Downloaded".to_string(),
-                settings::Status::Failed => "Failed".to_string(),
-                settings::Status::CopyError => "CopyError".to_string(),
-                settings::Status::Downloading(_) => {
-                    let has_rsync = !local.put_item.remote_host.is_empty()
-                        && !local.put_item.remote_username.is_empty()
-                        && !local.put_item.remote_path.is_empty();
-                    if has_rsync {
-                        format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
-                    } else {
-                        format!("Downloading: {:.0}%", progress * 100.0)
-                    }
-                }
-            },
-            // Not in state — download-only torrent still in qBit, not tracked
-            None => format!("Downloading: {:.0}%", progress * 100.0),
-        };
-
-        map.insert(name, status);
+        let hash = t.get("hash").cloned().unwrap_or_default();
+        if db.contains_key(&hash) {
+            continue;
+        }
+        let name = t.get("name").cloned().unwrap_or_default();
+        let progress = t
+            .get("progress")
+            .and_then(|p| p.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        map.insert(name, format!("Downloading: {:.0}%", progress * 100.0));
     }
 
     HttpResponse::Ok().json(map)
+}
+
+/// Resolves the human-readable status text for a tracked torrent.
+///
+/// # Arguments
+///
+/// * `local` - The tracked `RsyncTrack` entry from RuTorrent's own state.
+/// * `live_progress` - Freshly polled progress from qBittorrent, if the
+///   torrent is still known to it. Falls back to the last known progress
+///   captured on `local.status` when `None` (i.e. no longer in qBittorrent).
+///
+/// # Returns
+///
+/// Returns the status string shown in the WebUI for this torrent.
+fn resolve_status(local: &settings::RsyncTrack, live_progress: Option<f64>) -> String {
+    match local.status {
+        settings::Status::Copying => "Copying".to_string(),
+        settings::Status::Transferred => "Transferred".to_string(),
+        settings::Status::Completed => "Completed".to_string(),
+        settings::Status::DownloadComplete => "Downloaded".to_string(),
+        settings::Status::Failed => "Failed".to_string(),
+        settings::Status::CopyError => "CopyError".to_string(),
+        settings::Status::Downloading(last_known) => {
+            let progress = live_progress.unwrap_or(last_known);
+            let has_rsync = !local.put_item.remote_host.is_empty()
+                && !local.put_item.remote_username.is_empty()
+                && !local.put_item.remote_path.is_empty();
+            if has_rsync {
+                return format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
+            } else {
+                return format!("Downloading: {:.0}%", progress * 100.0)
+            }
+        }
+    }
 }
 
 /// Get existing torrents' information from QBitAPI.
