@@ -3,6 +3,56 @@ use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
 
+/// Recursively removes empty directories under (and including) `path`,
+/// without ever touching a directory that still contains something.
+///
+/// qBittorrent's own `deleteFiles=true` only removes the torrent's actual
+/// content (its own managed root), which can leave a now-empty custom
+/// `save_path` wrapper directory behind (e.g. `save_path` was set to
+/// `~/Downloads/Sintel` and only `~/Downloads/Sintel/Sintel` was removed).
+/// This walks `path` bottom-up and deletes anything that is fully empty,
+/// starting only from `path` itself — it never ascends above `path`, so a
+/// shared parent (e.g. `~/Downloads`) that still holds other torrents' data
+/// is never at risk.
+///
+/// # Arguments
+///
+/// * `path` - Directory to prune, typically a torrent's `save_path`.
+///
+/// # Returns
+///
+/// Returns `true` if `path` itself was empty (and thus removed).
+fn prune_empty_dirs(path: &std::path::Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        // Doesn't exist (already gone) or isn't a directory — nothing to do.
+        return false;
+    };
+
+    let mut is_empty = true;
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            if !prune_empty_dirs(&entry_path) {
+                is_empty = false;
+            }
+        } else {
+            is_empty = false;
+        }
+    }
+
+    if is_empty {
+        match std::fs::remove_dir(path) {
+            Ok(()) => true,
+            Err(err) => {
+                log::warn!("Failed to remove empty directory {:?}: {}", path, err);
+                false
+            }
+        }
+    } else {
+        false
+    }
+}
+
 /// Resolves newly added torrents by matching them with pending entries and inserting them into shared state.
 ///
 /// # Arguments
@@ -45,6 +95,7 @@ async fn resolve_new_torrents(
                     status: settings::Status::Downloading(0.0),
                     put_item: item,
                     in_qbit: true,
+                    files_deleted: false,
                 },
             );
             if let Ok(conn) = db_connection.lock() {
@@ -281,6 +332,7 @@ pub fn spawn_worker(
                                 .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
                                 .send()
                                 .await;
+                            let mut files_deleted = true;
                             if let Err(e) =
                                 qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await
                             {
@@ -290,6 +342,7 @@ pub fn spawn_worker(
                                     std::fs::remove_dir_all(&entry.put_item.save_path)
                                 {
                                     log::error!("Failed to delete files: {}", err);
+                                    files_deleted = false;
                                     notifier(
                                         "RuTorrent: Delete Failed".to_string(),
                                         format!("Failed to delete torrent: {}", name_clone),
@@ -297,12 +350,22 @@ pub fn spawn_worker(
                                     );
                                 }
                             }
+                            if files_deleted {
+                                // qBittorrent only removes the torrent's own managed
+                                // content root, which can leave a now-empty custom
+                                // save_path wrapper directory behind. Clean that up
+                                // too, without ever touching a non-empty directory.
+                                prune_empty_dirs(std::path::Path::new(
+                                    &entry.put_item.save_path,
+                                ));
+                            }
                             if config.data_storage {
                                 // Torrent + files removed from qBittorrent, but the
                                 // transfer itself succeeded - keep the record.
                                 if let Some(entry) = db.get_mut(&hash) {
                                     entry.status = settings::Status::Transferred;
                                     entry.in_qbit = false;
+                                    entry.files_deleted = files_deleted;
                                 }
                                 if let Ok(conn) = db_connection.lock()
                                     && let Some(entry) = db.get(&hash)

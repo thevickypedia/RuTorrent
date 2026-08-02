@@ -27,7 +27,8 @@ pub fn print_content() -> Result<()> {
     let conn = database::open();
 
     println!("\n=== STATE ===");
-    let mut stmt = conn.prepare("SELECT hash, name, status, progress, in_qbit FROM state")?;
+    let mut stmt =
+        conn.prepare("SELECT hash, name, status, progress, in_qbit, files_deleted FROM state")?;
     let mut rows = stmt.query([])?;
     let mut count = 0;
     while let Some(row) = rows.next()? {
@@ -36,17 +37,21 @@ pub fn print_content() -> Result<()> {
         let status: String = row.get(2)?;
         let progress: f64 = row.get(3)?;
         let in_qbit: i32 = row.get(4)?;
+        let files_deleted: i32 = row.get(5)?;
+        let mut tags = String::new();
+        if in_qbit == 0 {
+            tags.push_str(" [removed from qBit]");
+        }
+        if files_deleted != 0 {
+            tags.push_str(" [files deleted]");
+        }
         println!(
             "  [{}] {} — {} ({:.0}%){}",
             &hash[..8],
             name,
             status,
             progress * 100.0,
-            if in_qbit == 0 {
-                " [removed from qBit]"
-            } else {
-                ""
-            }
+            tags
         );
         count += 1;
     }

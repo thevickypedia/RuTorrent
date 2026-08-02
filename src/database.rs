@@ -22,7 +22,8 @@ pub fn open() -> Connection {
             remote_path TEXT NOT NULL,
             rsync_timeout INTEGER NOT NULL DEFAULT 3,
             delete_after_copy INTEGER NOT NULL DEFAULT 0,
-            in_qbit     INTEGER NOT NULL DEFAULT 1
+            in_qbit     INTEGER NOT NULL DEFAULT 1,
+            files_deleted INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS pending (
             tag         TEXT PRIMARY KEY,
@@ -36,15 +37,6 @@ pub fn open() -> Connection {
         );",
     )
         .expect("Failed to create schema");
-
-    // Migrate pre-existing databases that were created before `in_qbit` existed.
-    // `CREATE TABLE IF NOT EXISTS` above is a no-op on a table that already exists,
-    // so older databases need the column added explicitly. Errors are swallowed
-    // since they only occur when the column is already present.
-    let _ = conn.execute(
-        "ALTER TABLE state ADD COLUMN in_qbit INTEGER NOT NULL DEFAULT 1",
-        [],
-    );
 
     conn
 }
@@ -60,8 +52,8 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     match conn.execute(
         "INSERT OR REPLACE INTO state
-            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             hash,
             entry.name,
@@ -75,6 +67,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
             entry.put_item.rsync_timeout,
             entry.put_item.delete_after_copy as i32,
             entry.in_qbit as i32,
+            entry.files_deleted as i32,
         ],
     ) {
         Ok(_) => (),
@@ -212,7 +205,7 @@ pub fn mark_removed_from_qbit(conn: &Connection, hash: &str) {
 /// Returns a `HashMap<String, RsyncTrack>` mapping each tracked hash to its associated `RsyncTrack`.
 pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
     let mut stmt = conn
-        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit FROM state")
+        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted FROM state")
         .expect("Failed to prepare load query");
 
     stmt.query_map([], |row| {
@@ -228,6 +221,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
         let rsync_timeout: u8 = row.get(9)?;
         let delete_after_copy: i32 = row.get(10)?;
         let in_qbit: i32 = row.get(11)?;
+        let files_deleted: i32 = row.get(12)?;
 
         let status = decode_status(&status_str, progress);
         let put_item = PutItem {
@@ -250,6 +244,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
                 status,
                 put_item,
                 in_qbit: in_qbit != 0,
+                files_deleted: files_deleted != 0,
             },
         ))
     })

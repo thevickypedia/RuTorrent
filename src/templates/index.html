@@ -729,6 +729,15 @@
             color: var(--text);
         }
 
+        .radio-option.disabled {
+            cursor: not-allowed;
+            opacity: 0.35;
+        }
+
+        .radio-option input[type="radio"]:disabled {
+            cursor: not-allowed;
+        }
+
         .radio-option input[type="radio"] {
             appearance: none;
             width: 15px;
@@ -1614,7 +1623,7 @@
                     >
                 </td>
                 <td>${esc(e.name)}</td>
-                <td>${badge(e.status)}</td>
+                <td>${badge(e)}</td>
             </tr>
         `).join('');
             body.querySelectorAll('tr').forEach(row => {
@@ -1778,7 +1787,8 @@
     });
 
     // ── Helpers ───────────────────────────────────────────────
-    function badge(status) {
+    function badge(entry) {
+        const status = entry.status;
         const s = status.toLowerCase();
         if (s.includes('→ copy queued'))
             return `<span class="badge badge-downloading">${esc(status)}</span>`;
@@ -1796,12 +1806,15 @@
         if (s === 'completed')
             // MARK: Soon to be deleted status
             return `<span class="badge badge-completed">Completed</span>`;
-        if (s === 'transferred') return `
+        if (s === 'transferred') {
+            const title = entry.files_deleted ? 'Re-download' : 'Restart Rsync';
+            return `
             <span class="badge badge-completed">Transferred</span>
-            <button class="retry-btn" title="Restart Rsync" onclick="doRetry(this, event)"
+            <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
                     style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
                 <span class="retry-icon">⧉</span>
             </button>`;
+        }
         if (s === 'failed')
             return `<span class="badge badge-failed">Failed</span>`;
         if (s === 'copyerror') return `
@@ -1816,10 +1829,16 @@
     let _retryBtn = null;
 
     function updateRetryMode() {
+        const transferRadio = document.getElementById('r-mode-transfer');
         const isRedownload = document.getElementById('r-mode-redownload').checked;
-        document.getElementById('r-mode-hint').textContent = isRedownload
-            ? 'Deletes any existing local files and starts a brand-new download, then transfers again once it finishes.'
-            : 'Resumes the copy using the existing local files.';
+        const hint = document.getElementById('r-mode-hint');
+        if (transferRadio.disabled) {
+            hint.textContent = 'Local files were deleted after the last transfer — only re-download is available.';
+        } else {
+            hint.textContent = isRedownload
+                ? 'Deletes any existing local files and starts a brand-new download, then transfers again once it finishes.'
+                : 'Resumes the copy using the existing local files.';
+        }
         document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Retry →';
     }
 
@@ -1833,9 +1852,20 @@
         }
         const name = btn.closest('tr').dataset.name;
         const entry = torrentsData[name] || {};
+        const filesGone = !!entry.files_deleted;
         _retryBtn = btn;
         document.getElementById('r-name').value = name;
-        document.getElementById('r-mode-transfer').checked = true;
+
+        const transferRadio = document.getElementById('r-mode-transfer');
+        const redownloadRadio = document.getElementById('r-mode-redownload');
+        transferRadio.disabled = filesGone;
+        transferRadio.closest('.radio-option').classList.toggle('disabled', filesGone);
+        if (filesGone) {
+            redownloadRadio.checked = true;
+        } else {
+            transferRadio.checked = true;
+        }
+
         document.getElementById('r-host').value = entry.remote_host || '';
         document.getElementById('r-user').value = entry.remote_username || '';
         document.getElementById('r-path').value = entry.remote_path || '';

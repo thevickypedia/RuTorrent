@@ -286,6 +286,12 @@ pub struct RsyncTrack {
     /// Failed, etc.) even after qBittorrent itself no longer has the torrent
     /// (deleted manually, via `delete_after_copy`, or via the WebUI).
     pub in_qbit: bool,
+
+    /// Whether the locally downloaded files were deleted (e.g. via
+    /// `delete_after_copy`). When `true`, a plain rsync retry is no longer
+    /// possible since there's nothing left locally to copy — only a fresh
+    /// re-download can recover this torrent.
+    pub files_deleted: bool,
 }
 
 /// ### PutItem

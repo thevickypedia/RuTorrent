@@ -24,6 +24,10 @@ pub struct TorrentEntry {
     pub remote_path: String,
     pub rsync_timeout: u8,
     pub delete_after_copy: bool,
+    /// `true` when the locally downloaded files were deleted (e.g. via
+    /// `delete_after_copy`). A plain rsync retry is impossible in that case —
+    /// only a fresh re-download can recover this torrent.
+    pub files_deleted: bool,
 }
 
 /// API endpoint to get the current health status.
@@ -215,6 +219,7 @@ fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>
         remote_path: local.put_item.remote_path.clone(),
         rsync_timeout: local.put_item.rsync_timeout,
         delete_after_copy: local.put_item.delete_after_copy,
+        files_deleted: local.files_deleted,
     }
 }
 
@@ -232,6 +237,7 @@ fn untracked_entry(name: String, hash: String, progress: f64) -> TorrentEntry {
         remote_path: String::new(),
         rsync_timeout: 0,
         delete_after_copy: false,
+        files_deleted: false,
     }
 }
 
@@ -711,23 +717,19 @@ pub async fn retry_torrent(
             Some((hash, entry)) => match entry.status {
                 settings::Status::CopyError
                 | settings::Status::DownloadComplete
-                | settings::Status::Transferred => (hash.clone(), entry.put_item.clone()),
+                | settings::Status::Transferred => {
+                    if entry.files_deleted {
+                        return HttpResponse::BadRequest().body(
+                            "Local files were deleted after the last transfer — use redownload instead",
+                        );
+                    }
+                    (hash.clone(), entry.put_item.clone())
+                }
                 _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
             },
         }
     };
 
-    // Transition back to Copying and re-spawn rsync
-    {
-        let mut db = state.write().await;
-        if let Some(entry) = db.get_mut(&hash) {
-            entry.status = settings::Status::Copying;
-        }
-    }
-
-    let state_clone = state.as_ref().clone();
-    let hash_clone = hash.clone();
-    let name_clone = body.name.clone();
     if !body.remote_host.is_empty() {
         put_item.remote_host = body.remote_host.clone();
     }
@@ -741,6 +743,26 @@ pub async fn retry_torrent(
         put_item.rsync_timeout = body.rsync_timeout;
     }
     put_item.delete_after_copy = body.delete_after_copy;
+
+    // Transition back to Copying, persist the (possibly overridden) transfer
+    // settings so subsequent `GET /torrent` calls and modal prefills reflect
+    // what was actually just submitted, and re-spawn rsync.
+    {
+        let mut db = state.write().await;
+        if let Some(entry) = db.get_mut(&hash) {
+            entry.status = settings::Status::Copying;
+            entry.put_item = put_item.clone();
+        }
+        if let Ok(conn) = db_connection.lock()
+            && let Some(entry) = db.get(&hash)
+        {
+            database::upsert(&conn, &hash, entry);
+        }
+    }
+
+    let state_clone = state.as_ref().clone();
+    let hash_clone = hash.clone();
+    let name_clone = body.name.clone();
     tokio::spawn(async move {
         crate::rsync::run(state_clone, hash_clone, name_clone, put_item).await;
     });
