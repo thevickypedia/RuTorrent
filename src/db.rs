@@ -22,8 +22,8 @@ use rusqlite::Result;
 /// ```
 pub fn print_content() -> Result<()> {
     // Goes through `database::open()` (rather than opening the file directly)
-    // so schema creation and the `in_qbit` column migration always run first,
-    // even when `--read_db` is invoked before the app has ever started normally.
+    // so schema creation always runs first, even when `--read_db` is invoked
+    // before the app has ever started normally.
     let conn = database::open();
 
     println!("\n=== STATE ===");

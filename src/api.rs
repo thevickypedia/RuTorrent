@@ -888,6 +888,21 @@ async fn redownload_torrent(
         return e;
     }
 
+    // The re-added torrent will almost always resolve to the same hash it
+    // had before (magnets are content-addressed). The background worker's
+    // `resolve_new_torrents` skips any hash it already finds in `state`, so
+    // the stale record from the previous attempt (still sitting there with
+    // e.g. `Transferred`) would otherwise shadow the new download forever
+    // and never get refreshed to `Downloading`. Clear it now that the fresh
+    // add has actually succeeded, so the next poll tick claims it normally.
+    {
+        let mut db = state.write().await;
+        db.remove(&hash);
+    }
+    if let Ok(conn) = db_connection.lock() {
+        database::remove(&conn, &hash);
+    }
+
     {
         let mut pending_lock = pending.write().await;
         pending_lock.insert(tag.clone(), put_item.clone());
