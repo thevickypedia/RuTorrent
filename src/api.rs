@@ -6,7 +6,25 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use url::Url;
+use utoipa::ToSchema;
 use uuid::Uuid;
+
+/// ### TorrentEntry
+/// A single torrent's state as exposed through the WebUI/API — includes the
+/// originally submitted torrent URL and transfer settings so the frontend can
+/// prefill the retry modal and support re-downloading without extra round-trips.
+#[derive(ToSchema, Clone, serde::Serialize)]
+pub struct TorrentEntry {
+    pub name: String,
+    pub hash: String,
+    pub status: String,
+    pub url: String,
+    pub remote_host: String,
+    pub remote_username: String,
+    pub remote_path: String,
+    pub rsync_timeout: u8,
+    pub delete_after_copy: bool,
+}
 
 /// API endpoint to get the current health status.
 ///
@@ -76,7 +94,19 @@ fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
 ///
 /// #### Sample Response
 /// ```json
-/// [{"Sintel":"400"},{"Big Buck Bunny":"409"},{"Ubuntu 22.04 LTS":"200"}]
+/// [
+///   {
+///     "name": "Sintel",
+///     "hash": "08ada5a7a6183aae1e09d831df6748d566095a10",
+///     "status": "Transferred",
+///     "url": "magnet:?xt=urn:btih:08ada5a7a6183aae1e09d831df6748d566095a10&dn=Sintel",
+///     "remote_host": "192.168.1.102",
+///     "remote_username": "admin",
+///     "remote_path": "/Users/admin/Sintel",
+///     "rsync_timeout": 3,
+///     "delete_after_copy": true
+///   }
+/// ]
 /// ```
 ///
 /// #### Status
@@ -86,12 +116,12 @@ fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
 ///
 /// # Returns
 ///
-/// Returns a JSON object to indicate the status.
+/// Returns a JSON array of [`TorrentEntry`] objects.
 #[utoipa::path(
     get,
     path = "/torrent",
     responses(
-        (status = 200, description = "Torrent status map", body = HashMap<String, String>)
+        (status = 200, description = "Torrent list", body = Vec<TorrentEntry>)
     )
 )]
 pub async fn get_torrents(
@@ -108,29 +138,28 @@ pub async fn get_torrents(
     };
 
     let db = state.read().await;
-    let mut map = HashMap::new();
     let array = get_existing(&client, &config).await;
+    let mut out: Vec<TorrentEntry> = Vec::new();
 
     if !config.data_storage {
         // Legacy behavior: entirely driven by qBittorrent's live torrent list.
         // Anything qBittorrent no longer knows about simply won't appear here.
         if array.is_empty() {
-            return HttpResponse::Ok().json(map);
+            return HttpResponse::Ok().json(out);
         }
 
         for t in array.iter() {
             let name = t["name"].to_string();
             let hash = t["hash"].to_string();
             let progress = t["progress"].parse::<f64>().unwrap();
-            let status = match db.get(&hash) {
-                Some(local) => resolve_status(local, Some(progress)),
+            match db.get(&hash) {
+                Some(local) => out.push(to_entry(&hash, local, Some(progress))),
                 // Not in state — download-only torrent still in qBit, not tracked
-                None => format!("Downloading: {:.0}%", progress * 100.0),
-            };
-            map.insert(name, status);
+                None => out.push(untracked_entry(name, hash, progress)),
+            }
         }
 
-        return HttpResponse::Ok().json(map);
+        return HttpResponse::Ok().json(out);
     }
 
     // `data_storage` enabled: RuTorrent's own state/DB is the source of truth,
@@ -143,7 +172,7 @@ pub async fn get_torrents(
             .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()))
             .and_then(|t| t.get("progress"))
             .and_then(|p| p.parse::<f64>().ok());
-        map.insert(local.name.clone(), resolve_status(local, live_progress));
+        out.push(to_entry(hash, local, live_progress));
     }
 
     // Also surface torrents currently in qBittorrent that were never tracked
@@ -158,10 +187,52 @@ pub async fn get_torrents(
             .get("progress")
             .and_then(|p| p.parse::<f64>().ok())
             .unwrap_or(0.0);
-        map.insert(name, format!("Downloading: {:.0}%", progress * 100.0));
+        out.push(untracked_entry(name, hash, progress));
     }
 
-    HttpResponse::Ok().json(map)
+    HttpResponse::Ok().json(out)
+}
+
+/// Builds a [`TorrentEntry`] for a torrent tracked in RuTorrent's own state —
+/// carries the originally submitted URL and transfer settings alongside the
+/// resolved status text.
+///
+/// # Arguments
+///
+/// * `hash` - Torrent hash (state key).
+/// * `local` - The tracked `RsyncTrack` entry from RuTorrent's own state.
+/// * `live_progress` - Freshly polled progress from qBittorrent, if the
+///   torrent is still known to it. Falls back to the last known progress
+///   captured on `local.status` when `None` (i.e. no longer in qBittorrent).
+fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>) -> TorrentEntry {
+    TorrentEntry {
+        name: local.name.clone(),
+        hash: hash.to_string(),
+        status: resolve_status(local, live_progress),
+        url: local.put_item.url.clone(),
+        remote_host: local.put_item.remote_host.clone(),
+        remote_username: local.put_item.remote_username.clone(),
+        remote_path: local.put_item.remote_path.clone(),
+        rsync_timeout: local.put_item.rsync_timeout,
+        delete_after_copy: local.put_item.delete_after_copy,
+    }
+}
+
+/// Builds a [`TorrentEntry`] for a torrent currently in qBittorrent that this
+/// app never tracked (e.g. added directly through qBittorrent). There's no
+/// stored URL or transfer settings for these.
+fn untracked_entry(name: String, hash: String, progress: f64) -> TorrentEntry {
+    TorrentEntry {
+        name,
+        hash,
+        status: format!("Downloading: {:.0}%", progress * 100.0),
+        url: String::new(),
+        remote_host: String::new(),
+        remote_username: String::new(),
+        remote_path: String::new(),
+        rsync_timeout: 0,
+        delete_after_copy: false,
+    }
 }
 
 /// Resolves the human-readable status text for a tracked torrent.
@@ -190,9 +261,9 @@ fn resolve_status(local: &settings::RsyncTrack, live_progress: Option<f64>) -> S
                 && !local.put_item.remote_username.is_empty()
                 && !local.put_item.remote_path.is_empty();
             if has_rsync {
-                return format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
+                format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
             } else {
-                return format!("Downloading: {:.0}%", progress * 100.0)
+                format!("Downloading: {:.0}%", progress * 100.0)
             }
         }
     }
@@ -559,39 +630,41 @@ pub async fn delete_torrent(
 ///
 /// * `request` - Reference to the `HttpRequest` object.
 /// * `state` - Reference to the `SharedState` object.
+/// * `pending` - Reference to the `PendingMap` object (used for `redownload`).
 /// * `config` - Reference to the `Config` object.
+/// * `db_connection` - Database connection received through app data (used for `redownload`).
 /// * `body` - Request body that takes `RetryOptions` object.
 ///
-/// #### Sample Request
+/// #### Sample Request (retry the transfer using existing local files)
 /// ```shell
 /// curl -X POST localhost:3000/retry \
 ///   -H "Content-Type: application/json" \
-///   -d '[
-///     # Retry transfer to ssh://admin@192.168.1.102:/Users/admin/Sintel and delete after transfer
-///     {
-///       "name": "Sintel"
-///       "remote_host": "192.168.1.102",
-///       "remote_username": "admin",
-///       "remote_path": "/Users/admin/Sintel",
-///       "delete_after_copy": true
-///     },
-///     # Retry transfer to ssh://admin@192.168.1.100:/home/admin/Big_Buck retaining local content
-///     {
-///       "url": "magnet:?xt=urn:btih:dd8255ecdc7ca55fb0bbf81323d87062db1f6d1c&dn=Big+Buck+Bunny",
-///       "remote_host": "192.168.1.100",
-///       "remote_username": "admin",
-///       "remote_path": "/home/admin/Big_Buck"
-///     },
-///     # Retry without any overridden values
-///     {
-///       "url": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS"
-///     }
-///   ]'
+///   -d '{
+///     "name": "Sintel",
+///     "remote_host": "192.168.1.102",
+///     "remote_username": "admin",
+///     "remote_path": "/Users/admin/Sintel",
+///     "delete_after_copy": true
+///   }'
+/// ```
+///
+/// #### Sample Request (delete old files, re-download from scratch, then transfer)
+/// ```shell
+/// curl -X POST localhost:3000/retry \
+///   -H "Content-Type: application/json" \
+///   -d '{
+///     "name": "Sintel",
+///     "redownload": true,
+///     "remote_host": "192.168.1.102",
+///     "remote_username": "admin",
+///     "remote_path": "/Users/admin/Sintel",
+///     "delete_after_copy": true
+///   }'
 /// ```
 ///
 /// #### Status
-/// * `200`: Retry queued.
-/// * `400`: Torrent is not in `CopyError` state.
+/// * `200`: Retry (or re-download) queued.
+/// * `400`: Torrent is not in a retriable state.
 /// * `404`: Torrent not found in state.
 ///
 /// # Returns
@@ -605,14 +678,16 @@ pub async fn delete_torrent(
     ),
     responses(
         (status = 200, description = "Retry queued", body = String),
-        (status = 400, description = "Not in CopyError state", body = String),
+        (status = 400, description = "Not in a retriable state", body = String),
         (status = 404, description = "Not found", body = String),
     )
 )]
 pub async fn retry_torrent(
     request: HttpRequest,
     state: web::Data<settings::SharedState>,
+    pending: web::Data<settings::PendingMap>,
     config: web::Data<settings::Config>,
+    db_connection: web::Data<settings::DBConnection>,
     body: web::Json<settings::RetryOptions>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -621,6 +696,10 @@ pub async fn retry_torrent(
 
     if body.name.is_empty() {
         return HttpResponse::BadRequest().body("Missing name");
+    }
+
+    if body.redownload {
+        return redownload_torrent(state, pending, config, db_connection, body.into_inner()).await;
     }
 
     // Find the hash for the given name in state
@@ -668,4 +747,137 @@ pub async fn retry_torrent(
 
     log::info!("Retry queued for: {}", body.name);
     HttpResponse::Ok().json("Retry queued")
+}
+
+/// Deletes any existing local files for a tracked torrent (if present), then
+/// re-adds it to qBittorrent from its originally stored URL to start a fresh
+/// download. Once that download completes, the normal background worker
+/// picks it up and kicks off a fresh rsync transfer exactly as it would for
+/// a brand-new torrent.
+///
+/// # Arguments
+///
+/// * `state` - Reference to the `SharedState` object.
+/// * `pending` - Reference to the `PendingMap` object.
+/// * `config` - Reference to the `Config` object.
+/// * `db_connection` - Database connection received through app data.
+/// * `opts` - The parsed `RetryOptions` (with `redownload == true`).
+///
+/// # Returns
+///
+/// Returns an `HttpResponse` indicating the result.
+async fn redownload_torrent(
+    state: web::Data<settings::SharedState>,
+    pending: web::Data<settings::PendingMap>,
+    config: web::Data<settings::Config>,
+    db_connection: web::Data<settings::DBConnection>,
+    opts: settings::RetryOptions,
+) -> HttpResponse {
+    // Find the tracked entry and its originally stored URL/save path.
+    let (hash, mut put_item) = {
+        let db = state.read().await;
+        let found = db.iter().find(|(_, entry)| entry.name == opts.name);
+        match found {
+            None => return HttpResponse::NotFound().body("Torrent not found in state"),
+            Some((hash, entry)) => match entry.status {
+                settings::Status::CopyError
+                | settings::Status::DownloadComplete
+                | settings::Status::Transferred
+                | settings::Status::Failed => (hash.clone(), entry.put_item.clone()),
+                _ => {
+                    return HttpResponse::BadRequest()
+                        .body("Torrent must be finished (or failed) before it can be re-downloaded");
+                }
+            },
+        }
+    };
+
+    if put_item.url.is_empty() {
+        return HttpResponse::BadRequest()
+            .body("Original torrent URL is not available for re-download");
+    }
+
+    // Apply any transfer overrides supplied in the modal.
+    if !opts.remote_host.is_empty() {
+        put_item.remote_host = opts.remote_host.clone();
+    }
+    if !opts.remote_username.is_empty() {
+        put_item.remote_username = opts.remote_username.clone();
+    }
+    if !opts.remote_path.is_empty() {
+        put_item.remote_path = opts.remote_path.clone();
+    }
+    if opts.rsync_timeout != 0 {
+        put_item.rsync_timeout = opts.rsync_timeout;
+    }
+    put_item.delete_after_copy = opts.delete_after_copy;
+
+    // Delete any locally downloaded files left over from the previous attempt.
+    if !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists() {
+        if let Err(err) = std::fs::remove_dir_all(&put_item.save_path) {
+            log::error!("Failed to remove old files for '{}': {}", opts.name, err);
+            return HttpResponse::InternalServerError()
+                .body(format!("Failed to remove old files: {}", err));
+        }
+        log::info!(
+            "Removed old local files for '{}' at {}",
+            opts.name,
+            put_item.save_path
+        );
+    }
+
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+
+    // Best-effort: remove the old torrent from qBittorrent if it's still
+    // present, so re-adding the same magnet starts a genuinely fresh download.
+    let resp = client
+        .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
+        .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
+        .send()
+        .await;
+    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
+        log::warn!(
+            "Torrent '{}' delete-before-redownload returned: {}",
+            opts.name,
+            e.status()
+        );
+    }
+
+    // Re-add the torrent to kick off a brand-new download.
+    let tag = Uuid::new_v4().to_string();
+    if put_item.save_path.is_empty() {
+        put_item.save_path = savepath::get_default_save_path(&client, &config, &opts.name).await;
+    }
+    put_item.save_path = put_item.save_path.trim().to_string();
+
+    let resp = client
+        .post(format!("{}/api/v2/torrents/add", config.qbit_url))
+        .form(&[
+            ("urls", put_item.url.as_str()),
+            ("tags", tag.as_str()),
+            ("savepath", put_item.save_path.as_str()),
+        ])
+        .send()
+        .await;
+    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::AddTorrent).await {
+        return e;
+    }
+
+    {
+        let mut pending_lock = pending.write().await;
+        pending_lock.insert(tag.clone(), put_item.clone());
+    }
+    if let Ok(conn) = db_connection.lock() {
+        database::upsert_pending(&conn, &tag, &put_item);
+    }
+
+    log::info!(
+        "Re-download queued for: {} (→ {})",
+        opts.name,
+        put_item.save_path
+    );
+    HttpResponse::Ok().json("Re-download queued")
 }

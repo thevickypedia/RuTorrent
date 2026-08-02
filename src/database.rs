@@ -35,7 +35,7 @@ pub fn open() -> Connection {
             delete_after_copy INTEGER NOT NULL DEFAULT 0
         );",
     )
-    .expect("Failed to create schema");
+        .expect("Failed to create schema");
 
     // Migrate pre-existing databases that were created before `in_qbit` existed.
     // `CREATE TABLE IF NOT EXISTS` above is a no-op on a table that already exists,
@@ -159,9 +159,9 @@ pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
         };
         Ok((tag, item))
     })
-    .expect("Failed to query pending")
-    .filter_map(|r| r.ok())
-    .collect()
+        .expect("Failed to query pending")
+        .filter_map(|r| r.ok())
+        .collect()
 }
 
 /// Removes a torrent entry from the `state` table by hash.
@@ -189,7 +189,6 @@ pub fn remove(conn: &Connection, hash: &str) {
 ///
 /// * `conn` - Active SQLite database connection.
 /// * `hash` - Unique torrent hash identifier.
-#[allow(unused)]
 pub fn mark_removed_from_qbit(conn: &Connection, hash: &str) {
     match conn.execute(
         "UPDATE state SET in_qbit = 0 WHERE hash = ?1",
@@ -254,9 +253,9 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
             },
         ))
     })
-    .expect("Failed to query state")
-    .filter_map(|r| r.ok())
-    .collect()
+        .expect("Failed to query state")
+        .filter_map(|r| r.ok())
+        .collect()
 }
 
 /// Encodes an internal `Status` enum into a database-friendly representation.

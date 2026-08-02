@@ -14,7 +14,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::delete_torrent,
         api::retry_torrent
     ),
-    components(schemas(settings::PutItem)),
+    components(schemas(settings::PutItem, settings::RetryOptions, api::TorrentEntry)),
     security(
         ("apikey" = [])
     ),

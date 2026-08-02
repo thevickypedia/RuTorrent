@@ -713,6 +713,58 @@
             margin-bottom: 0;
         }
 
+        /* ── Retry mode radio group ── */
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+            padding: 0.4rem 0 0.2rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            font-size: 0.75rem;
+            color: var(--text);
+        }
+
+        .radio-option input[type="radio"] {
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border: 1px solid var(--border-hi);
+            border-radius: 50%;
+            background: var(--bg);
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            transition: border-color 0.15s;
+        }
+
+        .radio-option input[type="radio"]:checked {
+            border-color: var(--accent);
+        }
+
+        .radio-option input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .radio-option.danger input[type="radio"]:checked {
+            border-color: var(--error);
+        }
+
+        .radio-option.danger input[type="radio"]:checked::after {
+            background: var(--error);
+        }
+
         .modal-footer {
             display: flex;
             justify-content: flex-end;
@@ -1094,6 +1146,20 @@
                 <input id="r-name" readonly style="opacity:0.5; cursor:default; border-color:var(--border);"
                        type="text">
             </div>
+            <div class="field full">
+                <label>Mode</label>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input checked id="r-mode-transfer" name="retryMode" type="radio" value="transfer">
+                        <span>Retry Transfer</span>
+                    </label>
+                    <label class="radio-option danger">
+                        <input id="r-mode-redownload" name="retryMode" type="radio" value="redownload">
+                        <span>Re-download</span>
+                    </label>
+                </div>
+                <div class="field-hint" id="r-mode-hint">Resumes the copy using the existing local files.</div>
+            </div>
             <div class="field">
                 <label for="r-host">Remote Host</label>
                 <input id="r-host" placeholder="192.168.1.100" type="text">
@@ -1130,6 +1196,7 @@
     // ── State ─────────────────────────────────────────────────
     let apikey = sessionStorage.getItem('apikey') || '';
     let selectedNames = new Set();
+    let torrentsData = {};
     let pollTimer = null;
     let pollPaused = false;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
@@ -1380,8 +1447,8 @@
             let result = 0;
 
             if (sortKey === 'name') {
-                result = a[0].localeCompare(
-                    b[0],
+                result = a.name.localeCompare(
+                    b.name,
                     undefined,
                     {
                         numeric: true,
@@ -1389,7 +1456,7 @@
                     }
                 );
             } else if (sortKey === 'status') {
-                result = statusWeight(a[1]) - statusWeight(b[1]);
+                result = statusWeight(a.status) - statusWeight(b.status);
             }
 
             return sortDirection === 'asc'
@@ -1502,8 +1569,7 @@
             document.getElementById('lastUpdated').textContent =
                 'Updated ' + new Date().toLocaleTimeString();
 
-            const data = await resp.json();
-            const rawData = Object.entries(data);
+            const rawData = await resp.json();
             const body = document.getElementById('torrentBody');
 
             if (rawData.length === 0) {
@@ -1519,30 +1585,36 @@
 
                 selectedNames.clear();
                 document.getElementById('deleteBtn').disabled = true;
+                torrentsData = {};
                 return;
             }
 
             const entries = sortEntries(rawData);
             document.getElementById('torrentCount').textContent = `(${entries.length})`;
-            const validNames = new Set(entries.map(([n]) => n));
+            const validNames = new Set(entries.map(e => e.name));
             selectedNames.forEach(name => {
                 if (!validNames.has(name)) {
                     selectedNames.delete(name);
                 }
             });
 
-            body.innerHTML = entries.map(([name, status]) => `
-            <tr class="${selectedNames.has(name) ? 'selected' : ''}" data-name="${esc(name)}">
+            torrentsData = {};
+            entries.forEach(e => {
+                torrentsData[e.name] = e;
+            });
+
+            body.innerHTML = entries.map(e => `
+            <tr class="${selectedNames.has(e.name) ? 'selected' : ''}" data-name="${esc(e.name)}">
                 <td>
                     <input
                         class="torrent-check"
                         type="checkbox"
-                        value="${esc(name)}"
-                        ${selectedNames.has(name) ? 'checked' : ''}
+                        value="${esc(e.name)}"
+                        ${selectedNames.has(e.name) ? 'checked' : ''}
                     >
                 </td>
-                <td>${esc(name)}</td>
-                <td>${badge(status)}</td>
+                <td>${esc(e.name)}</td>
+                <td>${badge(e.status)}</td>
             </tr>
         `).join('');
             body.querySelectorAll('tr').forEach(row => {
@@ -1743,19 +1815,33 @@
     // ── Retry Modal ───────────────────────────────────────────
     let _retryBtn = null;
 
+    function updateRetryMode() {
+        const isRedownload = document.getElementById('r-mode-redownload').checked;
+        document.getElementById('r-mode-hint').textContent = isRedownload
+            ? 'Deletes any existing local files and starts a brand-new download, then transfers again once it finishes.'
+            : 'Resumes the copy using the existing local files.';
+        document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Retry →';
+    }
+
+    document.getElementById('r-mode-transfer').addEventListener('change', updateRetryMode);
+    document.getElementById('r-mode-redownload').addEventListener('change', updateRetryMode);
+
     function doRetry(btn, event) {
         if (event) {
             event.preventDefault();
             event.stopPropagation();
         }
         const name = btn.closest('tr').dataset.name;
+        const entry = torrentsData[name] || {};
         _retryBtn = btn;
         document.getElementById('r-name').value = name;
-        document.getElementById('r-host').value = '';
-        document.getElementById('r-user').value = '';
-        document.getElementById('r-path').value = '';
-        document.getElementById('r-timeout').value = '';
-        document.getElementById('r-delete').checked = false;
+        document.getElementById('r-mode-transfer').checked = true;
+        document.getElementById('r-host').value = entry.remote_host || '';
+        document.getElementById('r-user').value = entry.remote_username || '';
+        document.getElementById('r-path').value = entry.remote_path || '';
+        document.getElementById('r-timeout').value = entry.rsync_timeout || '';
+        document.getElementById('r-delete').checked = !!entry.delete_after_copy;
+        updateRetryMode();
         document.getElementById('retry-modal-title').innerHTML = btn.title;
         pausePollingForModal();
         document.getElementById('retryModal').classList.add('open');
@@ -1775,9 +1861,17 @@
 
     document.getElementById('submitRetry').addEventListener('click', async () => {
         const name = document.getElementById('r-name').value;
+        const redownload = document.getElementById('r-mode-redownload').checked;
+
+        if (redownload && !confirm(
+            `Re-download "${name}"?\n\nThis deletes any existing local files for this torrent and starts a fresh download from the original link.`
+        )) {
+            return;
+        }
+
         const btn = document.getElementById('submitRetry');
         btn.disabled = true;
-        btn.textContent = 'Retrying…';
+        btn.textContent = redownload ? 'Re-downloading…' : 'Retrying…';
         if (_retryBtn) {
             _retryBtn.classList.add('spinning');
             _retryBtn.disabled = true;
@@ -1791,6 +1885,7 @@
 
         const payload = {
             name,
+            redownload,
             remote_host: rHost ? rHost.value.trim() : '',
             remote_username: rUser ? rUser.value.trim() : '',
             remote_path: rPath ? rPath.value.trim() : '',
@@ -1810,17 +1905,17 @@
                 return;
             }
             if (resp.ok) {
-                toast(`Retry queued: ${name}`, 'success');
+                toast(`${redownload ? 'Re-download' : 'Retry'} queued: ${name}`, 'success');
                 closeRetry();
                 await fetchTorrents();
             } else {
-                toast(`Retry failed: ${resp.statusText} [${resp.status}] - ${await resp.text()}`, 'error');
+                toast(`${redownload ? 'Re-download' : 'Retry'} failed: ${resp.statusText} [${resp.status}] - ${await resp.text()}`, 'error');
             }
         } catch (err) {
             toast(err.message || `Network error: ${err.description}`, 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Retry →';
+            updateRetryMode();
             if (_retryBtn) {
                 _retryBtn.classList.remove('spinning');
                 _retryBtn.disabled = false;

@@ -59,16 +59,16 @@ pub struct Config {
     pub workers: usize,
 
     // Persistence behavior
-    /// Controls whether tracked torrents are held onto forever in RuTorrent's own
-    /// state/DB (WebUI + SQLite), independent of qBittorrent's live torrent list.
-    ///
-    /// * `true`  - Never purge a tracked entry from RuTorrent's state/DB. Entries
-    ///             removed from qBittorrent (manually, via the WebUI delete button,
-    ///             or via `delete_after_copy`) are kept with their last known
-    ///             status and simply marked as no longer present in qBittorrent.
-    /// * `false` - Legacy behavior: entries are deleted from RuTorrent's state/DB
-    ///             as soon as they're gone from qBittorrent, or reach a terminal
-    ///             `Failed`/`Completed` (with `delete_after_copy`) state.
+    // Controls whether tracked torrents are held onto forever in RuTorrent's own
+    // state/DB (WebUI + SQLite), independent of qBittorrent's live torrent list.
+    //
+    // * `true`  - Never purge a tracked entry from RuTorrent's state/DB. Entries
+    //             removed from qBittorrent (manually, via the WebUI delete button,
+    //             or via `delete_after_copy`) are kept with their last known
+    //             status and simply marked as no longer present in qBittorrent.
+    // * `false` - Legacy behavior: entries are deleted from RuTorrent's state/DB
+    //             as soon as they're gone from qBittorrent, or reach a terminal
+    //             `Failed`/`Completed` (with `delete_after_copy`) state.
     pub data_storage: bool,
 
     // QBitTorrent WebUI config
@@ -314,10 +314,17 @@ pub struct PutItem {
 }
 
 /// ### RetryOptions
-/// Represents an incoming request to retry a failed copy.
+/// Represents an incoming request to retry a failed copy, or trigger a fresh
+/// re-download followed by a fresh rsync transfer.
 #[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RetryOptions {
     pub name: String,
+    /// When `true`, deletes any existing local files (if present) and starts
+    /// a brand-new download from the original torrent URL, followed by a
+    /// fresh rsync transfer once it completes. When `false` (default),
+    /// resumes the rsync transfer using the existing local files.
+    #[serde(default)]
+    pub redownload: bool,
     #[serde(default = "default_host")]
     pub remote_host: String,
     #[serde(default = "default_username")]
