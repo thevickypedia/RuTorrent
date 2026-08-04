@@ -1,6 +1,21 @@
 Release Notes
 =============
 
+v0.4.0 (08/03/2026)
+-------------------
+- [a3da1f4](https://github.com/thevickypedia/RuTorrent/commit/a3da1f4193febfb510b584413b0f63e56f6633aa) chore: Release ``v0.4.0``
+- [5019db1](https://github.com/thevickypedia/RuTorrent/commit/5019db174a319b572fb364f1d9bdceba5542a294) docs: Update README.md
+- [c2b5865](https://github.com/thevickypedia/RuTorrent/commit/c2b586511b4a4b58d67c946d817b06744e3988a6) fix: Remove stale status when re-download is initiated
+- [ec86aa8](https://github.com/thevickypedia/RuTorrent/commit/ec86aa8b325bb392a80c0e675e7cd4450b3f41fd) fix: Disable retry transfer option when delete files were set to true and prune deleted files' directory
+- [d6db452](https://github.com/thevickypedia/RuTorrent/commit/d6db452dc2ab2cc3f523c0b6e2f04a2a889d85a6) feat: Retain all torrents in the UI with an ability to restart download and/or rsync
+- [fa81740](https://github.com/thevickypedia/RuTorrent/commit/fa8174080956f4a1ca5138b4a2f0254648e9120f) feat: Keep track of historical downloads using ``data_storage`` env var
+- [8982190](https://github.com/thevickypedia/RuTorrent/commit/89821902195cea5351210282d195152976cb6020) refactor: Add more descriptive downstream errors in the WebUI
+- [9053b09](https://github.com/thevickypedia/RuTorrent/commit/9053b0978a2aa18dc48e6ccca660bb489b420dae) chore: Simplify nginx proxy setup for standalone WebUI
+- [ce3ad4a](https://github.com/thevickypedia/RuTorrent/commit/ce3ad4a098d144bace1f96dfa553074857767e4f) fix: Trim ``save_path`` and ``remote_path`` to avoid an edge-case spacing issue
+- [6f0e9a8](https://github.com/thevickypedia/RuTorrent/commit/6f0e9a826083d28044f03e1e5d590bd1d95b7365) chore: Update standalone docker command to use curl for downloading WebUI template and support custom port for WebUI
+- [ae66cf1](https://github.com/thevickypedia/RuTorrent/commit/ae66cf160426b9b1d8f2e927a41549763d1eee25) chore: Update standalone nginx proxy config to include ``/retry`` endpoint
+- [fe5afac](https://github.com/thevickypedia/RuTorrent/commit/fe5afaccb9fdd0163a81ce9e5a39d32cd36d4032) chore: Update release notes for v0.3.1
+
 v0.3.1 (05/25/2026)
 -------------------
 - [8f62cc9](https://github.com/thevickypedia/RuTorrent/commit/8f62cc96f19790bc2d7fa9821dcd08fc8fb723ed) chore: Release ``v0.3.1``
