@@ -709,7 +709,7 @@ pub async fn retry_torrent(
     }
 
     // Find the hash for the given name in state
-    let (hash, mut put_item) = {
+    let (hash, mut put_item, files_deleted) = {
         let db = state.read().await;
         let found = db.iter().find(|(_, entry)| entry.name == body.name);
         match found {
@@ -718,17 +718,27 @@ pub async fn retry_torrent(
                 settings::Status::CopyError
                 | settings::Status::DownloadComplete
                 | settings::Status::Transferred => {
-                    if entry.files_deleted {
-                        return HttpResponse::BadRequest().body(
-                            "Local files were deleted after the last transfer — use redownload instead",
-                        );
-                    }
-                    (hash.clone(), entry.put_item.clone())
+                    (hash.clone(), entry.put_item.clone(), entry.files_deleted)
                 }
                 _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
             },
         }
     };
+
+    // Local files might be gone even though we didn't do the deleting
+    // ourselves — e.g. `delete_after_copy` was off and the user removed
+    // them manually. A plain rsync retry can't work with nothing to copy,
+    // so transparently fall back to a fresh re-download + transfer instead
+    // of surfacing an error; the user just asked to "retry" this torrent.
+    let files_present = !put_item.save_path.is_empty()
+        && std::path::Path::new(&put_item.save_path).exists();
+    if files_deleted || !files_present {
+        log::info!(
+            "Local files missing for '{}', falling back to redownload",
+            body.name
+        );
+        return redownload_torrent(state, pending, config, db_connection, body.into_inner()).await;
+    }
 
     if !body.remote_host.is_empty() {
         put_item.remote_host = body.remote_host.clone();

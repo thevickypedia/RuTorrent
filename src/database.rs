@@ -172,6 +172,7 @@ pub fn remove(conn: &Connection, hash: &str) {
     }
 }
 
+#[allow(dead_code)]
 /// Marks a `state` row as no longer present in qBittorrent without deleting it.
 ///
 /// Used instead of [`remove`] when `data_storage` is enabled, so RuTorrent's own
