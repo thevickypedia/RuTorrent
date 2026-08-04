@@ -34,6 +34,7 @@ async fn main() -> std::io::Result<()> {
 - **QBIT_USERNAME**: Username for qbittorrent API
 - **QBIT_PASSWORD**: Password for qbittorrent API
 - **QBIT_TIMEOUT**: Timeout for qbittorrent API
+- **DATA_STORAGE**: Boolean flag to store torrent links in the database. Defaults to `true`
 - **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
 - **LOG**: Enum value to log to a `file` or `stdout`. Defaults to `stdout`
 - **LOG_LEVEL**: Log level to set across `actix-web`, `actix-server` and `rurorrent`
