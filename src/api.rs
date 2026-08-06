@@ -466,7 +466,7 @@ pub async fn put_torrent(
         log::info!(
             "Adding torrent [{}]: {}, trackers: {}",
             tag,
-            &name,
+            name,
             trackers.len()
         );
 
@@ -610,7 +610,7 @@ pub async fn delete_torrent(
         "Deleting torrent, name: {}, hash: {}, deleteFiles: {}",
         identifier,
         hash,
-        &delete_files
+        delete_files
     );
 
     let resp = client
@@ -771,10 +771,11 @@ pub async fn retry_torrent(
     }
 
     let state_clone = state.as_ref().clone();
+    let db_connection_clone = db_connection.as_ref().clone();
     let hash_clone = hash.clone();
     let name_clone = body.name.clone();
     tokio::spawn(async move {
-        crate::rsync::run(state_clone, hash_clone, name_clone, put_item).await;
+        crate::rsync::run(state_clone, db_connection_clone, hash_clone, name_clone, put_item).await;
     });
 
     log::info!("Retry queued for: {}", body.name);

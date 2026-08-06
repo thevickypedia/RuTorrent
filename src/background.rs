@@ -134,7 +134,7 @@ fn notifier(title: String, body: String, config: settings::Config) {
             body_clone
         );
         tokio::spawn(async move {
-            let message = format!("*{}*\n\n{}", &title_clone, &body_clone);
+            let message = format!("*{}*\n\n{}", title_clone, body_clone);
             let _ = telegram::send(&config_clone, &message).await;
         });
     }
@@ -339,7 +339,7 @@ pub fn spawn_worker(
                                 log::error!("Failed to delete torrent: {}", e.status());
                                 if std::path::Path::new(&entry.put_item.save_path).exists()
                                     && let Err(err) =
-                                    std::fs::remove_dir_all(&entry.put_item.save_path)
+                                        std::fs::remove_dir_all(&entry.put_item.save_path)
                                 {
                                     log::error!("Failed to delete files: {}", err);
                                     files_deleted = false;
@@ -409,14 +409,24 @@ pub fn spawn_worker(
                             if has_rsync {
                                 log::info!("Download complete → rsync: {}", entry.name);
                                 entry.status = settings::Status::Copying;
+                                if let Ok(conn) = db_connection.lock() {
+                                    database::upsert(&conn, &hash, entry);
+                                }
                                 let state_clone = state.clone();
+                                let db_connection_clone = db_connection.clone();
                                 let hash_clone = hash.clone();
                                 let name_clone = entry.name.clone();
                                 let put_item_clone = entry.put_item.clone();
                                 // Kick off transfer in the background
                                 tokio::spawn(async move {
-                                    rsync::run(state_clone, hash_clone, name_clone, put_item_clone)
-                                        .await;
+                                    rsync::run(
+                                        state_clone,
+                                        db_connection_clone,
+                                        hash_clone,
+                                        name_clone,
+                                        put_item_clone,
+                                    )
+                                    .await;
                                 });
                                 // Kick off download complete notification in the background
                                 let config_cloned = config.clone();

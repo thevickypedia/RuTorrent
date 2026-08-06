@@ -59,7 +59,7 @@ pub fn arguments(metadata: &constant::MetaData) -> Arguments {
         i += 1;
     }
     if version {
-        println!("{} {}", &metadata.pkg_name, &metadata.pkg_version);
+        println!("{} {}", metadata.pkg_name, metadata.pkg_version);
         std::process::exit(0)
     }
     Arguments { env_file, read_db }
