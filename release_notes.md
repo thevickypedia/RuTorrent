@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+v0.4.1 (08/07/2026)
+-------------------
+- [2cd96ed](https://github.com/thevickypedia/RuTorrent/commit/2cd96ed618e15511b072cbf6fa1785b30ce7b16f) chore: Release ``v0.4.1``
+- [9b194ea](https://github.com/thevickypedia/RuTorrent/commit/9b194ead9f663b2168bbede8e2a12ff0bd50589a) perf: Persist state during every status transition and upsert immediately when copy fails
+- [f11ed7f](https://github.com/thevickypedia/RuTorrent/commit/f11ed7fd14e71f106dee892d8dc1e9a28a10e220) chore: Bump dependencies
+- [11d2f17](https://github.com/thevickypedia/RuTorrent/commit/11d2f17f1caae760b4579df061323c219ecee882) style: Update label for ``rsync`` connection timeout in re-download or re-transfer modal
+- [1b45cf1](https://github.com/thevickypedia/RuTorrent/commit/1b45cf1268e2e135dedba159874fc505949c0fe9) fix: Avoid failing on retry in case of manual deletion
+- [4d9c15c](https://github.com/thevickypedia/RuTorrent/commit/4d9c15c20e028f4c3db9c92501987bbaca593f0a) chore: Update release notes for v0.4.0
+
 v0.4.0 (08/03/2026)
 -------------------
 - [a3da1f4](https://github.com/thevickypedia/RuTorrent/commit/a3da1f4193febfb510b584413b0f63e56f6633aa) chore: Release ``v0.4.0``
