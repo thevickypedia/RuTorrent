@@ -1858,67 +1858,61 @@
     function badge(entry) {
         const s = entry.status.toLowerCase();
         const qs = (entry.qbit_state || '').toLowerCase();
-
-        // Paused/stopped in qBit overrides the stored status display
-        const isPaused = qs === 'pauseddl' || qs === 'stoppeddl';
-        if (isPaused) {
-            return `<span class="badge" style="color:var(--muted); border-color:rgba(107,107,120,0.4); background:rgba(107,107,120,0.07);">Paused</span>
-        <button class="retry-btn" title="Resume" onclick="doPauseResume(this, event)"
-            style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
-            <span class="retry-icon">▶</span>
-        </button>`;
-        }
+        const isPaused = qs === 'pauseddl' || qs === 'stoppeddl' || qs === 'pausedup' || qs === 'stoppedup';
+        const isActive = s.startsWith('downloading') || qs === 'downloading' || qs === 'stalleddl' || qs === 'forceddl' || qs === 'metadl';
 
         let html;
-        if (s.includes('→ copy queued'))
-            html = `<span class="badge badge-downloading">${esc(status)}</span>`;
-        else if (s.startsWith('downloading'))
-            html = `<span class="badge badge-downloading">${esc(status)}</span>`;
+        if (isPaused)
+            html = `<span class="badge" style="color:var(--muted); border-color:rgba(107,107,120,0.4); background:rgba(107,107,120,0.07);">Paused</span>`;
+        else if (s.includes('→ copy queued') || s.startsWith('downloading'))
+            html = `<span class="badge badge-downloading">${esc(entry.status)}</span>`;
         else if (s === 'copying')
             html = `<span class="badge badge-copying">Copying</span>`;
         else if (s === 'downloaded') html = `
-            <span class="badge badge-downloaded">Downloaded</span>
-            <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
-                    style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-                <span class="retry-icon">⧉</span>
-            </button>`;
+        <span class="badge badge-downloaded">Downloaded</span>
+        <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
+                style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+            <span class="retry-icon">⧉</span>
+        </button>`;
         else if (s === 'completed')
             html = `<span class="badge badge-completed">Completed</span>`;
         else if (s === 'transferred') {
             const title = entry.files_deleted ? 'Re-download' : 'Restart Rsync';
             html = `
-            <span class="badge badge-completed">Transferred</span>
-            <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
-                    style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-                <span class="retry-icon">⧉</span>
-            </button>`;
-        } else if (s === 'failed') html = `
-            <span class="badge badge-failed">Failed</span>
-            <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
-                <span class="retry-icon">↻</span>
-            </button>`;
-        else if (s === 'copyerror') html = `
-            <span class="badge badge-copy-error">Copy Error</span>
-            <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
-                <span class="retry-icon">↻</span>
-            </button>`;
-        else if (s === 'pauseddl' || s === 'stalleddl')
-            html = `<span class="badge badge-failed" style="color:var(--muted); border-color:rgba(107,107,120,0.4); background:rgba(107,107,120,0.07);">Paused</span>`;
-        else
-            html = `<span class="badge">${esc(status)}</span>`;
-
-        html += ` <button class="retry-btn" title="Info" onclick="doInfo(this, event)"
-            style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
-            <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
+        <span class="badge badge-completed">Transferred</span>
+        <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
+                style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+            <span class="retry-icon">⧉</span>
         </button>`;
+        } else if (s === 'failed') html = `
+        <span class="badge badge-failed">Failed</span>
+        <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
+            <span class="retry-icon">↻</span>
+        </button>`;
+        else if (s === 'copyerror') html = `
+        <span class="badge badge-copy-error">Copy Error</span>
+        <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
+            <span class="retry-icon">↻</span>
+        </button>`;
+        else
+            html = `<span class="badge">${esc(entry.status)}</span>`;
 
-        const isDownloading = s.startsWith('downloading');
-        if (isDownloading) {
+        // Pause/resume button: show for anything still active in qBit
+        if (isPaused)
+            html += ` <button class="retry-btn" title="Resume" onclick="doPauseResume(this, event)"
+            style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
+            <span class="retry-icon">▶</span>
+        </button>`;
+        else if (isActive)
             html += ` <button class="retry-btn" title="Pause" onclick="doPauseResume(this, event)"
             style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
             <span class="retry-icon">⏸</span>
         </button>`;
-        }
+
+        html += ` <button class="retry-btn" title="Info" onclick="doInfo(this, event)"
+        style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
+        <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
+    </button>`;
         return html;
     }
 
