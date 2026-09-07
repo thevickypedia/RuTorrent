@@ -1203,6 +1203,20 @@
     </div>
 </div>
 
+<!-- Info Modal -->
+<div class="modal-backdrop" id="infoModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="info-modal-title"></div>
+            <button class="modal-close" id="closeInfoModal">&#x2715;</button>
+        </div>
+        <div id="info-modal-body" style="font-size:0.78rem; line-height:1.8; color:var(--text);"></div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelInfoModal">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Modal -->
 <div class="modal-backdrop" id="deleteModal">
     <div class="modal">
@@ -1844,42 +1858,47 @@
     function badge(entry) {
         const status = entry.status;
         const s = status.toLowerCase();
+        let html;
         if (s.includes('→ copy queued'))
-            return `<span class="badge badge-downloading">${esc(status)}</span>`;
-        if (s.startsWith('downloading')) {
-            return `<span class="badge badge-downloading">${esc(status)}</span>`;
-        }
-        if (s === 'copying')
-            return `<span class="badge badge-copying">Copying</span>`;
-        if (s === 'downloaded') return `
+            html = `<span class="badge badge-downloading">${esc(status)}</span>`;
+        else if (s.startsWith('downloading'))
+            html = `<span class="badge badge-downloading">${esc(status)}</span>`;
+        else if (s === 'copying')
+            html = `<span class="badge badge-copying">Copying</span>`;
+        else if (s === 'downloaded') html = `
             <span class="badge badge-downloaded">Downloaded</span>
             <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
                     style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
                 <span class="retry-icon">⧉</span>
             </button>`;
-        if (s === 'completed')
-            // MARK: Soon to be deleted status
-            return `<span class="badge badge-completed">Completed</span>`;
-        if (s === 'transferred') {
+        else if (s === 'completed')
+            html = `<span class="badge badge-completed">Completed</span>`;
+        else if (s === 'transferred') {
             const title = entry.files_deleted ? 'Re-download' : 'Restart Rsync';
-            return `
+            html = `
             <span class="badge badge-completed">Transferred</span>
             <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
                     style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
                 <span class="retry-icon">⧉</span>
             </button>`;
-        }
-        if (s === 'failed') return `
+        } else if (s === 'failed') html = `
             <span class="badge badge-failed">Failed</span>
             <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
                 <span class="retry-icon">↻</span>
             </button>`;
-        if (s === 'copyerror') return `
+        else if (s === 'copyerror') html = `
             <span class="badge badge-copy-error">Copy Error</span>
             <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
                 <span class="retry-icon">↻</span>
             </button>`;
-        return `<span class="badge">${esc(status)}</span>`;
+        else
+            html = `<span class="badge">${esc(status)}</span>`;
+
+        html += ` <button class="retry-btn" title="Info" onclick="doInfo(this, event)"
+        style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
+        <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
+    </button>`;
+        return html;
     }
 
     // ── Retry Modal ───────────────────────────────────────────
@@ -2008,6 +2027,47 @@
                 _retryBtn.disabled = false;
             }
         }
+    });
+
+    // ── Info Modal ────────────────────────────────────────────
+    function doInfo(btn, event) {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        const name = btn.closest('tr').dataset.name;
+        const e = torrentsData[name] || {};
+
+        document.getElementById('info-modal-title').textContent = name;
+
+        const hasTransfer = e.remote_host;
+        const rows = [
+            ['URL',            e.url          || '—'],
+            ['Save Path',      e.save_path    || '—'],
+            ['Remote Host',    e.remote_host  || '—'],
+            ['Remote User',    e.remote_username || '—'],
+            ['Remote Path',    e.remote_path  || '—'],
+            ['Timeout',        e.rsync_timeout ? `${e.rsync_timeout}s` : '—'],
+            ['Delete After Copy', e.delete_after_copy ? 'Yes' : 'No'],
+            ['Files Deleted',  e.files_deleted ? 'Yes' : 'No'],
+        ];
+
+        document.getElementById('info-modal-body').innerHTML = rows.map(([label, val]) => `
+        <div style="display:flex; gap:1rem; padding:0.3rem 0; border-bottom:1px solid var(--border);">
+            <span style="min-width:140px; color:var(--muted); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; padding-top:2px;">${label}</span>
+            <span style="word-break:break-all;">${esc(String(val))}</span>
+        </div>`).join('');
+
+        pausePollingForModal();
+        document.getElementById('infoModal').classList.add('open');
+    }
+
+    function closeInfo() {
+        document.getElementById('infoModal').classList.remove('open');
+        resumePollingAfterModal();
+    }
+
+    document.getElementById('closeInfoModal').addEventListener('click', closeInfo);
+    document.getElementById('cancelInfoModal').addEventListener('click', closeInfo);
+    document.getElementById('infoModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('infoModal')) closeInfo();
     });
 
     function esc(s) {
