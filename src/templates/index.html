@@ -2046,7 +2046,10 @@
 
     // ── Info Modal ────────────────────────────────────────────
     function doInfo(btn, event) {
-        if (event) { event.preventDefault(); event.stopPropagation(); }
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
         const name = btn.closest('tr').dataset.name;
         const e = torrentsData[name] || {};
 
@@ -2054,14 +2057,14 @@
 
         const hasTransfer = e.remote_host;
         const rows = [
-            ['URL',            e.url          || '—'],
-            ['Save Path',      e.save_path    || '—'],
-            ['Remote Host',    e.remote_host  || '—'],
-            ['Remote User',    e.remote_username || '—'],
-            ['Remote Path',    e.remote_path  || '—'],
-            ['Timeout',        e.rsync_timeout ? `${e.rsync_timeout}s` : '—'],
+            ['URL', e.url || '—'],
+            ['Save Path', e.save_path || '—'],
+            ['Remote Host', e.remote_host || '—'],
+            ['Remote User', e.remote_username || '—'],
+            ['Remote Path', e.remote_path || '—'],
+            ['Timeout', e.rsync_timeout ? `${e.rsync_timeout}s` : '—'],
             ['Delete After Copy', e.delete_after_copy ? 'Yes' : 'No'],
-            ['Files Deleted',  e.files_deleted ? 'Yes' : 'No'],
+            ['Files Deleted', e.files_deleted ? 'Yes' : 'No'],
         ];
 
         document.getElementById('info-modal-body').innerHTML = rows.map(([label, val]) => `
@@ -2087,16 +2090,22 @@
 
     // ── Pause / Resume ────────────────────────────────────────
     async function doPauseResume(btn, event) {
-        if (event) { event.preventDefault(); event.stopPropagation(); }
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
         const name = btn.closest('tr').dataset.name;
         const isPaused = btn.title === 'Resume';
         btn.disabled = true;
         try {
             const resp = await fetch(
                 `/torrent/pause?name=${encodeURIComponent(name)}&pause=${!isPaused}`,
-                { method: 'POST', headers: authHeaders(), signal: AbortSignal.timeout(timeout) }
+                {method: 'POST', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
             );
-            if (resp.status === 401) { handleUnauth(); return; }
+            if (resp.status === 401) {
+                handleUnauth();
+                return;
+            }
             if (!resp.ok) throw new Error(`${await resp.text()}`);
             toast(`${isPaused ? 'Resumed' : 'Paused'}: ${name}`, 'success');
             await fetchTorrents();

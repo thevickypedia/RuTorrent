@@ -92,7 +92,7 @@ fn startup_error(msg: &str) {
 }
 
 fn get_and_parse_timeout(key: &str, default: &str) -> u64 {
-    let value = squire::get_env_var(key, Some(default));
+    let value = squire::misc::get_env_var(key, Some(default));
     value.parse().unwrap_or(default.parse::<u64>().unwrap_or(1))
 }
 
@@ -108,19 +108,19 @@ impl Config {
     /// - Logging configuration parsing
     /// - External service configuration normalization (e.g. URL cleanup)
     pub fn new() -> Self {
-        let host = squire::get_env_var("host", Some("127.0.0.1"));
-        let port = squire::get_env_var("port", Some("3000"))
+        let host = squire::misc::get_env_var("host", Some("127.0.0.1"));
+        let port = squire::misc::get_env_var("port", Some("3000"))
             .parse::<u16>()
             .unwrap();
-        let username = squire::get_env_var("username", None);
-        let password = squire::get_env_var("password", None);
+        let username = squire::misc::get_env_var("username", None);
+        let password = squire::misc::get_env_var("password", None);
 
-        let apikey = squire::get_env_var("apikey", None);
+        let apikey = squire::misc::get_env_var("apikey", None);
         if apikey.is_empty() {
             startup_error("'apikey' is empty");
             std::process::exit(1)
         }
-        match squire::complexity_checker(&apikey, 32) {
+        match squire::misc::complexity_checker(&apikey, 32) {
             Ok(()) => (),
             Err(err) => {
                 startup_error(format!("Invalid 'apikey': {}", err).as_str());
@@ -130,7 +130,7 @@ impl Config {
 
         let available_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
         let default_workers =
-            squire::get_env_var("workers", Some(available_workers.to_string().as_str()));
+            squire::misc::get_env_var("workers", Some(available_workers.to_string().as_str()));
         let workers = match default_workers.parse::<usize>() {
             Ok(n) if n > 0 => n,
             Ok(_) => {
@@ -145,9 +145,9 @@ impl Config {
             }
         };
 
-        let mut qbit_url = squire::get_env_var("qbit_url", Some("http://localhost:8080/"));
-        let qbit_username = squire::get_env_var("qbit_username", None);
-        let qbit_password = squire::get_env_var("qbit_password", None);
+        let mut qbit_url = squire::misc::get_env_var("qbit_url", Some("http://localhost:8080/"));
+        let qbit_username = squire::misc::get_env_var("qbit_username", None);
+        let qbit_password = squire::misc::get_env_var("qbit_password", None);
         qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
 
         if !qbit_url.contains("0.0.0.0")
@@ -163,8 +163,8 @@ impl Config {
             );
         }
 
-        let utc_logger = squire::get_env_var("utc_logger", Some("true")) == "true";
-        let default_log = squire::get_env_var("log", Some("stdout"));
+        let utc_logger = squire::misc::get_env_var("utc_logger", Some("true")) == "true";
+        let default_log = squire::misc::get_env_var("log", Some("stdout"));
         let log = match default_log.parse::<LogOptions>() {
             Ok(log) => log,
             Err(err) => {
@@ -172,7 +172,7 @@ impl Config {
                 std::process::exit(1);
             }
         };
-        let default_log_level = squire::get_env_var("log_level", Some("info"));
+        let default_log_level = squire::misc::get_env_var("log_level", Some("info"));
         let log_level = match default_log_level.parse::<log::LevelFilter>() {
             Ok(level) => level,
             Err(_) => {
@@ -185,10 +185,10 @@ impl Config {
             }
         };
 
-        let mut ntfy_url = squire::get_env_var("ntfy_url", None);
-        let mut ntfy_topic = squire::get_env_var("ntfy_topic", None);
-        let ntfy_username = squire::get_env_var("ntfy_username", None);
-        let ntfy_password = squire::get_env_var("ntfy_password", None);
+        let mut ntfy_url = squire::misc::get_env_var("ntfy_url", None);
+        let mut ntfy_topic = squire::misc::get_env_var("ntfy_topic", None);
+        let ntfy_username = squire::misc::get_env_var("ntfy_username", None);
+        let ntfy_password = squire::misc::get_env_var("ntfy_password", None);
 
         ntfy_url = ntfy_url.strip_suffix("/").unwrap_or(&ntfy_url).to_string();
         ntfy_topic = ntfy_topic
@@ -196,8 +196,8 @@ impl Config {
             .unwrap_or(&ntfy_topic)
             .to_string();
 
-        let telegram_bot_token = squire::get_env_var("telegram_bot_token", None);
-        let telegram_chat_id = squire::get_env_var("telegram_chat_id", None);
+        let telegram_bot_token = squire::misc::get_env_var("telegram_bot_token", None);
+        let telegram_chat_id = squire::misc::get_env_var("telegram_chat_id", None);
         if !telegram_chat_id.is_empty() {
             match telegram_chat_id.parse::<usize>() {
                 Ok(_) => (),
@@ -327,22 +327,22 @@ pub struct RetryOptions {
 
 /// Gets the default host from the `remote_host` environment variable.
 fn default_host() -> String {
-    squire::get_env_var("remote_host", None)
+    squire::misc::get_env_var("remote_host", None)
 }
 
 /// Gets the default username from the `remote_user` environment variable.
 fn default_username() -> String {
-    squire::get_env_var("remote_user", None)
+    squire::misc::get_env_var("remote_user", None)
 }
 
 /// Gets the default remote path from the `remote_path` environment variable.
 fn default_path() -> String {
-    squire::get_env_var("remote_path", None)
+    squire::misc::get_env_var("remote_path", None)
 }
 
 /// Gets the default rsync timeout from `rsync_timeout` environment variable.
 fn default_timeout() -> u8 {
-    squire::get_env_var("rsync_timeout", None)
+    squire::misc::get_env_var("rsync_timeout", None)
         .parse::<u8>()
         .unwrap_or(3)
 }
@@ -358,7 +358,7 @@ fn default_save_path() -> String {
 /// If the variable is missing or cannot be parsed as a boolean,
 /// it defaults to `false`, since this is called during run-time.
 fn default_delete_after_copy() -> bool {
-    squire::get_env_var("delete_after_copy", Some("false"))
+    squire::misc::get_env_var("delete_after_copy", Some("false"))
         .parse::<bool>()
         .unwrap_or(false)
 }

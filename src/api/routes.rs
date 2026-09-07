@@ -1,35 +1,9 @@
-use crate::{constant, savepath, settings};
-use crate::{database, qb};
+use crate::{api, config, database, squire};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use url::Url;
-use utoipa::ToSchema;
 use uuid::Uuid;
-
-/// ### TorrentEntry
-/// A single torrent's state as exposed through the WebUI/API — includes the
-/// originally submitted torrent URL and transfer settings so the frontend can
-/// prefill the retry modal and support re-downloading without extra round-trips.
-#[derive(ToSchema, Clone, serde::Serialize)]
-pub struct TorrentEntry {
-    pub name: String,
-    pub hash: String,
-    pub status: String,
-    pub url: String,
-    pub remote_host: String,
-    pub remote_username: String,
-    pub remote_path: String,
-    pub rsync_timeout: u8,
-    pub delete_after_copy: bool,
-    /// `true` when the locally downloaded files were deleted (e.g. via
-    /// `delete_after_copy`). A plain rsync retry is impossible in that case —
-    /// only a fresh re-download can recover this torrent.
-    pub files_deleted: bool,
-    pub qbit_state: String,  // raw state string from qBittorrent, empty if not in qBit
-}
 
 /// API endpoint to get the current health status.
 ///
@@ -61,7 +35,7 @@ pub async fn status() -> impl Responder {
         (status = 200, description = "API version", body = serde_json::Value)
     )
 )]
-pub async fn version(metadata: web::Data<constant::MetaData>) -> impl Responder {
+pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Responder {
     HttpResponse::Ok().json(json!({ "version": metadata.pkg_version }))
 }
 
@@ -75,7 +49,7 @@ pub async fn version(metadata: web::Data<constant::MetaData>) -> impl Responder 
 /// # Returns
 ///
 /// Returns a boolean value to indicate the authentication status.
-fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
+fn authenticator(request: HttpRequest, config: &config::settings::Config) -> bool {
     if let Some(apikey) = request.headers().get("apikey")
         && apikey.to_str().unwrap() == config.apikey
     {
@@ -126,31 +100,43 @@ fn authenticator(request: HttpRequest, config: &settings::Config) -> bool {
     get,
     path = "/torrent",
     responses(
-        (status = 200, description = "Torrent list", body = Vec<TorrentEntry>)
+        (status = 200, description = "Torrent list", body = Vec<api::schema::TorrentEntry>)
     )
 )]
 pub async fn get_torrents(
     request: HttpRequest,
-    state: web::Data<settings::SharedState>,
-    config: web::Data<settings::Config>,
+    state: web::Data<config::settings::SharedState>,
+    config: web::Data<config::settings::Config>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
 
     let db = state.read().await;
-    let array = get_existing(&client, &config).await;
-    let mut out: Vec<TorrentEntry> = Vec::new();
+    let array = api::squire::get_existing(&client, &config).await;
+    let mut out: Vec<api::schema::TorrentEntry> = Vec::new();
 
     for (hash, local) in db.iter() {
-        let live = array.iter().find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
-        let live_progress = live.and_then(|t| t.get("progress")).and_then(|p| p.parse::<f64>().ok());
-        let live_state = live.and_then(|t| t.get("state")).cloned().unwrap_or_default();
-        out.push(to_entry(hash, local, live_progress, live_state));
+        let live = array
+            .iter()
+            .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
+        let live_progress = live
+            .and_then(|t| t.get("progress"))
+            .and_then(|p| p.parse::<f64>().ok());
+        let live_state = live
+            .and_then(|t| t.get("state"))
+            .cloned()
+            .unwrap_or_default();
+        out.push(api::squire::to_entry(
+            hash,
+            local,
+            live_progress,
+            live_state,
+        ));
     }
 
     // Also surface torrents currently in qBittorrent that were never tracked
@@ -166,186 +152,12 @@ pub async fn get_torrents(
             .and_then(|p| p.parse::<f64>().ok())
             .unwrap_or(0.0);
         let live_state = tracker.get("state").cloned().unwrap_or_default();
-        out.push(untracked_entry(name, hash, progress, live_state));
+        out.push(api::squire::untracked_entry(
+            name, hash, progress, live_state,
+        ));
     }
 
     HttpResponse::Ok().json(out)
-}
-
-/// Builds a [`TorrentEntry`] for a torrent tracked in RuTorrent's own state —
-/// carries the originally submitted URL and transfer settings alongside the
-/// resolved status text.
-///
-/// # Arguments
-///
-/// * `hash` - Torrent hash (state key).
-/// * `local` - The tracked `RsyncTrack` entry from RuTorrent's own state.
-/// * `live_progress` - Freshly polled progress from qBittorrent, if the
-///   torrent is still known to it. Falls back to the last known progress
-///   captured on `local.status` when `None` (i.e. no longer in qBittorrent).
-fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>, live_state: String) -> TorrentEntry {
-    TorrentEntry {
-        name: local.name.clone(),
-        hash: hash.to_string(),
-        status: resolve_status(local, live_progress),
-        url: local.put_item.url.clone(),
-        remote_host: local.put_item.remote_host.clone(),
-        remote_username: local.put_item.remote_username.clone(),
-        remote_path: local.put_item.remote_path.clone(),
-        rsync_timeout: local.put_item.rsync_timeout,
-        delete_after_copy: local.put_item.delete_after_copy,
-        files_deleted: local.files_deleted,
-        qbit_state: live_state,
-    }
-}
-
-/// Builds a [`TorrentEntry`] for a torrent currently in qBittorrent that this
-/// app never tracked (e.g. added directly through qBittorrent). There's no
-/// stored URL or transfer settings for these.
-fn untracked_entry(name: String, hash: String, progress: f64, qbit_state: String) -> TorrentEntry {
-    TorrentEntry {
-        name,
-        hash,
-        status: format!("Downloading: {:.0}%", progress * 100.0),
-        url: String::new(),
-        remote_host: String::new(),
-        remote_username: String::new(),
-        remote_path: String::new(),
-        rsync_timeout: 0,
-        delete_after_copy: false,
-        files_deleted: false,
-        qbit_state,
-    }
-}
-
-/// Resolves the human-readable status text for a tracked torrent.
-///
-/// # Arguments
-///
-/// * `local` - The tracked `RsyncTrack` entry from RuTorrent's own state.
-/// * `live_progress` - Freshly polled progress from qBittorrent, if the
-///   torrent is still known to it. Falls back to the last known progress
-///   captured on `local.status` when `None` (i.e. no longer in qBittorrent).
-///
-/// # Returns
-///
-/// Returns the status string shown in the WebUI for this torrent.
-fn resolve_status(local: &settings::RsyncTrack, live_progress: Option<f64>) -> String {
-    match local.status {
-        settings::Status::Copying => "Copying".to_string(),
-        settings::Status::Transferred => "Transferred".to_string(),
-        settings::Status::Completed => "Completed".to_string(),
-        settings::Status::DownloadComplete => "Downloaded".to_string(),
-        settings::Status::Failed => "Failed".to_string(),
-        settings::Status::CopyError => "CopyError".to_string(),
-        settings::Status::Downloading(last_known) => {
-            let progress = live_progress.unwrap_or(last_known);
-            let has_rsync = !local.put_item.remote_host.is_empty()
-                && !local.put_item.remote_username.is_empty()
-                && !local.put_item.remote_path.is_empty();
-            if has_rsync {
-                format!("Downloading: {:.0}% (→ copy queued)", progress * 100.0)
-            } else {
-                format!("Downloading: {:.0}%", progress * 100.0)
-            }
-        }
-    }
-}
-
-/// Get existing torrents' information from QBitAPI.
-///
-/// # Arguments
-///
-/// * `client` - The HTTP client used to perform the request.
-/// * `config` - Reference to the `Config` object.
-///
-/// # Returns
-///
-/// Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
-async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap<String, String>> {
-    let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
-        .send()
-        .await
-    {
-        Ok(r) => r.json().await.unwrap_or(Value::Null),
-        Err(_) => Value::Null,
-    };
-
-    let mut vec = Vec::new();
-
-    if let Some(arr) = resp.as_array() {
-        for t in arr {
-            let mut map = HashMap::new();
-            map.insert(
-                "name".to_string(),
-                t["name"].as_str().unwrap_or("?").to_string(),
-            );
-            map.insert(
-                "hash".to_string(),
-                t["hash"].as_str().unwrap_or("").to_string(),
-            );
-            map.insert(
-                "progress".to_string(),
-                format!("{}", t["progress"].as_f64().unwrap_or(0.0)),
-            );
-            map.insert("state".to_string(), t["state"].as_str().unwrap_or("").to_string());
-            vec.push(map);
-        }
-    }
-    vec
-}
-
-/// Extends the payload for `PutItem` with resolved `name`, `hash` and `trackers`
-///
-/// # Arguments
-///
-/// * `body` - Request body that takes `PutItem` object.
-///
-/// # Returns
-///
-/// Returns the extended `PutItem` with attached `name`, `hash` and `trackers`
-fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
-    let mut ret: Vec<settings::PutItem> = Vec::new();
-    for item in body.iter() {
-        let url = match Url::parse(&item.url) {
-            Ok(url) => url,
-            Err(e) => {
-                log::error!("Invalid URL '{}': {}", item.url, e);
-                return Vec::new();
-            }
-        };
-        let query_pairs: Vec<(String, String)> = url
-            .query_pairs()
-            .map(|(key, value)| (key.into_owned(), value.into_owned()))
-            .collect();
-
-        let mut hash = String::new();
-        let mut name = String::new();
-        let mut trackers: Vec<String> = Vec::new();
-        for (key, value) in query_pairs {
-            if key == "xt" {
-                hash = value.split(":").last().unwrap().to_string();
-            } else if key == "dn" {
-                name = value;
-            } else {
-                trackers.push(value);
-            }
-        }
-        ret.push(settings::PutItem {
-            url: url.to_string(),
-            name: Some(name),
-            hash: Some(hash),
-            trackers: Some(trackers),
-            save_path: item.save_path.to_owned(),
-            remote_host: item.remote_host.to_string(),
-            remote_username: item.remote_username.to_string(),
-            remote_path: item.remote_path.to_string(),
-            rsync_timeout: item.rsync_timeout.to_owned(),
-            delete_after_copy: item.delete_after_copy,
-        });
-    }
-    ret
 }
 
 /// API endpoint to add torrents to the download queue.
@@ -397,36 +209,36 @@ fn resolve_payload(body: &[settings::PutItem]) -> Vec<settings::PutItem> {
 #[utoipa::path(
     put,
     path = "/torrent",
-    request_body = Vec<settings::PutItem>,
+    request_body = Vec<config::settings::PutItem>,
     responses(
         (status = 200, description = "Queued", body = String)
     )
 )]
 pub async fn put_torrent(
     request: HttpRequest,
-    pending: web::Data<settings::PendingMap>,
-    config: web::Data<settings::Config>,
-    db_connection: web::Data<settings::DBConnection>,
-    body: web::Json<Vec<settings::PutItem>>,
+    pending: web::Data<config::settings::PendingMap>,
+    config: web::Data<config::settings::Config>,
+    db_connection: web::Data<config::settings::DBConnection>,
+    body: web::Json<Vec<config::settings::PutItem>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
 
     let mut pending_lock = pending.write().await;
 
-    let existing = get_existing(&client, &config).await;
+    let existing = api::squire::get_existing(&client, &config).await;
     let hashes: Vec<String> = existing
         .into_iter()
         .map(|i| i.get("hash").unwrap().to_uppercase().clone())
         .collect();
 
     let mut response: Vec<HashMap<String, String>> = Vec::new();
-    for mut item in resolve_payload(&body.into_inner()) {
+    for mut item in api::squire::resolve_payload(&body.into_inner()) {
         let tag = Uuid::new_v4().to_string();
         let url = item.url.to_string();
         let name = item.name.as_ref().unwrap().to_string();
@@ -450,7 +262,7 @@ pub async fn put_torrent(
 
         let mut params = vec![("urls", &url), ("tags", &tag)];
         if item.save_path.is_empty() {
-            item.save_path = savepath::get_default_save_path(&client, &config, &name).await;
+            item.save_path = squire::savepath::get_default_save_path(&client, &config, &name).await;
         }
         item.save_path = item.save_path.trim().to_string();
         log::info!("Destination for '{}': {}", name, item.save_path);
@@ -462,7 +274,9 @@ pub async fn put_torrent(
             .send()
             .await;
 
-        if let Err(e) = qb::handle_response(resp, qb::ResponseContext::AddTorrent).await {
+        if let Err(e) =
+            squire::qb::handle_response(resp, squire::qb::ResponseContext::AddTorrent).await
+        {
             log::error!("{:?}", e.status().to_string());
             response.push(HashMap::from([(name, e.status().to_string())]));
             continue;
@@ -481,7 +295,7 @@ pub async fn put_torrent(
         pending_lock.insert(tag.clone(), item.clone());
         if let Ok(conn) = db_connection.lock() {
             log::debug!("Updated database for pending");
-            database::upsert_pending(&conn, &tag, &item);
+            database::db::upsert_pending(&conn, &tag, &item);
         } else {
             log::error!("Failed to update database for pending");
         }
@@ -533,9 +347,9 @@ pub async fn put_torrent(
 )]
 pub async fn delete_torrent(
     request: HttpRequest,
-    state: web::Data<settings::SharedState>,
-    config: web::Data<settings::Config>,
-    db_connection: web::Data<settings::DBConnection>,
+    state: web::Data<config::settings::SharedState>,
+    config: web::Data<config::settings::Config>,
+    db_connection: web::Data<config::settings::DBConnection>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -559,7 +373,7 @@ pub async fn delete_torrent(
             .map(|(h, _)| h.clone())
     };
 
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
@@ -588,17 +402,30 @@ pub async fn delete_torrent(
         None => return HttpResponse::NotFound().body("Torrent not found"),
     };
 
-    log::info!("Deleting torrent, name: {}, hash: {}, deleteFiles: {}", identifier, hash, delete_files);
+    log::info!(
+        "Deleting torrent, name: {}, hash: {}, deleteFiles: {}",
+        identifier,
+        hash,
+        delete_files
+    );
 
     // Best-effort qBit delete — if it's already gone from qBit this is a no-op.
     let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
-        .form(&[("hashes", hash.as_str()), ("deleteFiles", delete_files.to_string().as_str())])
+        .form(&[
+            ("hashes", hash.as_str()),
+            ("deleteFiles", delete_files.to_string().as_str()),
+        ])
         .send()
         .await;
 
-    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
-        log::warn!("qBit delete returned non-OK (may already be gone): {}", e.status());
+    if let Err(e) =
+        squire::qb::handle_response(resp, squire::qb::ResponseContext::DeleteTorrent).await
+    {
+        log::warn!(
+            "qBit delete returned non-OK (may already be gone): {}",
+            e.status()
+        );
     }
 
     // Always drop from RuTorrent state and DB regardless of qBit outcome
@@ -607,7 +434,7 @@ pub async fn delete_torrent(
         db.remove(&hash);
     }
     if let Ok(conn) = db_connection.lock() {
-        database::remove(&conn, &hash);
+        database::db::remove(&conn, &hash);
     }
 
     log::info!("Successfully deleted {}", identifier);
@@ -674,11 +501,11 @@ pub async fn delete_torrent(
 )]
 pub async fn retry_torrent(
     request: HttpRequest,
-    state: web::Data<settings::SharedState>,
-    pending: web::Data<settings::PendingMap>,
-    config: web::Data<settings::Config>,
-    db_connection: web::Data<settings::DBConnection>,
-    body: web::Json<settings::RetryOptions>,
+    state: web::Data<config::settings::SharedState>,
+    pending: web::Data<config::settings::PendingMap>,
+    config: web::Data<config::settings::Config>,
+    db_connection: web::Data<config::settings::DBConnection>,
+    body: web::Json<config::settings::RetryOptions>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
@@ -699,10 +526,10 @@ pub async fn retry_torrent(
         match found {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
             Some((hash, entry)) => match entry.status {
-                settings::Status::CopyError
-                | settings::Status::DownloadComplete
-                | settings::Status::Failed
-                | settings::Status::Transferred => {
+                config::settings::Status::CopyError
+                | config::settings::Status::DownloadComplete
+                | config::settings::Status::Failed
+                | config::settings::Status::Transferred => {
                     (hash.clone(), entry.put_item.clone(), entry.files_deleted)
                 }
                 _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
@@ -715,8 +542,8 @@ pub async fn retry_torrent(
     // them manually. A plain rsync retry can't work with nothing to copy,
     // so transparently fall back to a fresh re-download + transfer instead
     // of surfacing an error; the user just asked to "retry" this torrent.
-    let files_present = !put_item.save_path.is_empty()
-        && std::path::Path::new(&put_item.save_path).exists();
+    let files_present =
+        !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists();
     if files_deleted || !files_present {
         log::info!(
             "Local files missing for '{}', falling back to redownload",
@@ -745,13 +572,13 @@ pub async fn retry_torrent(
     {
         let mut db = state.write().await;
         if let Some(entry) = db.get_mut(&hash) {
-            entry.status = settings::Status::Copying;
+            entry.status = config::settings::Status::Copying;
             entry.put_item = put_item.clone();
         }
         if let Ok(conn) = db_connection.lock()
             && let Some(entry) = db.get(&hash)
         {
-            database::upsert(&conn, &hash, entry);
+            database::db::upsert(&conn, &hash, entry);
         }
     }
 
@@ -760,7 +587,14 @@ pub async fn retry_torrent(
     let hash_clone = hash.clone();
     let name_clone = body.name.clone();
     tokio::spawn(async move {
-        crate::rsync::run(state_clone, db_connection_clone, hash_clone, name_clone, put_item).await;
+        squire::rsync::run(
+            state_clone,
+            db_connection_clone,
+            hash_clone,
+            name_clone,
+            put_item,
+        )
+        .await;
     });
 
     log::info!("Retry queued for: {}", body.name);
@@ -785,11 +619,11 @@ pub async fn retry_torrent(
 ///
 /// Returns an `HttpResponse` indicating the result.
 async fn redownload_torrent(
-    state: web::Data<settings::SharedState>,
-    pending: web::Data<settings::PendingMap>,
-    config: web::Data<settings::Config>,
-    db_connection: web::Data<settings::DBConnection>,
-    opts: settings::RetryOptions,
+    state: web::Data<config::settings::SharedState>,
+    pending: web::Data<config::settings::PendingMap>,
+    config: web::Data<config::settings::Config>,
+    db_connection: web::Data<config::settings::DBConnection>,
+    opts: config::settings::RetryOptions,
 ) -> HttpResponse {
     // Find the tracked entry and its originally stored URL/save path.
     let (hash, mut put_item) = {
@@ -798,13 +632,14 @@ async fn redownload_torrent(
         match found {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
             Some((hash, entry)) => match entry.status {
-                settings::Status::CopyError
-                | settings::Status::DownloadComplete
-                | settings::Status::Transferred
-                | settings::Status::Failed => (hash.clone(), entry.put_item.clone()),
+                config::settings::Status::CopyError
+                | config::settings::Status::DownloadComplete
+                | config::settings::Status::Transferred
+                | config::settings::Status::Failed => (hash.clone(), entry.put_item.clone()),
                 _ => {
-                    return HttpResponse::BadRequest()
-                        .body("Torrent must be finished (or failed) before it can be re-downloaded");
+                    return HttpResponse::BadRequest().body(
+                        "Torrent must be finished (or failed) before it can be re-downloaded",
+                    );
                 }
             },
         }
@@ -844,7 +679,7 @@ async fn redownload_torrent(
         );
     }
 
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
@@ -856,7 +691,9 @@ async fn redownload_torrent(
         .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
         .send()
         .await;
-    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
+    if let Err(e) =
+        squire::qb::handle_response(resp, squire::qb::ResponseContext::DeleteTorrent).await
+    {
         log::warn!(
             "Torrent '{}' delete-before-redownload returned: {}",
             opts.name,
@@ -867,7 +704,8 @@ async fn redownload_torrent(
     // Re-add the torrent to kick off a brand-new download.
     let tag = Uuid::new_v4().to_string();
     if put_item.save_path.is_empty() {
-        put_item.save_path = savepath::get_default_save_path(&client, &config, &opts.name).await;
+        put_item.save_path =
+            squire::savepath::get_default_save_path(&client, &config, &opts.name).await;
     }
     put_item.save_path = put_item.save_path.trim().to_string();
 
@@ -880,7 +718,8 @@ async fn redownload_torrent(
         ])
         .send()
         .await;
-    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::AddTorrent).await {
+    if let Err(e) = squire::qb::handle_response(resp, squire::qb::ResponseContext::AddTorrent).await
+    {
         return e;
     }
 
@@ -896,7 +735,7 @@ async fn redownload_torrent(
         db.remove(&hash);
     }
     if let Ok(conn) = db_connection.lock() {
-        database::remove(&conn, &hash);
+        database::db::remove(&conn, &hash);
     }
 
     {
@@ -904,7 +743,7 @@ async fn redownload_torrent(
         pending_lock.insert(tag.clone(), put_item.clone());
     }
     if let Ok(conn) = db_connection.lock() {
-        database::upsert_pending(&conn, &tag, &put_item);
+        database::db::upsert_pending(&conn, &tag, &put_item);
     }
 
     log::info!(
@@ -940,7 +779,7 @@ async fn redownload_torrent(
 )]
 pub async fn pause_torrent(
     request: HttpRequest,
-    config: web::Data<settings::Config>,
+    config: web::Data<config::settings::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -952,7 +791,7 @@ pub async fn pause_torrent(
     };
     let pause = query.get("pause").map(|v| v == "true").unwrap_or(true);
 
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
@@ -966,7 +805,8 @@ pub async fn pause_torrent(
         Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
     };
 
-    let hash = resp.as_array()
+    let hash = resp
+        .as_array()
         .and_then(|arr| arr.iter().find(|t| t["name"].as_str() == Some(name)))
         .and_then(|t| t["hash"].as_str())
         .map(|h| h.to_string());
@@ -983,10 +823,16 @@ pub async fn pause_torrent(
         .send()
         .await;
 
-    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::PauseResumeTorrent).await {
+    if let Err(e) =
+        squire::qb::handle_response(resp, squire::qb::ResponseContext::PauseResumeTorrent).await
+    {
         return e;
     }
 
-    log::info!("{} torrent: {}", if pause { "Paused" } else { "Resumed" }, name);
+    log::info!(
+        "{} torrent: {}",
+        if pause { "Paused" } else { "Resumed" },
+        name
+    );
     HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
 }

@@ -1,4 +1,4 @@
-use crate::settings::{PutItem, RsyncTrack, Status};
+use crate::config;
 use rusqlite::{params, Connection};
 use std::collections::HashMap;
 
@@ -8,7 +8,7 @@ use std::collections::HashMap;
 ///
 /// Returns an open `Connection` to the `rutorrent.db` SQLite database.
 pub fn open() -> Connection {
-    let conn = Connection::open("rutorrent.db").expect("Failed to open database");
+    let conn = Connection::open("../../rutorrent.db").expect("Failed to open database");
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS state (
             hash        TEXT PRIMARY KEY,
@@ -48,7 +48,7 @@ pub fn open() -> Connection {
 /// * `conn` - Active SQLite database connection.
 /// * `hash` - Unique torrent hash identifier.
 /// * `entry` - The `RsyncTrack` data to persist.
-pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
+pub fn upsert(conn: &Connection, hash: &str, entry: &config::settings::RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     match conn.execute(
         "INSERT OR REPLACE INTO state
@@ -84,7 +84,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &RsyncTrack) {
 /// * `conn` - Active SQLite database connection.
 /// * `tag` - Unique identifier for the pending item.
 /// * `item` - The `PutItem` data to store as pending.
-pub fn upsert_pending(conn: &Connection, tag: &str, item: &PutItem) {
+pub fn upsert_pending(conn: &Connection, tag: &str, item: &config::settings::PutItem) {
     match conn.execute(
         "INSERT OR REPLACE INTO pending
             (tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy)
@@ -131,14 +131,14 @@ pub fn remove_pending(conn: &Connection, tag: &str) {
 /// # Returns
 ///
 /// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
-pub fn load_pending(conn: &Connection) -> HashMap<String, PutItem> {
+pub fn load_pending(conn: &Connection) -> HashMap<String, config::settings::PutItem> {
     let mut stmt = conn
         .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy FROM pending")
         .expect("Failed to prepare load_pending query");
 
     stmt.query_map([], |row| {
         let tag: String = row.get(0)?;
-        let item = PutItem {
+        let item = config::settings::PutItem {
             url: row.get(1)?,
             name: None,
             hash: None,
@@ -181,7 +181,7 @@ pub fn remove(conn: &Connection, hash: &str) {
 /// # Returns
 ///
 /// Returns a `HashMap<String, RsyncTrack>` mapping each tracked hash to its associated `RsyncTrack`.
-pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
+pub fn load_all(conn: &Connection) -> HashMap<String, config::settings::RsyncTrack> {
     let mut stmt = conn
         .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted FROM state")
         .expect("Failed to prepare load query");
@@ -202,7 +202,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
         let files_deleted: i32 = row.get(12)?;
 
         let status = decode_status(&status_str, progress);
-        let put_item = PutItem {
+        let put_item = config::settings::PutItem {
             url,
             name: None,
             hash: None,
@@ -217,7 +217,7 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
 
         Ok((
             hash,
-            RsyncTrack {
+            config::settings::RsyncTrack {
                 name,
                 status,
                 put_item,
@@ -240,15 +240,15 @@ pub fn load_all(conn: &Connection) -> HashMap<String, RsyncTrack> {
 /// # Returns
 ///
 /// Returns a tuple containing the status string and its associated progress value.
-fn encode_status(status: &Status) -> (&'static str, f64) {
+fn encode_status(status: &config::settings::Status) -> (&'static str, f64) {
     match status {
-        Status::Downloading(p) => ("Downloading", *p),
-        Status::DownloadComplete => ("DownloadComplete", 1.0),
-        Status::Copying => ("Copying", 0.0),
-        Status::Transferred => ("Transferred", 1.0),
-        Status::Completed => ("Completed", 1.0),
-        Status::Failed => ("Failed", 0.0),
-        Status::CopyError => ("CopyError", 0.0),
+        config::settings::Status::Downloading(p) => ("Downloading", *p),
+        config::settings::Status::DownloadComplete => ("DownloadComplete", 1.0),
+        config::settings::Status::Copying => ("Copying", 0.0),
+        config::settings::Status::Transferred => ("Transferred", 1.0),
+        config::settings::Status::Completed => ("Completed", 1.0),
+        config::settings::Status::Failed => ("Failed", 0.0),
+        config::settings::Status::CopyError => ("CopyError", 0.0),
     }
 }
 
@@ -262,14 +262,14 @@ fn encode_status(status: &Status) -> (&'static str, f64) {
 /// # Returns
 ///
 /// Returns the reconstructed `Status` enum.
-fn decode_status(status: &str, progress: f64) -> Status {
+fn decode_status(status: &str, progress: f64) -> config::settings::Status {
     match status {
-        "DownloadComplete" => Status::DownloadComplete,
-        "Copying" => Status::Copying,
-        "Transferred" => Status::Transferred,
-        "Completed" => Status::Completed,
-        "Failed" => Status::Failed,
-        "CopyError" => Status::CopyError,
-        _ => Status::Downloading(progress),
+        "DownloadComplete" => config::settings::Status::DownloadComplete,
+        "Copying" => config::settings::Status::Copying,
+        "Transferred" => config::settings::Status::Transferred,
+        "Completed" => config::settings::Status::Completed,
+        "Failed" => config::settings::Status::Failed,
+        "CopyError" => config::settings::Status::CopyError,
+        _ => config::settings::Status::Downloading(progress),
     }
 }

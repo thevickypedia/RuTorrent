@@ -1,4 +1,4 @@
-use crate::constant;
+use crate::config;
 
 /// Represents the command-line arguments parsed from the environment.
 #[derive(Debug, Clone)]
@@ -16,7 +16,7 @@ pub struct Arguments {
 /// # Returns
 ///
 /// Returns the `Arguments` object with `env_file` and `read_db` variables.
-pub fn arguments(metadata: &constant::MetaData) -> Arguments {
+pub fn arguments(metadata: &config::constant::MetaData) -> Arguments {
     let args: Vec<String> = std::env::args().collect();
 
     let mut version = false;

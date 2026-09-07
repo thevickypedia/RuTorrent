@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde_json::Value;
 use std::path::Path;
 
-use crate::{settings, squire};
+use crate::{config, squire};
 
 /// Constructs a default "Downloads" directory in the HOME folder.
 ///
@@ -45,11 +45,11 @@ fn default_download_path(child_dir: &str) -> String {
 /// request fails or the field is absent.
 pub async fn get_default_save_path(
     client: &Client,
-    config: &settings::Config,
+    config: &config::settings::Config,
     child_dir: &String,
 ) -> String {
     // 1. Check environment variable override
-    let default_save_env = squire::get_env_var("save_path", None);
+    let default_save_env = squire::misc::get_env_var("save_path", None);
     if !default_save_env.is_empty() {
         match std::fs::create_dir_all(&default_save_env) {
             Ok(_) => {

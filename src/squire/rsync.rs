@@ -3,7 +3,7 @@ use tokio::{
     process::Command,
 };
 
-use crate::{database, settings};
+use crate::{config, database};
 
 /// Executes an `rsync` process to transfer a file or directory to a remote target.
 ///
@@ -24,11 +24,11 @@ use crate::{database, settings};
 ///   whatever status was last written before the transfer started.
 /// - Assumes an existing entry for `hash` is present in the shared state.
 pub async fn run(
-    state: settings::SharedState,
-    db_connection: settings::DBConnection,
+    state: config::settings::SharedState,
+    db_connection: config::settings::DBConnection,
     hash: String,
     name: String,
-    put_item: settings::PutItem,
+    put_item: config::settings::PutItem,
 ) {
     log::info!("Starting rsync for {}", name);
 
@@ -56,12 +56,12 @@ pub async fn run(
             log::error!("Failed to start rsync for {}: {}", name, e);
             let mut db = state.write().await;
             if let Some(entry) = db.get_mut(&hash) {
-                entry.status = settings::Status::CopyError;
+                entry.status = config::settings::Status::CopyError;
             }
             if let Ok(conn) = db_connection.lock()
                 && let Some(entry) = db.get(&hash)
             {
-                database::upsert(&conn, &hash, entry);
+                database::db::upsert(&conn, &hash, entry);
             }
             return;
         }
@@ -79,12 +79,12 @@ pub async fn run(
             log::error!("Failed waiting for rsync process for {}: {}", name, e);
             let mut db = state.write().await;
             if let Some(entry) = db.get_mut(&hash) {
-                entry.status = settings::Status::CopyError;
+                entry.status = config::settings::Status::CopyError;
             }
             if let Ok(conn) = db_connection.lock()
                 && let Some(entry) = db.get(&hash)
             {
-                database::upsert(&conn, &hash, entry);
+                database::db::upsert(&conn, &hash, entry);
             }
             return;
         }
@@ -109,14 +109,14 @@ pub async fn run(
     let mut db = state.write().await;
     if let Some(e) = db.get_mut(&hash) {
         e.status = if status.success() {
-            settings::Status::Completed
+            config::settings::Status::Completed
         } else {
-            settings::Status::CopyError
+            config::settings::Status::CopyError
         };
     }
     if let Ok(conn) = db_connection.lock()
         && let Some(entry) = db.get(&hash)
     {
-        database::upsert(&conn, &hash, entry);
+        database::db::upsert(&conn, &hash, entry);
     }
 }

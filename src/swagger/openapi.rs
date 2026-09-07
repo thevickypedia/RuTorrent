@@ -1,4 +1,4 @@
-use crate::{api, settings};
+use crate::{api, config};
 use actix_web::HttpResponse;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::Modify;
@@ -7,15 +7,15 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::status,
-        api::version,
-        api::get_torrents,
-        api::put_torrent,
-        api::pause_torrent,
-        api::delete_torrent,
-        api::retry_torrent
+        api::routes::status,
+        api::routes::version,
+        api::routes::get_torrents,
+        api::routes::put_torrent,
+        api::routes::pause_torrent,
+        api::routes::delete_torrent,
+        api::routes::retry_torrent
     ),
-    components(schemas(settings::PutItem, settings::RetryOptions, api::TorrentEntry)),
+    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry)),
     security(
         ("apikey" = [])
     ),

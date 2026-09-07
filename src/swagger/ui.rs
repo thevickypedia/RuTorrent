@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::config;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::json;
@@ -16,14 +16,14 @@ use serde_json::json;
 /// # Returns
 ///
 /// Returns the HTTPResponse with `Content-Type` header set to `text/html` and `body` as content of the HTML file.
-pub async fn index_page(config: web::Data<settings::Config>) -> impl Responder {
+pub async fn index_page(config: web::Data<config::settings::Config>) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
         log::warn!("Username and password are required to access the UI");
         return HttpResponse::NotImplemented().finish();
     }
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
-        .body(include_str!("templates/index.html"))
+        .body(include_str!("../templates/index.html"))
 }
 
 /// Helper function to base64 decode the header string.
@@ -58,7 +58,7 @@ fn base64_decode(value: &str) -> Result<String, Box<dyn std::error::Error>> {
 /// Returns an `HttpResponse` object with the apikey if successful.
 pub async fn authenticator(
     request: HttpRequest,
-    config: web::Data<settings::Config>,
+    config: web::Data<config::settings::Config>,
 ) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
         log::warn!("Username and password are required to authenticate the UI");

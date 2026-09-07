@@ -1,4 +1,4 @@
-use crate::{database, ntfy, qb, rsync, settings, squire, telegram};
+use crate::{config, database, notifier, squire};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
@@ -68,9 +68,9 @@ fn prune_empty_dirs(path: &std::path::Path) -> bool {
 /// * `db_connection` - Database connection received through app data.
 async fn resolve_new_torrents(
     array: &Vec<Value>,
-    pending: &settings::PendingMap,
-    state: &settings::SharedState,
-    db_connection: &settings::DBConnection,
+    pending: &config::settings::PendingMap,
+    state: &config::settings::SharedState,
+    db_connection: &config::settings::DBConnection,
 ) {
     let mut pending_lock = pending.write().await;
     let mut db = state.write().await;
@@ -97,7 +97,7 @@ async fn resolve_new_torrents(
             // Torrent exists in qBit but has no pending entry — auto-track it
             // so that the DB is always a superset of what qBit knows about.
             log::info!("Auto-tracking torrent found in QBit (not in DB): {}", name);
-            settings::PutItem {
+            config::settings::PutItem {
                 url: String::new(),
                 name: Some(name.clone()),
                 hash: Some(hash.clone()),
@@ -113,9 +113,9 @@ async fn resolve_new_torrents(
 
         db.insert(
             hash.clone(),
-            settings::RsyncTrack {
+            config::settings::RsyncTrack {
                 name,
-                status: settings::Status::Downloading(0.0),
+                status: config::settings::Status::Downloading(0.0),
                 put_item: item,
                 in_qbit: true,
                 files_deleted: false,
@@ -123,9 +123,9 @@ async fn resolve_new_torrents(
         );
         if let Ok(conn) = db_connection.lock() {
             if let Some(tag) = matched_tag {
-                database::remove_pending(&conn, tag);
+                database::db::remove_pending(&conn, tag);
             }
-            database::upsert(&conn, &hash, db.get(&hash).unwrap());
+            database::db::upsert(&conn, &hash, db.get(&hash).unwrap());
         }
     }
 }
@@ -141,14 +141,14 @@ async fn resolve_new_torrents(
 /// # Notes
 ///
 /// Sends notifications through `NTFY` and `Telegram` based on the availability of env vars.
-fn notifier(title: String, body: String, config: settings::Config) {
+fn notifier(title: String, body: String, config: config::settings::Config) {
     let title_clone = title.clone();
     let body_clone = body.clone();
     let config_clone = config.clone();
     if !config.ntfy_url.is_empty() && !config.ntfy_topic.is_empty() {
         log::info!("Sending NTFY notification to {}: {}", title_clone, body);
         tokio::spawn(async move {
-            let _ = ntfy::send(&config, &title, &body).await;
+            let _ = notifier::ntfy::send(&config, &title, &body).await;
         });
     }
     if !config_clone.telegram_bot_token.is_empty() && !config_clone.telegram_chat_id.is_empty() {
@@ -159,7 +159,7 @@ fn notifier(title: String, body: String, config: settings::Config) {
         );
         tokio::spawn(async move {
             let message = format!("*{}*\n\n{}", title_clone, body_clone);
-            let _ = telegram::send(&config_clone, &message).await;
+            let _ = notifier::telegram::send(&config_clone, &message).await;
         });
     }
 }
@@ -187,10 +187,10 @@ fn notifier(title: String, body: String, config: settings::Config) {
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
     mut client: Client,
-    state: settings::SharedState,
-    pending: settings::PendingMap,
-    config: settings::Config,
-    db_connection: settings::DBConnection,
+    state: config::settings::SharedState,
+    pending: config::settings::PendingMap,
+    config: config::settings::Config,
+    db_connection: config::settings::DBConnection,
 ) {
     let mut n = 0;
     let max_auth_errors = 30;
@@ -209,7 +209,8 @@ pub fn spawn_worker(
                  - Re-auth if the request fails.
             ---------------------------------------------------------*/
             if let Some(response) =
-                squire::qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url)).await
+                squire::misc::qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url))
+                    .await
             {
                 let Some(array) = response.as_array() else {
                     log::warn!("No info received from QBitAPI");
@@ -220,11 +221,19 @@ pub fn spawn_worker(
             } else {
                 log::error!("Failed to get info from QBitAPI");
                 // Re-create client when failed to authenticate
-                client = match qb::client(&config).await {
+                client = match squire::qb::client(&config).await {
                     Ok(c) => c,
                     Err(e) => {
-                        log::error!("Failed to authenticate qBittorrent: {:?} on {}-th attempt", e, n);
-                        if n > max_auth_errors { return } else { continue }
+                        log::error!(
+                            "Failed to authenticate qBittorrent: {:?} on {}-th attempt",
+                            e,
+                            n
+                        );
+                        if n > max_auth_errors {
+                            return;
+                        } else {
+                            continue;
+                        }
                     }
                 };
                 continue;
@@ -247,7 +256,9 @@ pub fn spawn_worker(
             };
 
             // Nothing in qBit to sync against — skip the status-update pass.
-            if db_hashes.is_empty() { continue }
+            if db_hashes.is_empty() {
+                continue;
+            }
 
             let url = format!(
                 "{}/api/v2/torrents/info?hashes={}",
@@ -255,7 +266,9 @@ pub fn spawn_worker(
                 db_hashes.join("|")
             );
 
-            let Some(resp) = squire::qb_get(&client, url).await else { continue };
+            let Some(resp) = squire::misc::qb_get(&client, url).await else {
+                continue;
+            };
             let Some(arr) = resp.as_array() else { continue };
 
             let mut db = state.write().await;
@@ -276,7 +289,7 @@ pub fn spawn_worker(
                     if let Ok(conn) = db_connection.lock()
                         && let Some(entry) = db.get(h)
                     {
-                        database::upsert(&conn, h, entry);
+                        database::db::upsert(&conn, h, entry);
                     }
                 }
             });
@@ -292,11 +305,11 @@ pub fn spawn_worker(
                 let progress = t["progress"].as_f64().unwrap_or(0.0);
 
                 if state_str == "error" {
-                    if !matches!(entry.status, settings::Status::Failed) {
+                    if !matches!(entry.status, config::settings::Status::Failed) {
                         log::error!("Download errored for {}: {}", entry.name, state_str);
-                        entry.status = settings::Status::Failed;
+                        entry.status = config::settings::Status::Failed;
                         if let Ok(conn) = db_connection.lock() {
-                            database::upsert(&conn, &hash, entry);
+                            database::db::upsert(&conn, &hash, entry);
                         }
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
@@ -308,10 +321,10 @@ pub fn spawn_worker(
                     }
                 } else if !matches!(
                     entry.status,
-                    settings::Status::Transferred
-                        | settings::Status::Completed
-                        | settings::Status::Copying
-                        | settings::Status::DownloadComplete
+                    config::settings::Status::Transferred
+                        | config::settings::Status::Completed
+                        | config::settings::Status::Copying
+                        | config::settings::Status::DownloadComplete
                 ) {
                     let download_complete = matches!(
                         state_str,
@@ -328,9 +341,9 @@ pub fn spawn_worker(
                             && !entry.put_item.remote_path.is_empty();
                         if has_rsync {
                             log::info!("Download complete → rsync: {}", entry.name);
-                            entry.status = settings::Status::Copying;
+                            entry.status = config::settings::Status::Copying;
                             if let Ok(conn) = db_connection.lock() {
-                                database::upsert(&conn, &hash, entry);
+                                database::db::upsert(&conn, &hash, entry);
                             }
                             let state_clone = state.clone();
                             let db_connection_clone = db_connection.clone();
@@ -338,14 +351,14 @@ pub fn spawn_worker(
                             let name_clone = entry.name.clone();
                             let put_item_clone = entry.put_item.clone();
                             tokio::spawn(async move {
-                                rsync::run(
+                                squire::rsync::run(
                                     state_clone,
                                     db_connection_clone,
                                     hash_clone,
                                     name_clone,
                                     put_item_clone,
                                 )
-                                    .await;
+                                .await;
                             });
                             let config_cloned = config.clone();
                             let name_clone = entry.name.clone();
@@ -356,9 +369,9 @@ pub fn spawn_worker(
                             );
                         } else {
                             log::info!("Download complete (no rsync): {}", entry.name);
-                            entry.status = settings::Status::DownloadComplete;
+                            entry.status = config::settings::Status::DownloadComplete;
                             if let Ok(conn) = db_connection.lock() {
-                                database::upsert(&conn, &hash, entry);
+                                database::db::upsert(&conn, &hash, entry);
                             }
                             notifier(
                                 "RuTorrent: Download Complete".to_string(),
@@ -367,15 +380,15 @@ pub fn spawn_worker(
                             );
                         }
                     } else {
-                        entry.status = settings::Status::Downloading(progress);
+                        entry.status = config::settings::Status::Downloading(progress);
                         if let Ok(conn) = db_connection.lock() {
-                            database::upsert(&conn, &hash, entry);
+                            database::db::upsert(&conn, &hash, entry);
                         }
                     }
                 }
 
                 match entry.status {
-                    settings::Status::Completed => {
+                    config::settings::Status::Completed => {
                         let config_cloned = config.clone();
                         let name_clone = entry.name.clone();
                         let put_item_clone = entry.put_item.clone();
@@ -394,13 +407,16 @@ pub fn spawn_worker(
                                 .send()
                                 .await;
                             let mut files_deleted = true;
-                            if let Err(e) =
-                                qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await
+                            if let Err(e) = squire::qb::handle_response(
+                                resp,
+                                squire::qb::ResponseContext::DeleteTorrent,
+                            )
+                            .await
                             {
                                 log::error!("Failed to delete torrent: {}", e.status());
                                 if std::path::Path::new(&entry.put_item.save_path).exists()
                                     && let Err(err) =
-                                    std::fs::remove_dir_all(&entry.put_item.save_path)
+                                        std::fs::remove_dir_all(&entry.put_item.save_path)
                                 {
                                     log::error!("Failed to delete files: {}", err);
                                     files_deleted = false;
@@ -412,26 +428,24 @@ pub fn spawn_worker(
                                 }
                             }
                             if files_deleted {
-                                prune_empty_dirs(std::path::Path::new(
-                                    &entry.put_item.save_path,
-                                ));
+                                prune_empty_dirs(std::path::Path::new(&entry.put_item.save_path));
                             }
                             if let Some(entry) = db.get_mut(&hash) {
-                                entry.status = settings::Status::Transferred;
+                                entry.status = config::settings::Status::Transferred;
                                 entry.in_qbit = false;
                                 entry.files_deleted = files_deleted;
                             }
                             if let Ok(conn) = db_connection.lock()
                                 && let Some(entry) = db.get(&hash)
                             {
-                                database::upsert(&conn, &hash, entry);
+                                database::db::upsert(&conn, &hash, entry);
                             }
                         } else {
                             if let Some(entry) = db.get_mut(&hash) {
-                                entry.status = settings::Status::Transferred;
+                                entry.status = config::settings::Status::Transferred;
                             }
                             if let Ok(conn) = db_connection.lock() {
-                                database::upsert(&conn, &hash, db.get(&hash).unwrap());
+                                database::db::upsert(&conn, &hash, db.get(&hash).unwrap());
                             }
                         }
                     }

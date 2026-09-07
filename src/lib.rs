@@ -6,22 +6,14 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod api;
-mod background;
-mod constant;
+mod config;
 mod database;
-mod db;
-mod display;
-mod logger;
-mod ntfy;
-mod parser;
-mod qb;
-mod rsync;
-mod savepath;
-mod settings;
+mod notifier;
+mod output;
 mod squire;
 mod swagger;
-mod telegram;
-mod ui;
+
+use output::display;
 
 /// Contains entrypoint and initializer settings to trigger the asynchronous `HTTPServer`
 ///
@@ -34,36 +26,36 @@ mod ui;
 /// }
 /// ```
 pub async fn start() -> std::io::Result<()> {
-    let metadata = constant::build_info();
-    let cli_args = parser::arguments(&metadata);
+    let metadata = config::constant::build_info();
+    let cli_args = squire::parser::arguments(&metadata);
     if cli_args.read_db {
-        let _ = db::print_content();
+        let _ = database::squire::print_content();
         return Ok(());
     }
 
-    squire::load_env_file(cli_args.env_file);
-    let config = settings::Config::new();
-    logger::init_logger(&config, &metadata);
+    squire::misc::load_env_file(cli_args.env_file);
+    let config = config::settings::Config::new();
+    output::logger::init_logger(&config, &metadata);
 
-    let db_conn = database::open();
-    let initial_state = database::load_all(&db_conn);
-    let initial_pending = database::load_pending(&db_conn);
+    let db_conn = database::db::open();
+    let initial_state = database::db::load_all(&db_conn);
+    let initial_pending = database::db::load_pending(&db_conn);
     log::info!(
         "Loaded {} state and {} pending entries from database",
         initial_state.len(),
         initial_pending.len()
     );
-    let state: settings::SharedState = Arc::new(RwLock::new(initial_state));
-    let pending: settings::PendingMap = Arc::new(RwLock::new(initial_pending));
+    let state: config::settings::SharedState = Arc::new(RwLock::new(initial_state));
+    let pending: config::settings::PendingMap = Arc::new(RwLock::new(initial_pending));
 
-    let client = match qb::client(&config).await {
+    let client = match squire::qb::client(&config).await {
         Ok(client) => client,
         Err(_) => {
             error!("Failed to authenticate qBittorrent");
         }
     };
     let db_conn = Arc::new(std::sync::Mutex::new(db_conn));
-    background::spawn_worker(
+    squire::background::spawn_worker(
         client,
         state.clone(),
         pending.clone(),
@@ -89,19 +81,19 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_conn.clone()))
             .app_data(web::Data::new(metadata.clone()))
-            .route("/status", web::get().to(api::status))
-            .route("/health", web::get().to(api::status))
-            .route("/version", web::get().to(api::version))
-            .route("/torrent", web::get().to(api::get_torrents))
-            .route("/torrent", web::put().to(api::put_torrent))
-            .route("/torrent", web::delete().to(api::delete_torrent))
-            .route("/retry", web::post().to(api::retry_torrent))
-            .route("/torrent/pause", web::post().to(api::pause_torrent))
-            .route("/swagger", web::get().to(swagger::redirector))
-            .route("/ui", web::get().to(swagger::redirector))
-            .route("/authenticator", web::post().to(ui::authenticator))
-            .route("/", web::get().to(ui::index_page))
-            .service(swagger::service())
+            .route("/status", web::get().to(api::routes::status))
+            .route("/health", web::get().to(api::routes::status))
+            .route("/version", web::get().to(api::routes::version))
+            .route("/torrent", web::get().to(api::routes::get_torrents))
+            .route("/torrent", web::put().to(api::routes::put_torrent))
+            .route("/torrent", web::delete().to(api::routes::delete_torrent))
+            .route("/retry", web::post().to(api::routes::retry_torrent))
+            .route("/torrent/pause", web::post().to(api::routes::pause_torrent))
+            .route("/swagger", web::get().to(swagger::openapi::redirector))
+            .route("/ui", web::get().to(swagger::openapi::redirector))
+            .route("/authenticator", web::post().to(swagger::ui::authenticator))
+            .route("/", web::get().to(swagger::ui::index_page))
+            .service(swagger::openapi::service())
     })
     .bind((host, port))?
     .workers(workers)

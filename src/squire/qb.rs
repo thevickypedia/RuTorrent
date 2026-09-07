@@ -1,4 +1,4 @@
-use crate::settings;
+use crate::config;
 use actix_web::HttpResponse;
 use reqwest::Client;
 use std::time::Duration;
@@ -11,7 +11,7 @@ use std::time::Duration;
 ///
 /// # Returns
 ///
-/// * `Ok(Client)` - A configured and authenticated [`reqwest::Client`] ready
+/// * `Ok(Client)` - A configured and authenticated [`Client`] ready
 ///   for subsequent API requests.
 /// * `Err(HttpResponse)` - Returned if the authentication request fails or
 ///   the server responds with an error.
@@ -20,7 +20,7 @@ use std::time::Duration;
 ///
 /// - Cookies are persisted in the client to maintain the authenticated session.
 /// - The function assumes the qBittorrent Web API is reachable at the given `qbit_url`.
-pub async fn client(config: &settings::Config) -> Result<Client, HttpResponse> {
+pub async fn client(config: &config::settings::Config) -> Result<Client, HttpResponse> {
     let client = Client::builder()
         .cookie_store(true)
         .timeout(Duration::from_secs(config.qbit_timeout))
