@@ -145,31 +145,6 @@ pub async fn get_torrents(
     let array = get_existing(&client, &config).await;
     let mut out: Vec<TorrentEntry> = Vec::new();
 
-    if !config.data_storage {
-        // Legacy behavior: entirely driven by qBittorrent's live torrent list.
-        // Anything qBittorrent no longer knows about simply won't appear here.
-        if array.is_empty() {
-            return HttpResponse::Ok().json(out);
-        }
-
-        for t in array.iter() {
-            let name = t["name"].to_string();
-            let hash = t["hash"].to_string();
-            let progress = t["progress"].parse::<f64>().unwrap();
-            match db.get(&hash) {
-                Some(local) => out.push(to_entry(&hash, local, Some(progress))),
-                // Not in state — download-only torrent still in qBit, not tracked
-                None => out.push(untracked_entry(name, hash, progress)),
-            }
-        }
-
-        return HttpResponse::Ok().json(out);
-    }
-
-    // `data_storage` enabled: RuTorrent's own state/DB is the source of truth,
-    // so every torrent it has ever tracked is always shown — even after it's
-    // gone from qBittorrent (deleted manually, via `delete_after_copy`, or via
-    // this app's own delete button).
     for (hash, local) in db.iter() {
         let live_progress = array
             .iter()

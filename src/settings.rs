@@ -58,19 +58,6 @@ pub struct Config {
     pub apikey: String,
     pub workers: usize,
 
-    // Persistence behavior
-    // Controls whether tracked torrents are held onto forever in RuTorrent's own
-    // state/DB (WebUI + SQLite), independent of qBittorrent's live torrent list.
-    //
-    // * `true`  - Never purge a tracked entry from RuTorrent's state/DB. Entries
-    //             removed from qBittorrent (manually, via the WebUI delete button,
-    //             or via `delete_after_copy`) are kept with their last known
-    //             status and simply marked as no longer present in qBittorrent.
-    // * `false` - Legacy behavior: entries are deleted from RuTorrent's state/DB
-    //             as soon as they're gone from qBittorrent, or reach a terminal
-    //             `Failed`/`Completed` (with `delete_after_copy`) state.
-    pub data_storage: bool,
-
     // QBitTorrent WebUI config
     pub qbit_url: String,
     pub qbit_username: String,
@@ -140,10 +127,6 @@ impl Config {
                 std::process::exit(1)
             }
         }
-
-        let data_storage = squire::get_env_var("data_storage", Some("true"))
-            .parse::<bool>()
-            .unwrap_or(true);
 
         let available_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
         let default_workers =
@@ -238,7 +221,6 @@ impl Config {
             password,
             apikey,
             workers,
-            data_storage,
             qbit_url,
             qbit_username,
             qbit_password,

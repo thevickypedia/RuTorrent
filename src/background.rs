@@ -84,24 +84,40 @@ async fn resolve_new_torrents(
             .map(str::trim)
             .find(|tag| pending_lock.contains_key(*tag));
 
-        if let Some(tag) = matched_tag {
-            let item = pending_lock.remove(tag).unwrap();
+        let item = if let Some(tag) = matched_tag {
             log::info!("Resolved {} → {}", name, hash);
-
-            db.insert(
-                hash.clone(),
-                settings::RsyncTrack {
-                    name,
-                    status: settings::Status::Downloading(0.0),
-                    put_item: item,
-                    in_qbit: true,
-                    files_deleted: false,
-                },
-            );
-            if let Ok(conn) = db_connection.lock() {
-                database::remove_pending(&conn, tag);
-                database::upsert(&conn, &hash, db.get(&hash).unwrap());
+            pending_lock.remove(tag).unwrap()
+        } else {
+            log::info!("Automatically tracking torrent added to QBit: {}", name);
+            settings::PutItem {
+                url: String::new(),
+                name: Some(name.clone()),
+                hash: Some(hash.clone()),
+                trackers: None,
+                save_path: String::new(),
+                remote_host: String::new(),
+                remote_username: String::new(),
+                remote_path: String::new(),
+                rsync_timeout: 3,
+                delete_after_copy: false,
             }
+        };
+
+        db.insert(
+            hash.clone(),
+            settings::RsyncTrack {
+                name,
+                status: settings::Status::Downloading(0.0),
+                put_item: item,
+                in_qbit: true,
+                files_deleted: false,
+            },
+        );
+        if let Ok(conn) = db_connection.lock() {
+            if let Some(tag) = matched_tag {
+                database::remove_pending(&conn, tag);
+            }
+            database::upsert(&conn, &hash, db.get(&hash).unwrap());
         }
     }
 }
@@ -173,14 +189,7 @@ pub fn spawn_worker(
             {
                 let p = pending.read().await;
                 let s = state.read().await;
-                // With `data_storage` enabled, entries are kept in `state` forever,
-                // so it's never empty on its own. Base the idle check on whether
-                // anything is still known to qBittorrent instead.
-                let has_active = if config.data_storage {
-                    s.values().any(|v| v.in_qbit)
-                } else {
-                    !s.is_empty()
-                };
+                let has_active = s.values().any(|v| v.in_qbit);
                 if p.is_empty() && !has_active {
                     continue;
                 }
@@ -223,7 +232,8 @@ pub fn spawn_worker(
                 db.iter()
                     // Once we know a hash is gone from qBittorrent, no point asking
                     // qBittorrent about it again on every tick.
-                    .filter(|(_, v)| !config.data_storage || v.in_qbit)
+                    // Also stop tracking if it's in a Failed state until retried.
+                    .filter(|(_, v)| v.in_qbit && !matches!(v.status, settings::Status::Failed))
                     .map(|(h, _)| h.clone())
                     .collect()
             };
@@ -254,25 +264,17 @@ pub fn spawn_worker(
                 arr.iter().filter_map(|t| t["hash"].as_str()).collect();
             hashes.iter().for_each(|h| {
                 if !returned.contains(h.as_str()) {
-                    if config.data_storage {
-                        log::info!(
-                            "Torrent removed from QBitAPI, keeping in RuTorrent's state: {}",
-                            h
-                        );
-                        if let Some(entry) = db.get_mut(h) {
-                            entry.in_qbit = false;
-                        }
-                        if let Ok(conn) = db_connection.lock()
-                            && let Some(entry) = db.get(h)
-                        {
-                            database::upsert(&conn, h, entry);
-                        }
-                    } else {
-                        log::info!("Torrent removed from QBitAPI, dropping from state: {}", h);
-                        db.remove(h);
-                        if let Ok(conn) = db_connection.lock() {
-                            database::remove(&conn, h);
-                        }
+                    log::info!(
+                        "Torrent removed from QBitAPI, keeping in RuTorrent's state: {}",
+                        h
+                    );
+                    if let Some(entry) = db.get_mut(h) {
+                        entry.in_qbit = false;
+                    }
+                    if let Ok(conn) = db_connection.lock()
+                        && let Some(entry) = db.get(h)
+                    {
+                        database::upsert(&conn, h, entry);
                     }
                 }
             });
@@ -285,34 +287,13 @@ pub fn spawn_worker(
                 };
 
                 match entry.status {
+                    // TODO: Should get notified for CopyError
+                    //  UI should give options to retry for CopyError and DownloadError
                     settings::Status::Copying
                     | settings::Status::CopyError
+                    | settings::Status::Failed
                     | settings::Status::DownloadComplete
                     | settings::Status::Transferred => continue,
-
-                    settings::Status::Failed => {
-                        let config_cloned = config.clone();
-                        let name_clone = entry.name.clone();
-                        let put_item_clone = entry.put_item.clone();
-                        notifier(
-                            "RuTorrent: Transfer Failed".to_string(),
-                            format!(
-                                "Failed to transfer {} to {}",
-                                name_clone, put_item_clone.remote_host
-                            ),
-                            config_cloned,
-                        );
-                        if config.data_storage {
-                            if let Ok(conn) = db_connection.lock() {
-                                database::upsert(&conn, &hash, entry);
-                            }
-                        } else {
-                            db.remove(&hash);
-                            if let Ok(conn) = db_connection.lock() {
-                                database::remove(&conn, &hash);
-                            }
-                        }
-                    }
 
                     settings::Status::Completed => {
                         let config_cloned = config.clone();
@@ -359,24 +340,15 @@ pub fn spawn_worker(
                                     &entry.put_item.save_path,
                                 ));
                             }
-                            if config.data_storage {
-                                // Torrent + files removed from qBittorrent, but the
-                                // transfer itself succeeded - keep the record.
-                                if let Some(entry) = db.get_mut(&hash) {
-                                    entry.status = settings::Status::Transferred;
-                                    entry.in_qbit = false;
-                                    entry.files_deleted = files_deleted;
-                                }
-                                if let Ok(conn) = db_connection.lock()
-                                    && let Some(entry) = db.get(&hash)
-                                {
-                                    database::upsert(&conn, &hash, entry);
-                                }
-                            } else {
-                                db.remove(&hash);
-                                if let Ok(conn) = db_connection.lock() {
-                                    database::remove(&conn, &hash);
-                                }
+                            if let Some(entry) = db.get_mut(&hash) {
+                                entry.status = settings::Status::Transferred;
+                                entry.in_qbit = false;
+                                entry.files_deleted = files_deleted;
+                            }
+                            if let Ok(conn) = db_connection.lock()
+                                && let Some(entry) = db.get(&hash)
+                            {
+                                database::upsert(&conn, &hash, entry);
                             }
                         } else {
                             // rsync done, files kept locally
@@ -393,60 +365,79 @@ pub fn spawn_worker(
                         let progress = t["progress"].as_f64().unwrap_or(0.0);
                         let state_str = t["state"].as_str().unwrap_or("");
                         entry.status = settings::Status::Downloading(progress);
-                        let download_complete = matches!(
-                            state_str,
-                            "uploading"
-                                | "stalledUP"
-                                | "pausedUP"
-                                | "queuedUP"
-                                | "forcedUP"
-                                | "checkingUP"
-                        );
-                        if download_complete {
-                            let has_rsync = !entry.put_item.remote_host.is_empty()
-                                && !entry.put_item.remote_username.is_empty()
-                                && !entry.put_item.remote_path.is_empty();
-                            if has_rsync {
-                                log::info!("Download complete → rsync: {}", entry.name);
-                                entry.status = settings::Status::Copying;
+
+                        if state_str == "error" {
+                            if let settings::Status::Downloading(_) = entry.status {
+                                log::error!("Download errored for {}: {}", entry.name, state_str);
+                                entry.status = settings::Status::Failed;
                                 if let Ok(conn) = db_connection.lock() {
                                     database::upsert(&conn, &hash, entry);
                                 }
-                                let state_clone = state.clone();
-                                let db_connection_clone = db_connection.clone();
-                                let hash_clone = hash.clone();
-                                let name_clone = entry.name.clone();
-                                let put_item_clone = entry.put_item.clone();
-                                // Kick off transfer in the background
-                                tokio::spawn(async move {
-                                    rsync::run(
-                                        state_clone,
-                                        db_connection_clone,
-                                        hash_clone,
-                                        name_clone,
-                                        put_item_clone,
-                                    )
-                                    .await;
-                                });
-                                // Kick off download complete notification in the background
+                                // Notify only once when transitioning to error state
                                 let config_cloned = config.clone();
                                 let name_clone = entry.name.clone();
                                 notifier(
-                                    "RuTorrent: Download Complete".to_string(),
-                                    format!("{} has been downloaded", name_clone),
+                                    "RuTorrent: Download Error".to_string(),
+                                    format!("Download errored for {}", name_clone),
                                     config_cloned,
                                 );
-                            } else {
-                                log::info!("Download complete (no rsync): {}", entry.name);
-                                entry.status = settings::Status::DownloadComplete;
-                                if let Ok(conn) = db_connection.lock() {
-                                    database::upsert(&conn, &hash, entry);
+                            }
+                        } else {
+                            let download_complete = matches!(
+                                state_str,
+                                "uploading"
+                                    | "stalledUP"
+                                    | "pausedUP"
+                                    | "queuedUP"
+                                    | "forcedUP"
+                                    | "checkingUP"
+                            );
+                            if download_complete {
+                                let has_rsync = !entry.put_item.remote_host.is_empty()
+                                    && !entry.put_item.remote_username.is_empty()
+                                    && !entry.put_item.remote_path.is_empty();
+                                if has_rsync {
+                                    log::info!("Download complete → rsync: {}", entry.name);
+                                    entry.status = settings::Status::Copying;
+                                    if let Ok(conn) = db_connection.lock() {
+                                        database::upsert(&conn, &hash, entry);
+                                    }
+                                    let state_clone = state.clone();
+                                    let db_connection_clone = db_connection.clone();
+                                    let hash_clone = hash.clone();
+                                    let name_clone = entry.name.clone();
+                                    let put_item_clone = entry.put_item.clone();
+                                    // Kick off transfer in the background
+                                    tokio::spawn(async move {
+                                        rsync::run(
+                                            state_clone,
+                                            db_connection_clone,
+                                            hash_clone,
+                                            name_clone,
+                                            put_item_clone,
+                                        )
+                                        .await;
+                                    });
+                                    // Kick off download complete notification in the background
+                                    let config_cloned = config.clone();
+                                    let name_clone = entry.name.clone();
+                                    notifier(
+                                        "RuTorrent: Download Complete".to_string(),
+                                        format!("{} has been downloaded", name_clone),
+                                        config_cloned,
+                                    );
+                                } else {
+                                    log::info!("Download complete (no rsync): {}", entry.name);
+                                    entry.status = settings::Status::DownloadComplete;
+                                    if let Ok(conn) = db_connection.lock() {
+                                        database::upsert(&conn, &hash, entry);
+                                    }
+                                    notifier(
+                                        "RuTorrent: Download Complete".to_string(),
+                                        format!("{} has been downloaded", entry.name),
+                                        config.clone(),
+                                    );
                                 }
-                                notifier(
-                                    "RuTorrent: Download Complete".to_string(),
-                                    format!("{} has been downloaded", entry.name),
-                                    config.clone(),
-                                );
                             }
                         }
                     }
