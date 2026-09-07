@@ -533,7 +533,9 @@ pub async fn put_torrent(
 )]
 pub async fn delete_torrent(
     request: HttpRequest,
+    state: web::Data<settings::SharedState>,
     config: web::Data<settings::Config>,
+    db_connection: web::Data<settings::DBConnection>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -549,59 +551,63 @@ pub async fn delete_torrent(
         None => true,
     };
 
+    // Resolve hash from RuTorrent's own state first (works even if qBit already removed it).
+    let hash_from_state = {
+        let db = state.read().await;
+        db.iter()
+            .find(|(_, v)| v.name == *identifier)
+            .map(|(h, _)| h.clone())
+    };
+
     let client = match qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
 
-    let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
-        .send()
-        .await
-    {
-        Ok(r) => match r.json().await {
-            Ok(j) => j,
-            Err(_) => return HttpResponse::InternalServerError().body("Invalid JSON"),
-        },
-        Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
+    // Resolve hash from qBit (may differ from state if torrent was added externally)
+    let hash_from_qbit = {
+        let resp: Value = match client
+            .get(format!("{}/api/v2/torrents/info", config.qbit_url))
+            .send()
+            .await
+        {
+            Ok(r) => r.json().await.unwrap_or(Value::Null),
+            Err(_) => Value::Null,
+        };
+        resp.as_array().and_then(|arr| {
+            arr.iter()
+                .find(|t| t["name"].as_str() == Some(identifier))
+                .and_then(|t| t["hash"].as_str())
+                .map(|h| h.to_string())
+        })
     };
 
-    let mut found_hash = None;
-
-    if let Some(arr) = resp.as_array() {
-        for t in arr {
-            let name = t["name"].as_str().unwrap_or("");
-            let hash = t["hash"].as_str().unwrap_or("");
-            if name == identifier {
-                found_hash = Some(hash.to_string());
-                break;
-            }
-        }
-    }
-
-    let hash = match found_hash {
-        Some(h) => h,
+    // Prefer the qBit hash (authoritative); fall back to state hash for the qBit delete call
+    let hash = match hash_from_qbit.as_ref().or(hash_from_state.as_ref()) {
+        Some(h) => h.clone(),
         None => return HttpResponse::NotFound().body("Torrent not found"),
     };
 
-    log::info!(
-        "Deleting torrent, name: {}, hash: {}, deleteFiles: {}",
-        identifier,
-        hash,
-        delete_files
-    );
+    log::info!("Deleting torrent, name: {}, hash: {}, deleteFiles: {}", identifier, hash, delete_files);
 
+    // Best-effort qBit delete — if it's already gone from qBit this is a no-op.
     let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
-        .form(&[
-            ("hashes", hash.as_str()),
-            ("deleteFiles", delete_files.to_string().as_str()),
-        ])
+        .form(&[("hashes", hash.as_str()), ("deleteFiles", delete_files.to_string().as_str())])
         .send()
         .await;
 
     if let Err(e) = qb::handle_response(resp, qb::ResponseContext::DeleteTorrent).await {
-        return e;
+        log::warn!("qBit delete returned non-OK (may already be gone): {}", e.status());
+    }
+
+    // Always drop from RuTorrent state and DB regardless of qBit outcome
+    {
+        let mut db = state.write().await;
+        db.remove(&hash);
+    }
+    if let Ok(conn) = db_connection.lock() {
+        database::remove(&conn, &hash);
     }
 
     log::info!("Successfully deleted {}", identifier);
