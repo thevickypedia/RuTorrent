@@ -1869,8 +1869,11 @@
                 <span class="retry-icon">⧉</span>
             </button>`;
         }
-        if (s === 'failed')
-            return `<span class="badge badge-failed">Failed</span>`;
+        if (s === 'failed') return `
+            <span class="badge badge-failed">Failed</span>
+            <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
+                <span class="retry-icon">↻</span>
+            </button>`;
         if (s === 'copyerror') return `
             <span class="badge badge-copy-error">Copy Error</span>
             <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">

@@ -692,6 +692,7 @@ pub async fn retry_torrent(
             Some((hash, entry)) => match entry.status {
                 settings::Status::CopyError
                 | settings::Status::DownloadComplete
+                | settings::Status::Failed
                 | settings::Status::Transferred => {
                     (hash.clone(), entry.put_item.clone(), entry.files_deleted)
                 }
