@@ -815,6 +815,10 @@
             border-left-color: var(--ok);
         }
 
+        .toast.warning {
+            border-left-color: var(--warn);
+        }
+
         @keyframes toastIn {
             from {
                 opacity: 0;
@@ -1195,6 +1199,30 @@
         <div class="modal-footer">
             <button class="btn btn-ghost" id="cancelRetryModal">Cancel</button>
             <button class="btn btn-primary" id="submitRetry">Retry &#x2192;</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-backdrop" id="deleteModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="delete-modal-title">Delete Torrent</div>
+            <button class="modal-close" id="closeDeleteModal">&#x2715;</button>
+        </div>
+        <div class="form-grid">
+            <div class="field full" id="delete-modal-names"></div>
+            <div class="field full">
+                <div class="toggle-field">
+                    <input checked class="toggle" id="d-include-files" type="checkbox">
+                    <label class="toggle-label" for="d-include-files">Include files</label>
+                </div>
+                <div class="field-hint">Also delete the locally downloaded files</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelDeleteModal">Cancel</button>
+            <button class="btn btn-danger" id="submitDelete">Delete &#x2192;</button>
         </div>
     </div>
 </div>
@@ -1652,28 +1680,53 @@
         }
     }
 
-    // ── Delete ─────────────────────────────────────────────────
-    document.getElementById('deleteBtn').addEventListener('click', async () => {
+    // ── Delete Modal ──────────────────────────────────────────
+    let _deleteNames = [];
+
+    document.getElementById('deleteBtn').addEventListener('click', () => {
         if (selectedNames.size === 0) return;
-        const totalRows = document.querySelectorAll('#torrentBody tr[data-name]').length;
-        const deletingAll = selectedNames.size === totalRows;
-        const confirmed = confirm(
-            deletingAll
-                ? `Delete ALL ${selectedNames.size} torrents?\n\nThis action cannot be undone.`
-                : `Delete ${selectedNames.size} selected torrent(s)?`
-        );
-        if (!confirmed) {
-            return;
-        }
-        const btn = document.getElementById('deleteBtn');
+        _deleteNames = [...selectedNames];
+
+        document.getElementById('delete-modal-title').textContent =
+            _deleteNames.length === 1 ? 'Delete Torrent' : `Delete ${_deleteNames.length} Torrents`;
+        document.getElementById('delete-modal-names').innerHTML =
+            `<div style="max-height: 150px; overflow-y: auto;">
+            <ul style="list-style-type: disc; padding-left: 40px;">
+                ${_deleteNames.map(name => `<li>${name}</li>`).join('')}
+            </ul>
+        </div>`;
+
+        document.getElementById('d-include-files').checked = true;
+        pausePollingForModal();
+        document.getElementById('deleteModal').classList.add('open');
+    });
+
+    function closeDelete() {
+        document.getElementById('deleteModal').classList.remove('open');
+        _deleteNames = [];
+        resumePollingAfterModal();
+    }
+
+    document.getElementById('closeDeleteModal').addEventListener('click', closeDelete);
+    document.getElementById('cancelDeleteModal').addEventListener('click', closeDelete);
+    document.getElementById('deleteModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('deleteModal')) closeDelete();
+    });
+
+    document.getElementById('submitDelete').addEventListener('click', async () => {
+        const names = _deleteNames;
+        if (names.length === 0) return;
+        const includeFiles = document.getElementById('d-include-files').checked;
+
+        const btn = document.getElementById('submitDelete');
         btn.disabled = true;
         btn.textContent = 'Deleting…';
-        const names = [...selectedNames];
+
         try {
             await Promise.all(
                 names.map(async name => {
                     const resp = await fetch(
-                        `/torrent?name=${encodeURIComponent(name)}`,
+                        `/torrent?name=${encodeURIComponent(name)}&delete-files=${includeFiles}`,
                         {
                             method: 'DELETE',
                             headers: authHeaders(),
@@ -1687,16 +1740,17 @@
                     if (!resp.ok) {
                         throw new Error(`${name}: ${await resp.text()}`);
                     }
+                    toast(await resp.text(), resp.status === 200 ? 'success' : 'warning')
                 })
             );
-            toast(`Deleted ${names.length} torrent(s)`, 'success');
             selectedNames.clear();
+            closeDelete();
             await fetchTorrents();
         } catch (err) {
             toast(err.message || `Delete failed: ${err.description}`, 'error');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Delete Selected';
+            btn.textContent = 'Delete →';
         }
     });
 

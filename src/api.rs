@@ -181,13 +181,13 @@ pub async fn get_torrents(
 
     // Also surface torrents currently in qBittorrent that were never tracked
     // by this app at all (e.g. added directly through qBittorrent).
-    for t in array.iter() {
-        let hash = t.get("hash").cloned().unwrap_or_default();
+    for tracker in array.iter() {
+        let hash = tracker.get("hash").cloned().unwrap_or_default();
         if db.contains_key(&hash) {
             continue;
         }
-        let name = t.get("name").cloned().unwrap_or_default();
-        let progress = t
+        let name = tracker.get("name").cloned().unwrap_or_default();
+        let progress = tracker
             .get("progress")
             .and_then(|p| p.parse::<f64>().ok())
             .unwrap_or(0.0);
@@ -627,7 +627,7 @@ pub async fn delete_torrent(
     }
 
     log::info!("Successfully deleted {}", identifier);
-    HttpResponse::Ok().json("Deleted")
+    HttpResponse::Ok().body("Deleted")
 }
 
 /// API endpoint to retry a failed rsync transfer.
