@@ -11,6 +11,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::version,
         api::get_torrents,
         api::put_torrent,
+        api::pause_torrent,
         api::delete_torrent,
         api::retry_torrent
     ),

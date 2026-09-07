@@ -28,6 +28,7 @@ pub struct TorrentEntry {
     /// `delete_after_copy`). A plain rsync retry is impossible in that case —
     /// only a fresh re-download can recover this torrent.
     pub files_deleted: bool,
+    pub qbit_state: String,  // raw state string from qBittorrent, empty if not in qBit
 }
 
 /// API endpoint to get the current health status.
@@ -146,12 +147,10 @@ pub async fn get_torrents(
     let mut out: Vec<TorrentEntry> = Vec::new();
 
     for (hash, local) in db.iter() {
-        let live_progress = array
-            .iter()
-            .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()))
-            .and_then(|t| t.get("progress"))
-            .and_then(|p| p.parse::<f64>().ok());
-        out.push(to_entry(hash, local, live_progress));
+        let live = array.iter().find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
+        let live_progress = live.and_then(|t| t.get("progress")).and_then(|p| p.parse::<f64>().ok());
+        let live_state = live.and_then(|t| t.get("state")).cloned().unwrap_or_default();
+        out.push(to_entry(hash, local, live_progress, live_state));
     }
 
     // Also surface torrents currently in qBittorrent that were never tracked
@@ -166,7 +165,8 @@ pub async fn get_torrents(
             .get("progress")
             .and_then(|p| p.parse::<f64>().ok())
             .unwrap_or(0.0);
-        out.push(untracked_entry(name, hash, progress));
+        let live_state = tracker.get("state").cloned().unwrap_or_default();
+        out.push(untracked_entry(name, hash, progress, live_state));
     }
 
     HttpResponse::Ok().json(out)
@@ -183,7 +183,7 @@ pub async fn get_torrents(
 /// * `live_progress` - Freshly polled progress from qBittorrent, if the
 ///   torrent is still known to it. Falls back to the last known progress
 ///   captured on `local.status` when `None` (i.e. no longer in qBittorrent).
-fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>) -> TorrentEntry {
+fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>, live_state: String) -> TorrentEntry {
     TorrentEntry {
         name: local.name.clone(),
         hash: hash.to_string(),
@@ -195,13 +195,14 @@ fn to_entry(hash: &str, local: &settings::RsyncTrack, live_progress: Option<f64>
         rsync_timeout: local.put_item.rsync_timeout,
         delete_after_copy: local.put_item.delete_after_copy,
         files_deleted: local.files_deleted,
+        qbit_state: live_state,
     }
 }
 
 /// Builds a [`TorrentEntry`] for a torrent currently in qBittorrent that this
 /// app never tracked (e.g. added directly through qBittorrent). There's no
 /// stored URL or transfer settings for these.
-fn untracked_entry(name: String, hash: String, progress: f64) -> TorrentEntry {
+fn untracked_entry(name: String, hash: String, progress: f64, qbit_state: String) -> TorrentEntry {
     TorrentEntry {
         name,
         hash,
@@ -213,6 +214,7 @@ fn untracked_entry(name: String, hash: String, progress: f64) -> TorrentEntry {
         rsync_timeout: 0,
         delete_after_copy: false,
         files_deleted: false,
+        qbit_state,
     }
 }
 
@@ -287,6 +289,7 @@ async fn get_existing(client: &Client, config: &settings::Config) -> Vec<HashMap
                 "progress".to_string(),
                 format!("{}", t["progress"].as_f64().unwrap_or(0.0)),
             );
+            map.insert("state".to_string(), t["state"].as_str().unwrap_or("").to_string());
             vec.push(map);
         }
     }
@@ -904,4 +907,80 @@ async fn redownload_torrent(
         put_item.save_path
     );
     HttpResponse::Ok().json("Re-download queued")
+}
+
+/// API endpoint to pause or resume a torrent in qBittorrent.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+/// * `query` - JSON query parameters.
+///
+/// # Returns
+///
+/// Returns an `HttpResponse` indicating the result.
+#[utoipa::path(
+    post,
+    path = "/torrent/pause",
+    params(
+        ("name" = String, Query, description = "Torrent name"),
+        ("pause" = bool, Query, description = "true to pause, false to resume")
+    ),
+    responses(
+        (status = 200, description = "Ok", body = String),
+        (status = 404, description = "Not found", body = String),
+    )
+)]
+pub async fn pause_torrent(
+    request: HttpRequest,
+    config: web::Data<settings::Config>,
+    query: web::Query<HashMap<String, String>>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let name = match query.get("name") {
+        Some(n) => n,
+        None => return HttpResponse::BadRequest().body("Missing name"),
+    };
+    let pause = query.get("pause").map(|v| v == "true").unwrap_or(true);
+
+    let client = match qb::client(&config).await {
+        Ok(c) => c,
+        Err(e) => return e,
+    };
+
+    let resp: Value = match client
+        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
+        .send()
+        .await
+    {
+        Ok(r) => r.json().await.unwrap_or(Value::Null),
+        Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
+    };
+
+    let hash = resp.as_array()
+        .and_then(|arr| arr.iter().find(|t| t["name"].as_str() == Some(name)))
+        .and_then(|t| t["hash"].as_str())
+        .map(|h| h.to_string());
+
+    let hash = match hash {
+        Some(h) => h,
+        None => return HttpResponse::NotFound().body("Torrent not found"),
+    };
+
+    let action = if pause { "stop" } else { "start" };
+    let resp = client
+        .post(format!("{}/api/v2/torrents/{}", config.qbit_url, action))
+        .form(&[("hashes", hash.as_str())])
+        .send()
+        .await;
+
+    if let Err(e) = qb::handle_response(resp, qb::ResponseContext::PauseResumeTorrent).await {
+        return e;
+    }
+
+    log::info!("{} torrent: {}", if pause { "Paused" } else { "Resumed" }, name);
+    HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
 }

@@ -49,6 +49,7 @@ pub enum ResponseContext {
     Login,
     AddTorrent,
     DeleteTorrent,
+    PauseResumeTorrent,
 }
 
 impl ResponseContext {
@@ -57,6 +58,7 @@ impl ResponseContext {
             ResponseContext::Login => "LOGIN",
             ResponseContext::AddTorrent => "ADD Torrent",
             ResponseContext::DeleteTorrent => "DELETE Torrent",
+            ResponseContext::PauseResumeTorrent => "PAUSE/RESUME Torrent",
         }
     }
 }
