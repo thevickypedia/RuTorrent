@@ -55,6 +55,11 @@ fn prune_empty_dirs(path: &std::path::Path) -> bool {
 
 /// Resolves newly added torrents by matching them with pending entries and inserting them into shared state.
 ///
+/// Iterates over every torrent currently in qBittorrent and ensures each one
+/// is present in the DB and in-memory state. Torrents that match a pending tag
+/// are resolved with their full metadata; all others are auto-tracked as
+/// download-only entries. This guarantees that **everything in qBit is in the DB**.
+///
 /// # Arguments
 ///
 /// * `array` - Array of existing torrents in QBitAPI.
@@ -75,6 +80,7 @@ async fn resolve_new_torrents(
         let name = t["name"].as_str().unwrap_or("").to_string();
         let tags = t["tags"].as_str().unwrap_or("");
 
+        // Already tracked — nothing to do.
         if db.contains_key(&hash) {
             continue;
         }
@@ -88,7 +94,9 @@ async fn resolve_new_torrents(
             log::info!("Resolved {} → {}", name, hash);
             pending_lock.remove(tag).unwrap()
         } else {
-            log::info!("Automatically tracking torrent added to QBit: {}", name);
+            // Torrent exists in qBit but has no pending entry — auto-track it
+            // so that the DB is always a superset of what qBit knows about.
+            log::info!("Auto-tracking torrent found in QBit (not in DB): {}", name);
             settings::PutItem {
                 url: String::new(),
                 name: Some(name.clone()),
@@ -169,7 +177,12 @@ fn notifier(title: String, body: String, config: settings::Config) {
 /// # Notes
 ///
 /// - Runs an infinite loop that periodically polls torrent status.
-/// - Updates download progress and transitions completed torrents to rsync transfers.
+/// - On every tick, scans **all** torrents in qBittorrent and ensures each one
+///   is present in the DB (auto-tracking any that are missing).
+/// - Scans all DB entries whose `in_qbit` flag is set and syncs their status
+///   from the live qBittorrent API; entries no longer found in qBit have their
+///   `in_qbit` flag cleared but are otherwise left intact.
+/// - Everything present in qBittorrent is guaranteed to exist in the DB.
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
 pub fn spawn_worker(
@@ -179,82 +192,71 @@ pub fn spawn_worker(
     config: settings::Config,
     db_connection: settings::DBConnection,
 ) {
+    let mut n = 0;
+    let max_auth_errors = 30;
+    let interval = Duration::from_secs(5);
+
     tokio::spawn(async move {
         log::info!("Worker started");
 
         loop {
-            sleep(Duration::from_secs(5)).await;
+            sleep(interval).await;
+            n += 1;
 
-            // Skip all API calls when there is nothing to track.
-            {
-                let p = pending.read().await;
-                let s = state.read().await;
-                let has_active = s.values().any(|v| v.in_qbit);
-                if p.is_empty() && !has_active {
-                    continue;
-                }
-            }
-
-            // Check status of client and re-auth if request fails
+            /* --------------------------------------------------------
+              1. Fetch all torrents from qBit.
+                 - Auto-insert any torrent not yet in the DB.
+                 - Re-auth if the request fails.
+            ---------------------------------------------------------*/
             if let Some(response) =
                 squire::qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url)).await
             {
-                /* -----------------------------
-                   1. Resolve pending torrents
-                ------------------------------*/
                 let Some(array) = response.as_array() else {
                     log::warn!("No info received from QBitAPI");
                     continue;
                 };
-
                 log::trace!("Torrents active: {:?}", array);
                 resolve_new_torrents(array, &pending, &state, &db_connection).await;
             } else {
                 log::error!("Failed to get info from QBitAPI");
-
                 // Re-create client when failed to authenticate
                 client = match qb::client(&config).await {
                     Ok(c) => c,
                     Err(e) => {
-                        log::error!("Failed to authenticate qBittorrent: {:?}", e);
-                        return;
+                        log::error!("Failed to authenticate qBittorrent: {:?} on {}-th attempt", e, n);
+                        if n > max_auth_errors { return } else { continue }
                     }
                 };
-
                 continue;
             }
 
-            /* -----------------------------
-               2. Poll tracked torrents
-            ------------------------------*/
-            let hashes: Vec<String> = {
+            /* -----------------------------------------------------
+               2. Sync status for all DB entries that are in qBit.
+                  - Poll qBit for their current state/progress.
+                  - Mark entries no longer found in qBit as in_qbit=false.
+            ------------------------------------------------------*/
+            let db_hashes: Vec<String> = {
                 let db = state.read().await;
                 db.iter()
-                    // Once we know a hash is gone from qBittorrent, no point asking
-                    // qBittorrent about it again on every tick.
+                    // Once we know a hash is gone from qBittorrent, no point
+                    // asking qBittorrent about it again on every tick.
                     // Also stop tracking if it's in a Failed state until retried.
                     .filter(|(_, v)| v.in_qbit)
                     .map(|(h, _)| h.clone())
                     .collect()
             };
 
-            if hashes.is_empty() {
-                continue;
-            }
+            // Nothing in qBit to sync against — skip the status-update pass.
+            if db_hashes.is_empty() { continue }
 
             let url = format!(
                 "{}/api/v2/torrents/info?hashes={}",
                 config.qbit_url,
-                hashes.join("|")
+                db_hashes.join("|")
             );
 
-            let Some(resp) = squire::qb_get(&client, url).await else {
-                continue;
-            };
-
-            let Some(arr) = resp.as_array() else {
-                continue;
-            };
+            let Some(resp) = squire::qb_get(&client, url).await else { continue };
+            let Some(arr) = resp.as_array() else { continue };
 
             let mut db = state.write().await;
 
@@ -262,7 +264,7 @@ pub fn spawn_worker(
             // via `delete_after_copy`, or via the WebUI's own delete button).
             let returned: std::collections::HashSet<&str> =
                 arr.iter().filter_map(|t| t["hash"].as_str()).collect();
-            hashes.iter().for_each(|h| {
+            db_hashes.iter().for_each(|h| {
                 if !returned.contains(h.as_str()) {
                     log::info!(
                         "Torrent removed from QBitAPI, keeping in RuTorrent's state: {}",
@@ -343,7 +345,7 @@ pub fn spawn_worker(
                                     name_clone,
                                     put_item_clone,
                                 )
-                                .await;
+                                    .await;
                             });
                             let config_cloned = config.clone();
                             let name_clone = entry.name.clone();
@@ -398,7 +400,7 @@ pub fn spawn_worker(
                                 log::error!("Failed to delete torrent: {}", e.status());
                                 if std::path::Path::new(&entry.put_item.save_path).exists()
                                     && let Err(err) =
-                                        std::fs::remove_dir_all(&entry.put_item.save_path)
+                                    std::fs::remove_dir_all(&entry.put_item.save_path)
                                 {
                                     log::error!("Failed to delete files: {}", err);
                                     files_deleted = false;
