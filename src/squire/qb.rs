@@ -2,6 +2,7 @@ use crate::config;
 use actix_web::HttpResponse;
 use reqwest::Client;
 use std::time::Duration;
+use serde::{Deserialize, Serialize};
 
 /// Creates an authenticated HTTP client for interacting with the qBittorrent Web API.
 ///
@@ -61,6 +62,31 @@ impl ResponseContext {
             ResponseContext::PauseResumeTorrent => "PAUSE/RESUME Torrent",
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
+pub struct  Tracker {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub hash: String,
+    #[serde(default)]
+    pub state: String,
+    #[serde(default)]
+    pub progress: f64,
+    #[serde(default)]
+    pub magnet_uri: String,
+    #[serde(default)]
+    pub save_path: String,
+    #[serde(default)]
+    pub tags: String,
+}
+
+pub fn parse_tracker(tracker: &serde_json::Value) -> Tracker {
+    serde_json::from_value(tracker.clone()).unwrap_or_else(|e| {
+        log::warn!("Failed to parse tracker: {} ({})", e, tracker);
+        Tracker::default()
+    })
 }
 
 /// Handles and validates an HTTP response from the qBittorrent Web API.

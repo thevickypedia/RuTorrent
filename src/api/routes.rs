@@ -1,7 +1,7 @@
 use crate::{api, config, database, squire};
 
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -108,7 +108,6 @@ pub async fn get_torrents(
     db_connection: web::Data<config::settings::DBConnection>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    // TODO: Send ordered response
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
@@ -123,16 +122,9 @@ pub async fn get_torrents(
     let mut existing_hashes: Vec<String> = Vec::new();
     if let Ok(conn) = db_connection.lock() {
         for (hash, local) in database::db::load_all(&conn) {
-            let live = array
-                .iter()
-                .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
-            let live_progress = live
-                .and_then(|t| t.get("progress"))
-                .and_then(|p| p.parse::<f64>().ok());
-            let live_state = live
-                .and_then(|t| t.get("state"))
-                .cloned()
-                .unwrap_or_default();
+            let live = array.iter().find(|t| t.hash.as_str() == hash.as_str());
+            let live_progress = live.and_then(|t| Some(t.progress));
+            let live_state = live.and_then(|t| Some(t.state.clone())).unwrap_or_default();
             out.push(api::squire::to_entry(
                 &hash,
                 &local,
@@ -146,20 +138,16 @@ pub async fn get_torrents(
     // Also surface torrents currently in qBittorrent that were never tracked
     // by this app at all (e.g. added directly through qBittorrent).
     for tracker in array.iter() {
-        let hash = tracker.get("hash").cloned().unwrap_or_default();
-        if existing_hashes.contains(&hash) {
+        if existing_hashes.contains(&tracker.hash) {
             continue;
         }
-        let name = tracker.get("name").cloned().unwrap_or_default();
-        let magnet_uri = tracker.get("magnet_uri").cloned().unwrap_or_default();
-        let save_path = tracker.get("save_path").cloned().unwrap_or_default();
-        let progress = tracker
-            .get("progress")
-            .and_then(|p| p.parse::<f64>().ok())
-            .unwrap_or(0.0);
-        let live_state = tracker.get("state").cloned().unwrap_or_default();
         out.push(api::squire::untracked_entry(
-            name, hash, magnet_uri, save_path, progress, live_state,
+            tracker.name.clone(),
+            tracker.hash.clone(),
+            tracker.magnet_uri.clone(),
+            tracker.save_path.clone(),
+            tracker.progress,
+            tracker.state.clone(),
         ));
     }
 
@@ -240,7 +228,7 @@ pub async fn put_torrent(
     let existing = api::squire::get_existing(&client, &config).await;
     let hashes: Vec<String> = existing
         .into_iter()
-        .map(|i| i.get("hash").unwrap().to_uppercase().clone())
+        .map(|i| i.hash.to_uppercase().clone())
         .collect();
 
     let mut response: Vec<HashMap<String, String>> = Vec::new();
@@ -389,20 +377,11 @@ pub async fn delete_torrent(
 
     // Resolve hash from qBit (may differ from state if torrent was added externally)
     let hash_from_qbit = {
-        let resp: Value = match client
-            .get(format!("{}/api/v2/torrents/info", config.qbit_url))
-            .send()
-            .await
-        {
-            Ok(r) => r.json().await.unwrap_or(Value::Null),
-            Err(_) => Value::Null,
-        };
-        resp.as_array().and_then(|arr| {
-            arr.iter()
-                .find(|t| t["name"].as_str() == Some(identifier))
-                .and_then(|t| t["hash"].as_str())
-                .map(|h| h.to_string())
-        })
+        let existing = api::squire::get_existing(&client, &config).await;
+        existing
+            .iter()
+            .find_map(|t| if &t.name == identifier { Some(t) } else { None })
+            .map(|torrent| torrent.hash.to_owned())
     };
 
     // Prefer the qBit hash (authoritative); fall back to state hash for the qBit delete call
@@ -787,20 +766,14 @@ pub async fn pause_torrent(
         Err(e) => return e,
     };
 
-    let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
-        .send()
-        .await
-    {
-        Ok(r) => r.json().await.unwrap_or(Value::Null),
-        Err(_) => return HttpResponse::InternalServerError().body("Request failed"),
-    };
-
-    let hash = resp
-        .as_array()
-        .and_then(|arr| arr.iter().find(|t| t["name"].as_str() == Some(name)))
-        .and_then(|t| t["hash"].as_str())
-        .map(|h| h.to_string());
+    let existing = api::squire::get_existing(&client, &config).await;
+    let hash = existing.iter().find_map(|t| {
+        if &t.name == name {
+            Some(t.hash.to_owned())
+        } else {
+            None
+        }
+    });
 
     let hash = match hash {
         Some(h) => h,

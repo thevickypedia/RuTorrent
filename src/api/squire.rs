@@ -1,8 +1,7 @@
-use crate::{api, config};
+use crate::{api, config, squire};
 
 use reqwest::Client;
 use serde_json::Value;
-use std::collections::HashMap;
 use url::Url;
 
 /// Builds a [`TorrentEntry`] for a torrent tracked in RuTorrent's own state —
@@ -111,7 +110,7 @@ fn resolve_status(local: &config::settings::RsyncTrack, live_progress: Option<f6
 pub async fn get_existing(
     client: &Client,
     config: &config::env::Config,
-) -> Vec<HashMap<String, String>> {
+) -> Vec<squire::qb::Tracker> {
     let resp: Value = match client
         .get(format!("{}/api/v2/torrents/info", config.qbit_url))
         .send()
@@ -121,28 +120,11 @@ pub async fn get_existing(
         Err(_) => Value::Null,
     };
 
-    let mut vec = Vec::new();
+    let mut vec: Vec<squire::qb::Tracker> = Vec::new();
 
     if let Some(arr) = resp.as_array() {
         for t in arr {
-            let mut map = HashMap::new();
-            map.insert(
-                "name".to_string(),
-                t["name"].as_str().unwrap_or("?").to_string(),
-            );
-            map.insert(
-                "hash".to_string(),
-                t["hash"].as_str().unwrap_or("").to_string(),
-            );
-            map.insert(
-                "progress".to_string(),
-                format!("{}", t["progress"].as_f64().unwrap_or(0.0)),
-            );
-            map.insert(
-                "state".to_string(),
-                t["state"].as_str().unwrap_or("").to_string(),
-            );
-            vec.push(map);
+            vec.push(squire::qb::parse_tracker(t));
         }
     }
     vec
