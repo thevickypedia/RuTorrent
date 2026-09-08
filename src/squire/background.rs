@@ -86,12 +86,17 @@ async fn resolve_new_torrents(
         // let file = File::create("value.json").unwrap();
         // let writer = BufWriter::new(file);
         // serde_json::to_writer(writer, t).unwrap();
-        let Some(hash) = t["hash"].as_str() else { continue };
+        let Some(hash) = t["hash"].as_str() else {
+            continue;
+        };
         // Cheap peek avoids a full Tracker deserialization on every tick
         // Already tracked — nothing to do
-        if existing.contains_key(hash) { continue };
+        if existing.contains_key(hash) {
+            continue;
+        };
         let torrent = squire::qb::parse_tracker(t);
-        let matched_tag = torrent.tags
+        let matched_tag = torrent
+            .tags
             .split(',')
             .map(str::trim)
             .find(|tag| pending_lock.contains_key(*tag));
@@ -102,7 +107,10 @@ async fn resolve_new_torrents(
         } else {
             // Torrent exists in qBit but has no pending entry — auto-track it
             // so that the DB is always a superset of what qBit knows about.
-            log::info!("Auto-tracking torrent found in QBit (not in DB): {}", torrent.name);
+            log::info!(
+                "Auto-tracking torrent found in QBit (not in DB): {}",
+                torrent.name
+            );
             config::settings::PutItem {
                 url: torrent.magnet_uri,
                 name: Some(torrent.name.clone()),
@@ -264,7 +272,8 @@ pub fn spawn_worker(
             let Some(arr) = resp.as_array() else { continue };
 
             // Entries qBit no longer knows about: flag in_qbit = false.
-            let trackers: Vec<squire::qb::Tracker> = arr.iter().map(squire::qb::parse_tracker).collect();
+            let trackers: Vec<squire::qb::Tracker> =
+                arr.iter().map(squire::qb::parse_tracker).collect();
             let returned: std::collections::HashSet<&str> =
                 trackers.iter().map(|t| t.hash.as_str()).collect();
             if let Ok(conn) = db_connection.lock() {
@@ -279,14 +288,23 @@ pub fn spawn_worker(
 
             for torrent in trackers {
                 let mut entry = {
-                    let Ok(conn) = db_connection.lock() else { continue };
+                    let Ok(conn) = db_connection.lock() else {
+                        continue;
+                    };
                     match database::db::load_one(&conn, &torrent.hash) {
                         Some(e) => e,
                         None => continue,
                     }
                 };
 
-                if torrent.state.as_str() == "error" {
+                let terminal = matches!(
+                    entry.status,
+                    config::settings::Status::Transferred
+                        | config::settings::Status::Completed
+                        | config::settings::Status::Copying
+                        | config::settings::Status::DownloadComplete
+                );
+                if !terminal && torrent.state.as_str() == "error" {
                     if !matches!(entry.status, config::settings::Status::Failed) {
                         log::error!("Download errored for {}: {}", entry.name, torrent.state);
                         entry.status = config::settings::Status::Failed;
@@ -299,13 +317,7 @@ pub fn spawn_worker(
                             config.clone(),
                         );
                     }
-                } else if !matches!(
-                    entry.status,
-                    config::settings::Status::Transferred
-                        | config::settings::Status::Completed
-                        | config::settings::Status::Copying
-                        | config::settings::Status::DownloadComplete
-                ) {
+                } else if !terminal {
                     let download_complete = matches!(
                         torrent.state.as_str(),
                         "uploading"
@@ -385,12 +397,11 @@ pub fn spawn_worker(
                             resp,
                             squire::qb::ResponseContext::DeleteTorrent,
                         )
-                            .await
+                        .await
                         {
                             log::error!("Failed to delete torrent: {}", e.status());
                             if std::path::Path::new(&entry.put_item.save_path).exists()
-                                && let Err(err) =
-                                std::fs::remove_dir_all(&entry.put_item.save_path)
+                                && let Err(err) = std::fs::remove_dir_all(&entry.put_item.save_path)
                             {
                                 log::error!("Failed to delete files: {}", err);
                                 files_deleted = false;
