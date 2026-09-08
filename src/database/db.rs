@@ -8,7 +8,7 @@ use std::collections::HashMap;
 ///
 /// Returns an open `Connection` to the `rutorrent.db` SQLite database.
 pub fn open() -> Connection {
-    let conn = Connection::open("../../rutorrent.db").expect("Failed to open database");
+    let conn = Connection::open("rutorrent.db").expect("Failed to open database");
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS state (
             hash        TEXT PRIMARY KEY,
@@ -229,6 +229,77 @@ pub fn load_all(conn: &Connection) -> HashMap<String, config::settings::RsyncTra
     .expect("Failed to query state")
     .filter_map(|r| r.ok())
     .collect()
+}
+
+/// Loads a single tracked torrent entry from the database by hash.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `hash` - Hash for the required record.
+///
+/// # Returns
+///
+/// Returns the `RsyncTrack` object.
+pub fn load_one(conn: &Connection, hash: &str) -> Option<config::settings::RsyncTrack> {
+    let mut stmt = conn
+        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted FROM state WHERE hash = ?1")
+        .ok()?;
+
+    stmt.query_row(params![hash], |row| {
+        let name: String = row.get(1)?;
+        let status_str: String = row.get(2)?;
+        let progress: f64 = row.get(3)?;
+        let url: String = row.get(4)?;
+        let save_path: String = row.get(5)?;
+        let remote_host: String = row.get(6)?;
+        let remote_username: String = row.get(7)?;
+        let remote_path: String = row.get(8)?;
+        let rsync_timeout: u8 = row.get(9)?;
+        let delete_after_copy: i32 = row.get(10)?;
+        let in_qbit: i32 = row.get(11)?;
+        let files_deleted: i32 = row.get(12)?;
+
+        let status = decode_status(&status_str, progress);
+        let put_item = config::settings::PutItem {
+            url,
+            name: None,
+            hash: None,
+            trackers: None,
+            save_path,
+            remote_host,
+            remote_username,
+            remote_path,
+            rsync_timeout,
+            delete_after_copy: delete_after_copy != 0,
+        };
+
+        Ok(config::settings::RsyncTrack {
+            name,
+            status,
+            put_item,
+            in_qbit: in_qbit != 0,
+            files_deleted: files_deleted != 0,
+        })
+    })
+    .ok()
+}
+
+/// Finds a single tracked torrent entry from the database by name.
+///
+/// # Arguments
+///
+/// * `conn` - Active SQLite database connection.
+/// * `hash` - Hash for the required record.
+///
+/// # Returns
+///
+/// Returns `Some((hash, RsyncTrack))` if found, otherwise `None`.
+pub fn find_by_name(
+    conn: &Connection,
+    name: &str,
+) -> Option<(String, config::settings::RsyncTrack)> {
+    load_all(conn).into_iter().find(|(_, v)| v.name == name)
 }
 
 /// Encodes an internal `Status` enum into a database-friendly representation.

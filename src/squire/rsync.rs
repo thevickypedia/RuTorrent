@@ -24,7 +24,6 @@ use crate::{config, database};
 ///   whatever status was last written before the transfer started.
 /// - Assumes an existing entry for `hash` is present in the shared state.
 pub async fn run(
-    state: config::settings::SharedState,
     db_connection: config::settings::DBConnection,
     hash: String,
     name: String,
@@ -54,15 +53,7 @@ pub async fn run(
         Ok(c) => c,
         Err(e) => {
             log::error!("Failed to start rsync for {}: {}", name, e);
-            let mut db = state.write().await;
-            if let Some(entry) = db.get_mut(&hash) {
-                entry.status = config::settings::Status::CopyError;
-            }
-            if let Ok(conn) = db_connection.lock()
-                && let Some(entry) = db.get(&hash)
-            {
-                database::db::upsert(&conn, &hash, entry);
-            }
+            set_status(&db_connection, &hash, config::settings::Status::CopyError);
             return;
         }
     };
@@ -77,15 +68,7 @@ pub async fn run(
         Ok(s) => s,
         Err(e) => {
             log::error!("Failed waiting for rsync process for {}: {}", name, e);
-            let mut db = state.write().await;
-            if let Some(entry) = db.get_mut(&hash) {
-                entry.status = config::settings::Status::CopyError;
-            }
-            if let Ok(conn) = db_connection.lock()
-                && let Some(entry) = db.get(&hash)
-            {
-                database::db::upsert(&conn, &hash, entry);
-            }
+            set_status(&db_connection, &hash, config::settings::Status::CopyError);
             return;
         }
     };
@@ -102,21 +85,38 @@ pub async fn run(
             "rsync failed for {} with status {}. stderr: {}",
             name,
             status,
-            err_output.strip_suffix("\n").unwrap(),
+            err_output.strip_suffix("\n").unwrap_or(&err_output),
         );
     }
 
-    let mut db = state.write().await;
-    if let Some(e) = db.get_mut(&hash) {
-        e.status = if status.success() {
-            config::settings::Status::Completed
-        } else {
-            config::settings::Status::CopyError
-        };
-    }
-    if let Ok(conn) = db_connection.lock()
-        && let Some(entry) = db.get(&hash)
-    {
-        database::db::upsert(&conn, &hash, entry);
-    }
+    let final_status = if status.success() {
+        config::settings::Status::Completed
+    } else {
+        config::settings::Status::CopyError
+    };
+    set_status(&db_connection, &hash, final_status);
+}
+
+/// Persists a status transition for `hash` directly to the database.
+///
+/// # Arguments
+///
+/// * `db_connection` - Database connection used to persist status transitions.
+/// * `hash` - Unique identifier for the transfer entry in the state.
+/// * `status` - Reference to the `Status` object.
+fn set_status(
+    db_connection: &config::settings::DBConnection,
+    hash: &str,
+    status: config::settings::Status,
+) {
+    let Ok(conn) = db_connection.lock() else {
+        log::error!("Failed to lock database connection for {}", hash);
+        return;
+    };
+    let Some(mut entry) = database::db::load_one(&conn, hash) else {
+        log::error!("No tracked entry found for {} while updating status", hash);
+        return;
+    };
+    entry.status = status;
+    database::db::upsert(&conn, hash, &entry);
 }

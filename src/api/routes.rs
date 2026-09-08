@@ -105,7 +105,7 @@ fn authenticator(request: HttpRequest, config: &config::settings::Config) -> boo
 )]
 pub async fn get_torrents(
     request: HttpRequest,
-    state: web::Data<config::settings::SharedState>,
+    db_connection: web::Data<config::settings::DBConnection>,
     config: web::Data<config::settings::Config>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
@@ -116,34 +116,37 @@ pub async fn get_torrents(
         Err(e) => return e,
     };
 
-    let db = state.read().await;
-    let array = api::squire::get_existing(&client, &config).await;
     let mut out: Vec<api::schema::TorrentEntry> = Vec::new();
+    let array = api::squire::get_existing(&client, &config).await;
 
-    for (hash, local) in db.iter() {
-        let live = array
-            .iter()
-            .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
-        let live_progress = live
-            .and_then(|t| t.get("progress"))
-            .and_then(|p| p.parse::<f64>().ok());
-        let live_state = live
-            .and_then(|t| t.get("state"))
-            .cloned()
-            .unwrap_or_default();
-        out.push(api::squire::to_entry(
-            hash,
-            local,
-            live_progress,
-            live_state,
-        ));
+    let mut existing_hashes: Vec<String> = Vec::new();
+    if let Ok(conn) = db_connection.lock() {
+        for (hash, local) in database::db::load_all(&conn) {
+            let live = array
+                .iter()
+                .find(|t| t.get("hash").map(String::as_str) == Some(hash.as_str()));
+            let live_progress = live
+                .and_then(|t| t.get("progress"))
+                .and_then(|p| p.parse::<f64>().ok());
+            let live_state = live
+                .and_then(|t| t.get("state"))
+                .cloned()
+                .unwrap_or_default();
+            out.push(api::squire::to_entry(
+                &hash,
+                &local,
+                live_progress,
+                live_state,
+            ));
+            existing_hashes.push(hash);
+        }
     }
 
     // Also surface torrents currently in qBittorrent that were never tracked
     // by this app at all (e.g. added directly through qBittorrent).
     for tracker in array.iter() {
         let hash = tracker.get("hash").cloned().unwrap_or_default();
-        if db.contains_key(&hash) {
+        if existing_hashes.contains(&hash) {
             continue;
         }
         let name = tracker.get("name").cloned().unwrap_or_default();
@@ -347,7 +350,6 @@ pub async fn put_torrent(
 )]
 pub async fn delete_torrent(
     request: HttpRequest,
-    state: web::Data<config::settings::SharedState>,
     config: web::Data<config::settings::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
     query: web::Query<HashMap<String, String>>,
@@ -367,10 +369,14 @@ pub async fn delete_torrent(
 
     // Resolve hash from RuTorrent's own state first (works even if qBit already removed it).
     let hash_from_state = {
-        let db = state.read().await;
-        db.iter()
-            .find(|(_, v)| v.name == *identifier)
-            .map(|(h, _)| h.clone())
+        if let Ok(conn) = db_connection.lock() {
+            let db = database::db::load_all(&conn);
+            db.iter()
+                .find(|(_, v)| v.name == *identifier)
+                .map(|(h, _)| h.clone())
+        } else {
+            None
+        }
     };
 
     let client = match squire::qb::client(&config).await {
@@ -430,8 +436,9 @@ pub async fn delete_torrent(
 
     // Always drop from RuTorrent state and DB regardless of qBit outcome
     {
-        let mut db = state.write().await;
-        db.remove(&hash);
+        if let Ok(conn) = db_connection.lock() {
+            database::db::remove(&conn, &hash);
+        }
     }
     if let Ok(conn) = db_connection.lock() {
         database::db::remove(&conn, &hash);
@@ -501,7 +508,6 @@ pub async fn delete_torrent(
 )]
 pub async fn retry_torrent(
     request: HttpRequest,
-    state: web::Data<config::settings::SharedState>,
     pending: web::Data<config::settings::PendingMap>,
     config: web::Data<config::settings::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
@@ -516,21 +522,22 @@ pub async fn retry_torrent(
     }
 
     if body.redownload {
-        return redownload_torrent(state, pending, config, db_connection, body.into_inner()).await;
+        return redownload_torrent(pending, config, db_connection, body.into_inner()).await;
     }
 
     // Find the hash for the given name in state
     let (hash, mut put_item, files_deleted) = {
-        let db = state.read().await;
-        let found = db.iter().find(|(_, entry)| entry.name == body.name);
-        match found {
+        let Ok(conn) = db_connection.lock() else {
+            return HttpResponse::InternalServerError().body("Database unavailable");
+        };
+        match database::db::find_by_name(&conn, &body.name) {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
             Some((hash, entry)) => match entry.status {
                 config::settings::Status::CopyError
                 | config::settings::Status::DownloadComplete
                 | config::settings::Status::Failed
                 | config::settings::Status::Transferred => {
-                    (hash.clone(), entry.put_item.clone(), entry.files_deleted)
+                    (hash, entry.put_item, entry.files_deleted)
                 }
                 _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
             },
@@ -549,7 +556,7 @@ pub async fn retry_torrent(
             "Local files missing for '{}', falling back to redownload",
             body.name
         );
-        return redownload_torrent(state, pending, config, db_connection, body.into_inner()).await;
+        return redownload_torrent(pending, config, db_connection, body.into_inner()).await;
     }
 
     if !body.remote_host.is_empty() {
@@ -570,31 +577,21 @@ pub async fn retry_torrent(
     // settings so subsequent `GET /torrent` calls and modal prefills reflect
     // what was actually just submitted, and re-spawn rsync.
     {
-        let mut db = state.write().await;
-        if let Some(entry) = db.get_mut(&hash) {
+        let Ok(conn) = db_connection.lock() else {
+            return HttpResponse::InternalServerError().body("Database unavailable");
+        };
+        if let Some(mut entry) = database::db::load_one(&conn, &hash) {
             entry.status = config::settings::Status::Copying;
             entry.put_item = put_item.clone();
-        }
-        if let Ok(conn) = db_connection.lock()
-            && let Some(entry) = db.get(&hash)
-        {
-            database::db::upsert(&conn, &hash, entry);
+            database::db::upsert(&conn, &hash, &entry);
         }
     }
 
-    let state_clone = state.as_ref().clone();
     let db_connection_clone = db_connection.as_ref().clone();
     let hash_clone = hash.clone();
     let name_clone = body.name.clone();
     tokio::spawn(async move {
-        squire::rsync::run(
-            state_clone,
-            db_connection_clone,
-            hash_clone,
-            name_clone,
-            put_item,
-        )
-        .await;
+        squire::rsync::run(db_connection_clone, hash_clone, name_clone, put_item).await;
     });
 
     log::info!("Retry queued for: {}", body.name);
@@ -619,7 +616,6 @@ pub async fn retry_torrent(
 ///
 /// Returns an `HttpResponse` indicating the result.
 async fn redownload_torrent(
-    state: web::Data<config::settings::SharedState>,
     pending: web::Data<config::settings::PendingMap>,
     config: web::Data<config::settings::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
@@ -627,15 +623,16 @@ async fn redownload_torrent(
 ) -> HttpResponse {
     // Find the tracked entry and its originally stored URL/save path.
     let (hash, mut put_item) = {
-        let db = state.read().await;
-        let found = db.iter().find(|(_, entry)| entry.name == opts.name);
-        match found {
+        let Ok(conn) = db_connection.lock() else {
+            return HttpResponse::InternalServerError().body("Database unavailable");
+        };
+        match database::db::find_by_name(&conn, &opts.name) {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
             Some((hash, entry)) => match entry.status {
                 config::settings::Status::CopyError
                 | config::settings::Status::DownloadComplete
                 | config::settings::Status::Transferred
-                | config::settings::Status::Failed => (hash.clone(), entry.put_item.clone()),
+                | config::settings::Status::Failed => (hash, entry.put_item),
                 _ => {
                     return HttpResponse::BadRequest().body(
                         "Torrent must be finished (or failed) before it can be re-downloaded",
@@ -723,17 +720,8 @@ async fn redownload_torrent(
         return e;
     }
 
-    // The re-added torrent will almost always resolve to the same hash it
-    // had before (magnets are content-addressed). The background worker's
-    // `resolve_new_torrents` skips any hash it already finds in `state`, so
-    // the stale record from the previous attempt (still sitting there with
-    // e.g. `Transferred`) would otherwise shadow the new download forever
-    // and never get refreshed to `Downloading`. Clear it now that the fresh
-    // add has actually succeeded, so the next poll tick claims it normally.
-    {
-        let mut db = state.write().await;
-        db.remove(&hash);
-    }
+    // Clear the stale record so the background worker's `resolve_new_torrents`
+    // treats the re-added torrent (usually the same hash) as fresh.
     if let Ok(conn) = db_connection.lock() {
         database::db::remove(&conn, &hash);
     }

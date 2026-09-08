@@ -7,9 +7,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
-/// ### SharedState
-/// Shared application state for tracking active rsync operations.
-pub type SharedState = Arc<RwLock<HashMap<String, RsyncTrack>>>;
 /// ### PendingMap
 /// Shared map for storing pending torrent metadata before resolution.
 pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
