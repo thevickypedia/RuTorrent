@@ -111,3 +111,20 @@ pub fn complexity_checker(value: &str, min_length: usize) -> Result<(), String> 
 
     Ok(())
 }
+
+/// Compares two strings in constant time with respect to their *content*,
+/// to avoid leaking secret bytes via a timing side-channel. Length is still
+/// compared up front (a length mismatch is not itself sensitive — the
+/// secret's value is what matters).
+pub fn constant_time_eq(a: &str, b: &str) -> bool {
+    let a = a.as_bytes();
+    let b = b.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}

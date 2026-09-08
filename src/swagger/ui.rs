@@ -1,4 +1,4 @@
-use crate::config;
+use crate::{config, squire};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::json;
@@ -102,7 +102,9 @@ pub async fn authenticator(
     }
     let username = auth_parts[0].to_string();
     let password = auth_parts[1].to_string();
-    if username == config.username && password == config.password {
+    if squire::misc::constant_time_eq(&username, &config.username)
+        && squire::misc::constant_time_eq(&password, &config.password)
+    {
         return HttpResponse::Ok().json(json!({ "apikey": config.apikey }));
     }
     log::warn!("Username and password do not match");

@@ -54,7 +54,7 @@ fn authenticator(request: HttpRequest, config: &config::env::Config) -> bool {
         .headers()
         .get("apikey")
         .and_then(|apikey| apikey.to_str().ok())
-        .map(|apikey| apikey == config.apikey)
+        .map(|apikey| squire::misc::constant_time_eq(apikey, &config.apikey))
         .unwrap_or(false)
 }
 
