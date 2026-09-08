@@ -108,6 +108,7 @@ pub async fn get_torrents(
     db_connection: web::Data<config::settings::DBConnection>,
     config: web::Data<config::settings::Config>,
 ) -> impl Responder {
+    // TODO: Send ordered response
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
@@ -150,13 +151,15 @@ pub async fn get_torrents(
             continue;
         }
         let name = tracker.get("name").cloned().unwrap_or_default();
+        let magnet_uri = tracker.get("magnet_uri").cloned().unwrap_or_default();
+        let save_path = tracker.get("save_path").cloned().unwrap_or_default();
         let progress = tracker
             .get("progress")
             .and_then(|p| p.parse::<f64>().ok())
             .unwrap_or(0.0);
         let live_state = tracker.get("state").cloned().unwrap_or_default();
         out.push(api::squire::untracked_entry(
-            name, hash, progress, live_state,
+            name, hash, magnet_uri, save_path, progress, live_state,
         ));
     }
 

@@ -8,8 +8,9 @@ use utoipa::ToSchema;
 pub struct TorrentEntry {
     pub name: String,
     pub hash: String,
-    pub status: String,
     pub url: String,
+    pub save_path: String,
+    pub status: String,
     pub remote_host: String,
     pub remote_username: String,
     pub remote_path: String,

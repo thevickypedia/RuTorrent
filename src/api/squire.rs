@@ -25,8 +25,9 @@ pub fn to_entry(
     api::schema::TorrentEntry {
         name: local.name.clone(),
         hash: hash.to_string(),
-        status: resolve_status(local, live_progress),
         url: local.put_item.url.clone(),
+        save_path: local.put_item.save_path.clone(),
+        status: resolve_status(local, live_progress),
         remote_host: local.put_item.remote_host.clone(),
         remote_username: local.put_item.remote_username.clone(),
         remote_path: local.put_item.remote_path.clone(),
@@ -38,19 +39,21 @@ pub fn to_entry(
 }
 
 /// Builds a [`TorrentEntry`] for a torrent currently in qBittorrent that this
-/// app never tracked (e.g. added directly through qBittorrent). There's no
-/// stored URL or transfer settings for these.
+/// app never tracked (e.g. added directly through qBittorrent)
 pub fn untracked_entry(
     name: String,
     hash: String,
+    url: String,
+    save_path: String,
     progress: f64,
     qbit_state: String,
 ) -> api::schema::TorrentEntry {
     api::schema::TorrentEntry {
         name,
         hash,
+        url,
+        save_path,
         status: format!("Downloading: {:.0}%", progress * 100.0),
-        url: String::new(),
         remote_host: String::new(),
         remote_username: String::new(),
         remote_path: String::new(),

@@ -80,6 +80,14 @@ async fn resolve_new_torrents(
     let mut existing = database::db::load_all(&conn);
 
     for t in array {
+        // TODO: Generate JSON for different stages, and construct a struct for this
+        // use std::fs::File;
+        // use std::io::BufWriter;
+        // let file = File::create("value.json").unwrap();
+        // let writer = BufWriter::new(file);
+        // serde_json::to_writer(writer, t).unwrap();
+        let url = t["magnet_uri"].as_str().unwrap_or("").to_string();
+        let save_path = t["save_path"].as_str().unwrap_or("").to_string();
         let hash = t["hash"].as_str().unwrap_or("").to_string();
         // Already tracked — nothing to do
         if existing.contains_key(&hash) {
@@ -100,15 +108,12 @@ async fn resolve_new_torrents(
             // Torrent exists in qBit but has no pending entry — auto-track it
             // so that the DB is always a superset of what qBit knows about.
             log::info!("Auto-tracking torrent found in QBit (not in DB): {}", name);
-            // TODO:
-            //  1. url must never be empty
-            //  2. found redundancy with 'api::squire::untracked_entry'
             config::settings::PutItem {
-                url: String::new(),
+                url,
                 name: Some(name.clone()),
                 hash: Some(hash.clone()),
                 trackers: None,
-                save_path: String::new(),
+                save_path,
                 remote_host: String::new(),
                 remote_username: String::new(),
                 remote_path: String::new(),
