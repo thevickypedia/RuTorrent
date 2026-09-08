@@ -86,12 +86,11 @@ async fn resolve_new_torrents(
         // let file = File::create("value.json").unwrap();
         // let writer = BufWriter::new(file);
         // serde_json::to_writer(writer, t).unwrap();
-        let torrent = squire::qb::parse_tracker(t);
+        let Some(hash) = t["hash"].as_str() else { continue };
+        // Cheap peek avoids a full Tracker deserialization on every tick
         // Already tracked — nothing to do
-        if existing.contains_key(&torrent.hash) {
-            continue;
-        }
-
+        if existing.contains_key(hash) { continue };
+        let torrent = squire::qb::parse_tracker(t);
         let matched_tag = torrent.tags
             .split(',')
             .map(str::trim)
