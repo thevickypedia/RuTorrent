@@ -647,6 +647,7 @@
             grid-column: 1 / -1;
         }
 
+        /* TODO: opacity and font-size should be improved but corresponding fields should also grow in size and color */
         .field-hint {
             font-size: 0.6rem;
             color: var(--muted);
@@ -1164,14 +1165,14 @@
                 <div class="radio-group">
                     <label class="radio-option">
                         <input checked id="r-mode-transfer" name="retryMode" type="radio" value="transfer">
-                        <span>Retry Transfer</span>
+                        <span>Re-transfer</span>
                     </label>
                     <label class="radio-option danger">
                         <input id="r-mode-redownload" name="retryMode" type="radio" value="redownload">
                         <span>Re-download</span>
                     </label>
                 </div>
-                <div class="field-hint" id="r-mode-hint">Resumes the copy using the existing local files.</div>
+                <div class="field-hint" id="r-mode-hint"></div>
             </div>
             <div class="field">
                 <label for="r-host">Remote Host</label>
@@ -1886,12 +1887,12 @@
         </button>`;
         } else if (s === 'failed') html = `
         <span class="badge badge-failed">Failed</span>
-        <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
+        <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
             <span class="retry-icon">↻</span>
         </button>`;
         else if (s === 'copyerror') html = `
         <span class="badge badge-copy-error">Copy Error</span>
-        <button class="retry-btn" title="Retry Transfer" onclick="doRetry(this, event)">
+        <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
             <span class="retry-icon">↻</span>
         </button>`;
         else
@@ -1927,10 +1928,10 @@
             hint.textContent = 'Local files were deleted after the last transfer — only re-download is available.';
         } else {
             hint.textContent = isRedownload
-                ? 'Deletes any existing local files and starts a brand-new download, then transfers again once it finishes.'
-                : 'Resumes the copy using the existing local files.';
+                ? '💡 Deletes the existing local files and starts a fresh download, then transfers them when complete.'
+                : '💡 Resumes the transfer using the existing local files. If they’re unavailable, starts a fresh download.';
         }
-        document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Retry →';
+        document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Re-transfer →';
     }
 
     document.getElementById('r-mode-transfer').addEventListener('change', updateRetryMode);
