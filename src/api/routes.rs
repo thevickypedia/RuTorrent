@@ -228,7 +228,7 @@ pub async fn put_torrent(
     let existing = api::squire::get_existing(&client, &config).await;
     let hashes: Vec<String> = existing
         .into_iter()
-        .map(|i| i.hash.to_uppercase().clone())
+        .map(|i| i.hash.to_uppercase())
         .collect();
 
     let mut response: Vec<HashMap<String, String>> = Vec::new();
@@ -417,11 +417,6 @@ pub async fn delete_torrent(
     }
 
     // Always drop from RuTorrent state and DB regardless of qBit outcome
-    {
-        if let Ok(conn) = db_connection.lock() {
-            database::db::remove(&conn, &hash);
-        }
-    }
     if let Ok(conn) = db_connection.lock() {
         database::db::remove(&conn, &hash);
     }

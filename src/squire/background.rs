@@ -265,8 +265,9 @@ pub fn spawn_worker(
             let Some(arr) = resp.as_array() else { continue };
 
             // Entries qBit no longer knows about: flag in_qbit = false.
+            let trackers: Vec<squire::qb::Tracker> = arr.iter().map(squire::qb::parse_tracker).collect();
             let returned: std::collections::HashSet<&str> =
-                arr.iter().filter_map(|t| t["hash"].as_str()).collect();
+                trackers.iter().map(|t| t.hash.as_str()).collect();
             if let Ok(conn) = db_connection.lock() {
                 for h in db_hashes.iter().filter(|h| !returned.contains(h.as_str())) {
                     log::info!("Torrent removed from QBitAPI, keeping DB record: {}", h);
@@ -277,8 +278,7 @@ pub fn spawn_worker(
                 }
             }
 
-            for t in arr {
-                let torrent = squire::qb::parse_tracker(t);
+            for torrent in trackers {
                 let mut entry = {
                     let Ok(conn) = db_connection.lock() else { continue };
                     match database::db::load_one(&conn, &torrent.hash) {
