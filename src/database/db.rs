@@ -172,6 +172,60 @@ pub fn remove(conn: &Connection, hash: &str) {
     }
 }
 
+/// Maps a single row from the `state` table into `(hash, RsyncTrack)`.
+/// Shared by `load_all`, `load_one`, and `find_by_name` so the column
+/// layout only needs to be kept in sync with the schema in one place.
+///
+/// # Arguments
+///
+/// * `row` - Individual `rusqlite::Row` object.
+///
+/// # Returns
+///
+/// Returns a `rusqlite::Result<(String, config::settings::RsyncTrack)>` object that is a mapping of each tracked hash to its associated `RsyncTrack`.
+fn row_to_entry(row: &rusqlite::Row) -> rusqlite::Result<(String, config::settings::RsyncTrack)> {
+    let hash: String = row.get(0)?;
+    let name: String = row.get(1)?;
+    let status_str: String = row.get(2)?;
+    let progress: f64 = row.get(3)?;
+    let url: String = row.get(4)?;
+    let save_path: String = row.get(5)?;
+    let remote_host: String = row.get(6)?;
+    let remote_username: String = row.get(7)?;
+    let remote_path: String = row.get(8)?;
+    let rsync_timeout: u8 = row.get(9)?;
+    let delete_after_copy: i32 = row.get(10)?;
+    let in_qbit: i32 = row.get(11)?;
+    let files_deleted: i32 = row.get(12)?;
+
+    let status = decode_status(&status_str, progress);
+    let put_item = config::settings::PutItem {
+        url,
+        name: None,
+        hash: None,
+        trackers: None,
+        save_path,
+        remote_host,
+        remote_username,
+        remote_path,
+        rsync_timeout,
+        delete_after_copy: delete_after_copy != 0,
+    };
+
+    Ok((
+        hash,
+        config::settings::RsyncTrack {
+            name,
+            status,
+            put_item,
+            in_qbit: in_qbit != 0,
+            files_deleted: files_deleted != 0,
+        },
+    ))
+}
+
+const STATE_COLUMNS: &str = "hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted";
+
 /// Loads all tracked torrent entries from the database into memory.
 ///
 /// # Arguments
@@ -183,52 +237,13 @@ pub fn remove(conn: &Connection, hash: &str) {
 /// Returns a `HashMap<String, RsyncTrack>` mapping each tracked hash to its associated `RsyncTrack`.
 pub fn load_all(conn: &Connection) -> HashMap<String, config::settings::RsyncTrack> {
     let mut stmt = conn
-        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted FROM state")
+        .prepare(&format!("SELECT {STATE_COLUMNS} FROM state"))
         .expect("Failed to prepare load query");
 
-    stmt.query_map([], |row| {
-        let hash: String = row.get(0)?;
-        let name: String = row.get(1)?;
-        let status_str: String = row.get(2)?;
-        let progress: f64 = row.get(3)?;
-        let url: String = row.get(4)?;
-        let save_path: String = row.get(5)?;
-        let remote_host: String = row.get(6)?;
-        let remote_username: String = row.get(7)?;
-        let remote_path: String = row.get(8)?;
-        let rsync_timeout: u8 = row.get(9)?;
-        let delete_after_copy: i32 = row.get(10)?;
-        let in_qbit: i32 = row.get(11)?;
-        let files_deleted: i32 = row.get(12)?;
-
-        let status = decode_status(&status_str, progress);
-        let put_item = config::settings::PutItem {
-            url,
-            name: None,
-            hash: None,
-            trackers: None,
-            save_path,
-            remote_host,
-            remote_username,
-            remote_path,
-            rsync_timeout,
-            delete_after_copy: delete_after_copy != 0,
-        };
-
-        Ok((
-            hash,
-            config::settings::RsyncTrack {
-                name,
-                status,
-                put_item,
-                in_qbit: in_qbit != 0,
-                files_deleted: files_deleted != 0,
-            },
-        ))
-    })
-    .expect("Failed to query state")
-    .filter_map(|r| r.ok())
-    .collect()
+    stmt.query_map([], row_to_entry)
+        .expect("Failed to query state")
+        .filter_map(|r| r.ok())
+        .collect()
 }
 
 /// Loads a single tracked torrent entry from the database by hash.
@@ -243,49 +258,18 @@ pub fn load_all(conn: &Connection) -> HashMap<String, config::settings::RsyncTra
 /// Returns the `RsyncTrack` object.
 pub fn load_one(conn: &Connection, hash: &str) -> Option<config::settings::RsyncTrack> {
     let mut stmt = conn
-        .prepare("SELECT hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted FROM state WHERE hash = ?1")
+        .prepare(&format!(
+            "SELECT {STATE_COLUMNS} FROM state WHERE hash = ?1"
+        ))
         .ok()?;
-
-    stmt.query_row(params![hash], |row| {
-        let name: String = row.get(1)?;
-        let status_str: String = row.get(2)?;
-        let progress: f64 = row.get(3)?;
-        let url: String = row.get(4)?;
-        let save_path: String = row.get(5)?;
-        let remote_host: String = row.get(6)?;
-        let remote_username: String = row.get(7)?;
-        let remote_path: String = row.get(8)?;
-        let rsync_timeout: u8 = row.get(9)?;
-        let delete_after_copy: i32 = row.get(10)?;
-        let in_qbit: i32 = row.get(11)?;
-        let files_deleted: i32 = row.get(12)?;
-
-        let status = decode_status(&status_str, progress);
-        let put_item = config::settings::PutItem {
-            url,
-            name: None,
-            hash: None,
-            trackers: None,
-            save_path,
-            remote_host,
-            remote_username,
-            remote_path,
-            rsync_timeout,
-            delete_after_copy: delete_after_copy != 0,
-        };
-
-        Ok(config::settings::RsyncTrack {
-            name,
-            status,
-            put_item,
-            in_qbit: in_qbit != 0,
-            files_deleted: files_deleted != 0,
-        })
-    })
-    .ok()
+    stmt.query_row(params![hash], row_to_entry)
+        .ok()
+        .map(|(_, entry)| entry)
 }
 
 /// Finds a single tracked torrent entry from the database by name.
+/// Filters at the SQL level (indexed on `name`) instead of decoding
+/// every row in the table just to find one.
 ///
 /// # Arguments
 ///
@@ -299,7 +283,12 @@ pub fn find_by_name(
     conn: &Connection,
     name: &str,
 ) -> Option<(String, config::settings::RsyncTrack)> {
-    load_all(conn).into_iter().find(|(_, v)| v.name == name)
+    let mut stmt = conn
+        .prepare(&format!(
+            "SELECT {STATE_COLUMNS} FROM state WHERE name = ?1 LIMIT 1"
+        ))
+        .ok()?;
+    stmt.query_row(params![name], row_to_entry).ok()
 }
 
 /// Encodes an internal `Status` enum into a database-friendly representation.
