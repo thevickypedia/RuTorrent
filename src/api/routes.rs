@@ -50,12 +50,12 @@ pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Re
 ///
 /// Returns a boolean value to indicate the authentication status.
 fn authenticator(request: HttpRequest, config: &config::env::Config) -> bool {
-    if let Some(apikey) = request.headers().get("apikey")
-        && apikey.to_str().unwrap() == config.apikey
-    {
-        return true;
-    }
-    false
+    request
+        .headers()
+        .get("apikey")
+        .and_then(|apikey| apikey.to_str().ok())
+        .map(|apikey| apikey == config.apikey)
+        .unwrap_or(false)
 }
 
 /// API endpoint to get download/copy status.

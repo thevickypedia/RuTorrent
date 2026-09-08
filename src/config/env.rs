@@ -103,9 +103,14 @@ impl Config {
     /// - External service configuration normalization (e.g. URL cleanup)
     pub fn new() -> Self {
         let host = squire::misc::get_env_var("host", Some("127.0.0.1"));
-        let port = squire::misc::get_env_var("port", Some("3000"))
-            .parse::<u16>()
-            .unwrap();
+        let port_raw = squire::misc::get_env_var("port", Some("3000"));
+        let port = match port_raw.parse::<u16>() {
+            Ok(p) => p,
+            Err(e) => {
+                startup_error(format!("Invalid 'port' value '{port_raw}': {e}").as_str());
+                std::process::exit(1)
+            }
+        };
         let username = squire::misc::get_env_var("username", None);
         let password = squire::misc::get_env_var("password", None);
 
