@@ -1,8 +1,8 @@
 use crate::config;
 use actix_web::HttpResponse;
 use reqwest::Client;
-use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 /// Creates an authenticated HTTP client for interacting with the qBittorrent Web API.
 ///
@@ -65,7 +65,7 @@ impl ResponseContext {
 }
 
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq)]
-pub struct  Tracker {
+pub struct Tracker {
     #[serde(default)]
     pub name: String,
     #[serde(default)]
@@ -82,11 +82,31 @@ pub struct  Tracker {
     pub tags: String,
 }
 
-pub fn parse_tracker(tracker: &serde_json::Value) -> Tracker {
-    serde_json::from_value(tracker.clone()).unwrap_or_else(|e| {
-        log::warn!("Failed to parse tracker: {} ({})", e, tracker);
-        Tracker::default()
-    })
+pub fn parse_tracker(value: &serde_json::Value) -> Tracker {
+    let get = |field: &str| value.get(field);
+    Tracker {
+        name: get("name")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        hash: get("hash")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        state: get("state")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        progress: get("progress")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        magnet_uri: get("magnet_uri")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        save_path: get("save_path")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+        tags: get("tags")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default(),
+    }
 }
 
 /// Handles and validates an HTTP response from the qBittorrent Web API.
