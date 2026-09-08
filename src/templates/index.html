@@ -138,6 +138,10 @@
         }
 
         .field {
+            /* Single lever for this field's text scale — label and hint below
+               are both sized in `em` relative to this, so nudging this one
+               value grows them together, proportionally. */
+            font-size: 0.75rem;
             margin-bottom: 1.25rem;
         }
 
@@ -147,7 +151,7 @@
 
         label {
             display: block;
-            font-size: 0.62rem;
+            font-size: 1em;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: var(--muted);
@@ -647,11 +651,13 @@
             grid-column: 1 / -1;
         }
 
-        /* TODO: opacity and font-size should be improved but corresponding fields should also grow in size and color */
         .field-hint {
-            font-size: 0.6rem;
+            /* Relative to .field's font-size (like `label` above), so it
+               always stays ~87% of the label's size no matter how that
+               shared base is tuned — never bigger than the field name. */
+            font-size: 0.87em;
             color: var(--muted);
-            opacity: 0.6;
+            opacity: 0.8;
             margin-top: 0.25rem;
         }
 
