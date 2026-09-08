@@ -146,7 +146,8 @@ pub fn resolve_payload(body: &[config::settings::PutItem]) -> Vec<config::settin
             Ok(url) => url,
             Err(e) => {
                 log::error!("Invalid URL '{}': {}", item.url, e);
-                return Vec::new();
+                // skip this entry only, keep processing the rest of the batch
+                continue;
             }
         };
         let query_pairs: Vec<(String, String)> = url
