@@ -123,8 +123,8 @@ pub async fn get_torrents(
     if let Ok(conn) = db_connection.lock() {
         for (hash, local) in database::db::load_all(&conn) {
             let live = array.iter().find(|t| t.hash.as_str() == hash.as_str());
-            let live_progress = live.and_then(|t| Some(t.progress));
-            let live_state = live.and_then(|t| Some(t.state.clone())).unwrap_or_default();
+            let live_progress = live.map(|t| t.progress);
+            let live_state = live.map(|t| t.state.clone()).unwrap_or_default();
             out.push(api::squire::to_entry(
                 &hash,
                 &local,
@@ -380,7 +380,7 @@ pub async fn delete_torrent(
         let existing = api::squire::get_existing(&client, &config).await;
         existing
             .iter()
-            .find_map(|t| if &t.name == identifier { Some(t) } else { None })
+            .find(|torrent| torrent.name == *identifier)
             .map(|torrent| torrent.hash.to_owned())
     };
 
