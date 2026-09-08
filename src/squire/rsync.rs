@@ -59,11 +59,21 @@ pub async fn run(
     };
 
     let stdout = child.stdout.take().unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+
+    let stderr_handle = tokio::spawn(async move {
+        use tokio::io::AsyncReadExt;
+        let mut buf = String::new();
+        let _ = stderr.read_to_string(&mut buf).await;
+        buf
+    });
+
     let mut lines = BufReader::new(stdout).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         log::info!("rsync: {}", line);
     }
 
+    let err_output = stderr_handle.await.unwrap_or_default();
     let status = match child.wait().await {
         Ok(s) => s,
         Err(e) => {
@@ -76,16 +86,11 @@ pub async fn run(
     if status.success() {
         log::info!("rsync complete: {}", name);
     } else {
-        let mut err_output = String::new();
-        if let Some(mut stderr) = child.stderr.take() {
-            use tokio::io::AsyncReadExt;
-            let _ = stderr.read_to_string(&mut err_output).await;
-        }
         log::error!(
             "rsync failed for {} with status {}. stderr: {}",
             name,
             status,
-            err_output.strip_suffix("\n").unwrap_or(&err_output),
+            err_output.strip_suffix('\n').unwrap_or(&err_output),
         );
     }
 
