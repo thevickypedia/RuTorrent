@@ -32,6 +32,13 @@ fn default_download_path(child_dir: &str) -> String {
     }
 }
 
+/// Strips path separators so a torrent name can never be interpreted as
+/// multiple path segments (and thus can't escape the intended save
+/// directory) when joined onto a base path.
+fn sanitize_dir_component(name: &str) -> String {
+    name.replace(['/', '\\'], "_")
+}
+
 /// Fetches the default save path configured in qBittorrent.
 ///
 /// # Arguments
@@ -66,7 +73,7 @@ pub async fn get_default_save_path(
                 );
             }
         }
-        let joined = Path::new(&default_save_env).join(child_dir);
+        let joined = Path::new(&default_save_env).join(sanitize_dir_component(child_dir));
         return joined.to_string_lossy().into_owned();
     }
 
@@ -96,10 +103,7 @@ pub async fn get_default_save_path(
     match resp_json["save_path"].as_str() {
         Some(path) if !path.is_empty() => {
             log::info!("Using qBittorrent save path: {}", path);
-            Path::new(path)
-                .join(child_dir)
-                .to_string_lossy()
-                .into_owned()
+            Path::new(path).join(sanitize_dir_component(child_dir)).to_string_lossy().into_owned()
         }
         Some(_) => {
             log::info!("qBittorrent save_path is empty, using fallback");
