@@ -7,7 +7,7 @@ use std::time::Duration;
 /// # Arguments
 /// * `config` - Reference to the `Config` object.
 /// * `message` - Message to be sent to the user.
-pub async fn send(config: &config::settings::Config, message: &str) {
+pub async fn send(config: &config::env::Config, message: &str) {
     let client = match Client::builder()
         .timeout(Duration::from_secs(config.telegram_timeout))
         .build()

@@ -16,7 +16,7 @@ use serde_json::json;
 /// # Returns
 ///
 /// Returns the HTTPResponse with `Content-Type` header set to `text/html` and `body` as content of the HTML file.
-pub async fn index_page(config: web::Data<config::settings::Config>) -> impl Responder {
+pub async fn index_page(config: web::Data<config::env::Config>) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
         log::warn!("Username and password are required to access the UI");
         return HttpResponse::NotImplemented().finish();
@@ -58,7 +58,7 @@ fn base64_decode(value: &str) -> Result<String, Box<dyn std::error::Error>> {
 /// Returns an `HttpResponse` object with the apikey if successful.
 pub async fn authenticator(
     request: HttpRequest,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
 ) -> impl Responder {
     if config.username.is_empty() || config.password.is_empty() {
         log::warn!("Username and password are required to authenticate the UI");

@@ -14,7 +14,7 @@ use env_logger::Target;
 /// # Notes
 ///
 /// - This function should only be called once during application startup.
-pub fn init_logger(config: &config::settings::Config, metadata: &config::constant::MetaData) {
+pub fn init_logger(config: &config::env::Config, metadata: &config::constant::MetaData) {
     // Safe when executed in single threading
     unsafe {
         std::env::set_var(
@@ -29,7 +29,7 @@ pub fn init_logger(config: &config::settings::Config, metadata: &config::constan
     let mut builder = env_logger::Builder::from_default_env();
 
     // Configure output target
-    if config.log == config::settings::LogOptions::File {
+    if config.log == config::env::LogOptions::File {
         // Ensure logs directory exists
         std::fs::create_dir_all("logs").unwrap();
 

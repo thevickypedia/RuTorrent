@@ -45,7 +45,7 @@ fn default_download_path(child_dir: &str) -> String {
 /// request fails or the field is absent.
 pub async fn get_default_save_path(
     client: &Client,
-    config: &config::settings::Config,
+    config: &config::env::Config,
     child_dir: &String,
 ) -> String {
     // 1. Check environment variable override

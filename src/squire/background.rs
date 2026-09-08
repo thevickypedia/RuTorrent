@@ -149,7 +149,7 @@ async fn resolve_new_torrents(
 /// # Notes
 ///
 /// Sends notifications through `NTFY` and `Telegram` based on the availability of env vars.
-fn notifier(title: String, body: String, config: config::settings::Config) {
+fn notifier(title: String, body: String, config: config::env::Config) {
     let title_clone = title.clone();
     let body_clone = body.clone();
     let config_clone = config.clone();
@@ -196,7 +196,7 @@ fn notifier(title: String, body: String, config: config::settings::Config) {
 pub fn spawn_worker(
     mut client: Client,
     pending: config::settings::PendingMap,
-    config: config::settings::Config,
+    config: config::env::Config,
     db_connection: config::settings::DBConnection,
 ) {
     let mut n = 0;

@@ -49,7 +49,7 @@ pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Re
 /// # Returns
 ///
 /// Returns a boolean value to indicate the authentication status.
-fn authenticator(request: HttpRequest, config: &config::settings::Config) -> bool {
+fn authenticator(request: HttpRequest, config: &config::env::Config) -> bool {
     if let Some(apikey) = request.headers().get("apikey")
         && apikey.to_str().unwrap() == config.apikey
     {
@@ -106,7 +106,7 @@ fn authenticator(request: HttpRequest, config: &config::settings::Config) -> boo
 pub async fn get_torrents(
     request: HttpRequest,
     db_connection: web::Data<config::settings::DBConnection>,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
 ) -> impl Responder {
     // TODO: Send ordered response
     if !authenticator(request, &config) {
@@ -223,7 +223,7 @@ pub async fn get_torrents(
 pub async fn put_torrent(
     request: HttpRequest,
     pending: web::Data<config::settings::PendingMap>,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<Vec<config::settings::PutItem>>,
 ) -> impl Responder {
@@ -353,7 +353,7 @@ pub async fn put_torrent(
 )]
 pub async fn delete_torrent(
     request: HttpRequest,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
@@ -512,7 +512,7 @@ pub async fn delete_torrent(
 pub async fn retry_torrent(
     request: HttpRequest,
     pending: web::Data<config::settings::PendingMap>,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<config::settings::RetryOptions>,
 ) -> impl Responder {
@@ -620,7 +620,7 @@ pub async fn retry_torrent(
 /// Returns an `HttpResponse` indicating the result.
 async fn redownload_torrent(
     pending: web::Data<config::settings::PendingMap>,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
     opts: config::settings::RetryOptions,
 ) -> HttpResponse {
@@ -770,7 +770,7 @@ async fn redownload_torrent(
 )]
 pub async fn pause_torrent(
     request: HttpRequest,
-    config: web::Data<config::settings::Config>,
+    config: web::Data<config::env::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
     if !authenticator(request, &config) {

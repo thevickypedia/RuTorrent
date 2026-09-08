@@ -110,7 +110,7 @@ fn resolve_status(local: &config::settings::RsyncTrack, live_progress: Option<f6
 /// Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
 pub async fn get_existing(
     client: &Client,
-    config: &config::settings::Config,
+    config: &config::env::Config,
 ) -> Vec<HashMap<String, String>> {
     let resp: Value = match client
         .get(format!("{}/api/v2/torrents/info", config.qbit_url))

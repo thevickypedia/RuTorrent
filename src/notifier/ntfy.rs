@@ -8,7 +8,7 @@ use std::time::Duration;
 /// * `config` - Reference to the `Config` object.
 /// * `title` - Subject of the notification.
 /// * `body` - Body of the notification.
-pub async fn send(config: &config::settings::Config, title: &String, body: &String) {
+pub async fn send(config: &config::env::Config, title: &String, body: &String) {
     let client = match Client::builder()
         .timeout(Duration::from_secs(config.ntfy_timeout))
         .build()

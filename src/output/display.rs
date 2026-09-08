@@ -190,5 +190,3 @@ macro_rules! error {
         std::process::exit(1);
     }};
 }
-
-pub(crate) use warning;

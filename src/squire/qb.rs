@@ -20,7 +20,7 @@ use std::time::Duration;
 ///
 /// - Cookies are persisted in the client to maintain the authenticated session.
 /// - The function assumes the qBittorrent Web API is reachable at the given `qbit_url`.
-pub async fn client(config: &config::settings::Config) -> Result<Client, HttpResponse> {
+pub async fn client(config: &config::env::Config) -> Result<Client, HttpResponse> {
     let client = Client::builder()
         .cookie_store(true)
         .timeout(Duration::from_secs(config.qbit_timeout))

@@ -1,0 +1,235 @@
+use crate::{squire, warning};
+use std::num::NonZeroUsize;
+use std::str::FromStr;
+
+/// Formats and prints the startup error message.
+///
+/// # Arguments
+///
+/// * `msg` - Message to be printed.
+fn startup_error(msg: &str) {
+    eprintln!("\nStartupError:\n\t{}\n", msg);
+}
+
+/// Get and parse timeout from environment variables.
+///
+/// # Arguments
+///
+/// * `key` - Key for the environment variable.
+/// * `default` - Default value if env var is unresolved.
+///
+/// # Returns
+///
+/// Returns a `u64` element.
+fn get_and_parse_timeout(key: &str, default: &str) -> u64 {
+    let value = squire::misc::get_env_var(key, Some(default));
+    value.parse().unwrap_or(default.parse::<u64>().unwrap_or(1))
+}
+
+/// ### LogOptions
+/// Options for logging output.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogOptions {
+    Stdout,
+    File,
+}
+
+impl FromStr for LogOptions {
+    type Err = String;
+
+    /// Parses a string into a `LogOptions` value.
+    ///
+    /// Accepted values are:
+    /// - `"stdout"` → logs to standard output
+    /// - `"file"` → logs to a file
+    ///
+    /// Returns an error if the input does not match a supported option.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "stdout" => Ok(LogOptions::Stdout),
+            "file" => Ok(LogOptions::File),
+            _ => Err(format!("Invalid log option: {}", s)),
+        }
+    }
+}
+
+/// ### Config
+/// Application configuration loaded from environment variables.
+#[derive(Clone)]
+pub struct Config {
+    // RuTorrent API config
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
+
+    pub apikey: String,
+    pub workers: usize,
+
+    // QBitTorrent WebUI config
+    pub qbit_url: String,
+    pub qbit_username: String,
+    pub qbit_password: String,
+    pub qbit_timeout: u64,
+
+    // RuTorrent logger config
+    pub utc_logger: bool,
+    pub log: LogOptions,
+    pub log_level: log::LevelFilter,
+
+    // Ntfy notification config
+    pub ntfy_url: String,
+    pub ntfy_topic: String,
+    pub ntfy_username: String,
+    pub ntfy_password: String,
+    pub ntfy_timeout: u64,
+
+    // Telegram notification config
+    pub telegram_chat_id: String,
+    pub telegram_bot_token: String,
+    pub telegram_timeout: u64,
+}
+
+impl Config {
+    /// Creates a new application configuration by reading environment variables.
+    ///
+    /// Required values are validated at startup, and the process will terminate
+    /// with an error message if any critical configuration is missing or invalid.
+    ///
+    /// This includes:
+    /// - API key validation
+    /// - Worker count validation
+    /// - Logging configuration parsing
+    /// - External service configuration normalization (e.g. URL cleanup)
+    pub fn new() -> Self {
+        let host = squire::misc::get_env_var("host", Some("127.0.0.1"));
+        let port = squire::misc::get_env_var("port", Some("3000"))
+            .parse::<u16>()
+            .unwrap();
+        let username = squire::misc::get_env_var("username", None);
+        let password = squire::misc::get_env_var("password", None);
+
+        let apikey = squire::misc::get_env_var("apikey", None);
+        if apikey.is_empty() {
+            startup_error("'apikey' is empty");
+            std::process::exit(1)
+        }
+        match squire::misc::complexity_checker(&apikey, 32) {
+            Ok(()) => (),
+            Err(err) => {
+                startup_error(format!("Invalid 'apikey': {}", err).as_str());
+                std::process::exit(1)
+            }
+        }
+
+        let available_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
+        let default_workers =
+            squire::misc::get_env_var("workers", Some(available_workers.to_string().as_str()));
+        let workers = match default_workers.parse::<usize>() {
+            Ok(n) if n > 0 => n,
+            Ok(_) => {
+                startup_error(format!("'workers' must be > 0, got {}", default_workers).as_str());
+                std::process::exit(1)
+            }
+            Err(e) => {
+                startup_error(
+                    format!("Invalid 'workers' value '{default_workers}': {e}\n").as_str(),
+                );
+                std::process::exit(1)
+            }
+        };
+
+        let mut qbit_url = squire::misc::get_env_var("qbit_url", Some("http://localhost:8080/"));
+        let qbit_username = squire::misc::get_env_var("qbit_username", None);
+        let qbit_password = squire::misc::get_env_var("qbit_password", None);
+        qbit_url = qbit_url.strip_suffix("/").unwrap_or(&qbit_url).to_string();
+
+        if !qbit_url.contains("0.0.0.0")
+            && !qbit_url.contains("localhost")
+            && !qbit_url.contains("127.0.0.1")
+        {
+            // NOTE: Since QBitTorrentAPI does not have a built-in callback function,
+            // the current process monitors ongoing downloads and then triggers rsync
+            // This requires both QBitTorrent and RuTorrent to run on the same device
+            // TODO: Replace QbitTorrent with a reliable torrent crate - all in one place
+            warning!(
+                "qbit_url appears to be a remote location. This will invalidate the rsync callback."
+            );
+        }
+
+        let utc_logger = squire::misc::get_env_var("utc_logger", Some("true")) == "true";
+        let default_log = squire::misc::get_env_var("log", Some("stdout"));
+        let log = match default_log.parse::<LogOptions>() {
+            Ok(log) => log,
+            Err(err) => {
+                startup_error(&err.to_string());
+                std::process::exit(1);
+            }
+        };
+        let default_log_level = squire::misc::get_env_var("log_level", Some("info"));
+        let log_level = match default_log_level.parse::<log::LevelFilter>() {
+            Ok(level) => level,
+            Err(_) => {
+                startup_error(
+                    format!(
+                        "Invalid 'log_level' value '{default_log_level}'. Expected one of: off, error, warn, info, debug, trace"
+                    ).as_str()
+                );
+                std::process::exit(1)
+            }
+        };
+
+        let mut ntfy_url = squire::misc::get_env_var("ntfy_url", None);
+        let mut ntfy_topic = squire::misc::get_env_var("ntfy_topic", None);
+        let ntfy_username = squire::misc::get_env_var("ntfy_username", None);
+        let ntfy_password = squire::misc::get_env_var("ntfy_password", None);
+
+        ntfy_url = ntfy_url.strip_suffix("/").unwrap_or(&ntfy_url).to_string();
+        ntfy_topic = ntfy_topic
+            .strip_prefix("/")
+            .unwrap_or(&ntfy_topic)
+            .to_string();
+
+        let telegram_bot_token = squire::misc::get_env_var("telegram_bot_token", None);
+        let telegram_chat_id = squire::misc::get_env_var("telegram_chat_id", None);
+        if !telegram_chat_id.is_empty() {
+            match telegram_chat_id.parse::<usize>() {
+                Ok(_) => (),
+                Err(_) => {
+                    startup_error(
+                        format!("Invalid 'telegram_chat_id' value '{telegram_chat_id}'").as_str(),
+                    );
+                    std::process::exit(1)
+                }
+            };
+        }
+
+        let qbit_timeout = get_and_parse_timeout("qbit_timeout", "3");
+        let ntfy_timeout = get_and_parse_timeout("ntfy_timeout", "3");
+        let telegram_timeout = get_and_parse_timeout("telegram_timeout", "3");
+
+        Self {
+            host,
+            port,
+            username,
+            password,
+            apikey,
+            workers,
+            qbit_url,
+            qbit_username,
+            qbit_password,
+            qbit_timeout,
+            utc_logger,
+            log,
+            log_level,
+            ntfy_url,
+            ntfy_topic,
+            ntfy_username,
+            ntfy_password,
+            ntfy_timeout,
+            telegram_bot_token,
+            telegram_chat_id,
+            telegram_timeout,
+        }
+    }
+}
