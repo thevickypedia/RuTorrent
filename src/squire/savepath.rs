@@ -53,7 +53,7 @@ fn sanitize_dir_component(name: &str) -> String {
 pub async fn get_default_save_path(
     client: &Client,
     config: &config::env::Config,
-    child_dir: &String,
+    child_dir: &str,
 ) -> String {
     // 1. Check environment variable override
     let default_save_env = squire::misc::get_env_var("save_path", None);

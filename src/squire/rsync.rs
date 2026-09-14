@@ -1,9 +1,16 @@
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
+    time::{sleep, Duration},
 };
 
 use crate::{config, database};
+
+/// Delay between consecutive retry attempts for the same transfer.
+const RETRY_BACKOFF: Duration = Duration::from_secs(30);
+
+/// Maximum number of times to attempt rsync transfer.
+const MAX_COPY_ATTEMPTS: u32 = 10;
 
 /// Executes an `rsync` process to transfer a file or directory to a remote target.
 ///
@@ -29,8 +36,42 @@ pub async fn run(
     name: String,
     put_item: config::settings::PutItem,
 ) {
-    log::info!("Starting rsync for {}", name);
+    let mut attempt = 0;
+    loop {
+        attempt += 1;
+        log::info!(
+            "Starting rsync for {} (attempt {}/{})",
+            name, attempt, MAX_COPY_ATTEMPTS
+        );
+        if run_once(&name, &put_item).await {
+            log::info!("rsync complete: {}", name);
+            set_status(&db_connection, &hash, config::settings::Status::Completed);
+            return;
+        }
 
+        if attempt >= MAX_COPY_ATTEMPTS {
+            log::error!("rsync exhausted {} attempts for {}, giving up", attempt, name);
+            set_status(&db_connection, &hash, config::settings::Status::CopyError);
+            return;
+        }
+
+        // Stays in `Copying` — a status the background worker's tick loop
+        // already treats as "already being handled" — so a failed attempt
+        // is never mistaken for a fresh download completion. That mistaken
+        // re-trigger is what caused the repeated "Download Complete"
+        // notifications before this change.
+        set_status(&db_connection, &hash, config::settings::Status::Copying);
+        log::warn!(
+            "rsync attempt {}/{} failed for {}, retrying in {:?}",
+            attempt, MAX_COPY_ATTEMPTS, name, RETRY_BACKOFF
+        );
+        sleep(RETRY_BACKOFF).await;
+    }
+}
+
+/// Runs a single rsync attempt, streaming stdout/stderr concurrently to
+/// avoid a pipe-fill deadlock. Returns `true` on success.
+async fn run_once(name: &str, put_item: &config::settings::PutItem) -> bool {
     let remote = format!(
         "{}@{}:{}",
         put_item.remote_username,
@@ -53,8 +94,7 @@ pub async fn run(
         Ok(c) => c,
         Err(e) => {
             log::error!("Failed to start rsync for {}: {}", name, e);
-            set_status(&db_connection, &hash, config::settings::Status::CopyError);
-            return;
+            return false;
         }
     };
 
@@ -78,31 +118,21 @@ pub async fn run(
         Ok(s) => s,
         Err(e) => {
             log::error!("Failed waiting for rsync process for {}: {}", name, e);
-            set_status(&db_connection, &hash, config::settings::Status::CopyError);
-            return;
+            return false;
         }
     };
 
-    if status.success() {
-        log::info!("rsync complete: {}", name);
-    } else {
+    if !status.success() {
         log::error!(
             "rsync failed for {} with status {}. stderr: {}",
-            name,
-            status,
-            err_output.strip_suffix('\n').unwrap_or(&err_output),
+            name, status, err_output.strip_suffix('\n').unwrap_or(&err_output),
         );
     }
 
-    let final_status = if status.success() {
-        config::settings::Status::Completed
-    } else {
-        config::settings::Status::CopyError
-    };
-    set_status(&db_connection, &hash, final_status);
+    status.success()
 }
 
-/// Persists a status transition for `hash` directly to the database.
+/// Persists a status transition and the current attempt count for `hash`.
 ///
 /// # Arguments
 ///

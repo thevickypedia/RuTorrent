@@ -303,23 +303,42 @@ pub fn spawn_worker(
                         | config::settings::Status::Completed
                         | config::settings::Status::Copying
                         | config::settings::Status::DownloadComplete
+                        | config::settings::Status::CopyError
+                        | config::settings::Status::Failed
                 );
-                if !terminal && torrent.state.as_str() == "error" {
-                    if !matches!(entry.status, config::settings::Status::Failed) {
-                        log::error!("Download errored for {}: {}", entry.name, torrent.state);
-                        entry.status = config::settings::Status::Failed;
-                        if let Ok(conn) = db_connection.lock() {
-                            database::db::upsert(&conn, &torrent.hash, &entry);
-                        }
-                        notifier(
-                            "RuTorrent: Download Error".to_string(),
-                            format!("Download errored for {}", entry.name),
-                            config.clone(),
-                        );
+                // rsync.rs only ever writes Copying/CopyError/Completed — it never
+                // notifies. CopyError means every retry was exhausted; notify exactly
+                // once here, then fold it into `Failed`, which is terminal
+                // — so this transition can never be observed twice
+                if matches!(entry.status, config::settings::Status::CopyError) {
+                    notifier(
+                        "RuTorrent: Copy Failed".to_string(),
+                        format!("Transfer failed for {} — use /retry to resume", entry.name),
+                        config.clone(),
+                    );
+                    entry.status = config::settings::Status::Failed;
+                    if let Ok(conn) = db_connection.lock() {
+                        database::db::upsert(&conn, &torrent.hash, &entry);
                     }
+                }
+
+                let state_str = torrent.state.as_str();
+                let progress = torrent.progress;
+
+                if !terminal && state_str == "error" {
+                    log::error!("Download errored for {}: {}", entry.name, state_str);
+                    entry.status = config::settings::Status::Failed;
+                    if let Ok(conn) = db_connection.lock() {
+                        database::db::upsert(&conn, &torrent.hash, &entry);
+                    }
+                    notifier(
+                        "RuTorrent: Download Error".to_string(),
+                        format!("Download errored for {}", entry.name),
+                        config.clone(),
+                    );
                 } else if !terminal {
                     let download_complete = matches!(
-                        torrent.state.as_str(),
+                        state_str,
                         "uploading"
                             | "stalledUP"
                             | "pausedUP"
@@ -368,7 +387,7 @@ pub fn spawn_worker(
                             );
                         }
                     } else {
-                        entry.status = config::settings::Status::Downloading(torrent.progress);
+                        entry.status = config::settings::Status::Downloading(progress);
                         if let Ok(conn) = db_connection.lock() {
                             database::db::upsert(&conn, &torrent.hash, &entry);
                         }
