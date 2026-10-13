@@ -1,7 +1,7 @@
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    time::{sleep, Duration},
+    time::{Duration, sleep},
 };
 
 use crate::{config, database};
@@ -41,7 +41,9 @@ pub async fn run(
         attempt += 1;
         log::info!(
             "Starting rsync for {} (attempt {}/{})",
-            name, attempt, MAX_COPY_ATTEMPTS
+            name,
+            attempt,
+            MAX_COPY_ATTEMPTS
         );
         if run_once(&name, &put_item).await {
             log::info!("rsync complete: {}", name);
@@ -50,7 +52,11 @@ pub async fn run(
         }
 
         if attempt >= MAX_COPY_ATTEMPTS {
-            log::error!("rsync exhausted {} attempts for {}, giving up", attempt, name);
+            log::error!(
+                "rsync exhausted {} attempts for {}, giving up",
+                attempt,
+                name
+            );
             set_status(&db_connection, &hash, config::settings::Status::CopyError);
             return;
         }
@@ -63,20 +69,35 @@ pub async fn run(
         set_status(&db_connection, &hash, config::settings::Status::Copying);
         log::warn!(
             "rsync attempt {}/{} failed for {}, retrying in {:?}",
-            attempt, MAX_COPY_ATTEMPTS, name, RETRY_BACKOFF
+            attempt,
+            MAX_COPY_ATTEMPTS,
+            name,
+            RETRY_BACKOFF
         );
         sleep(RETRY_BACKOFF).await;
     }
 }
 
+/// Get path separator for a given remote location.
+fn get_remote_separator(path: &str) -> char {
+    if path.contains('\\') { '\\' } else { '/' }
+}
+
 /// Runs a single rsync attempt, streaming stdout/stderr concurrently to
 /// avoid a pipe-fill deadlock. Returns `true` on success.
 async fn run_once(name: &str, put_item: &config::settings::PutItem) -> bool {
+    let safe_basename = std::path::Path::new(put_item.save_path.trim())
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(name)
+        .replace(':', " -");
     let remote = format!(
-        "{}@{}:{}",
+        "{}@{}:{}{}{}",
         put_item.remote_username,
         put_item.remote_host,
-        put_item.remote_path.trim()
+        put_item.remote_path.trim().trim_end_matches(['/', '\\']),
+        get_remote_separator(&put_item.remote_path),
+        safe_basename
     );
     log::info!("{} -> {}", put_item.save_path, remote);
 
@@ -125,7 +146,9 @@ async fn run_once(name: &str, put_item: &config::settings::PutItem) -> bool {
     if !status.success() {
         log::error!(
             "rsync failed for {} with status {}. stderr: {}",
-            name, status, err_output.strip_suffix('\n').unwrap_or(&err_output),
+            name,
+            status,
+            err_output.strip_suffix('\n').unwrap_or(&err_output),
         );
     }
 
