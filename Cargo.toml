@@ -25,21 +25,21 @@ path = "src/main.rs"
 rustdoc-args = ["--document-private-items"]
 
 [dependencies]
-utoipa = { version = "5.5", features = ["actix_extras"] }
-utoipa-swagger-ui = { version = "9.0", features = ["actix-web", "vendored"] }
-actix-web = "4.13"
+utoipa = { version = "6.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "10.0", features = ["actix-web", "vendored"] }
+actix-web = "4.15"
 reqwest = { version = "0.13", features = ["cookies", "json", "form"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-actix-rt = "2.11"
-tokio = { version = "1.52", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync", "fs"] }
+actix-rt = "2.15"
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync", "fs"] }
 env_logger = "0.11"
 chrono = "0.4"
 log = "0.4"
-uuid = { version = "1.23", features = ["v4"] }
+uuid = { version = "1.28", features = ["v4"] }
 dotenv = "0.15"
 url = "2.5"
-regex = "1.12"
+regex = "1.13"
 rusqlite = { version = "0.40", features = ["bundled"] }
-dirs = "6.0"
+dirs = "7.0"
 base64 = "0.23"
