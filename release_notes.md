@@ -1,6 +1,41 @@
 Release Notes
 =============
 
+v0.5.0 (10/13/2026)
+-------------------
+- [e374788](https://github.com/thevickypedia/RuTorrent/commit/e374788fc7032e8d90713c58c38f5f98f6ef99f4) chore: Release ``v0.5.0``
+- [e465158](https://github.com/thevickypedia/RuTorrent/commit/e46515868b5067f3b40b42874fe641eb733fff8f) chore: Upgrade all dependencies
+- [cd3ab0f](https://github.com/thevickypedia/RuTorrent/commit/cd3ab0fcfa3abfb4f5615da6fa1abb39c83b036b) fix: Use a ``safe_basename`` approach to avoid broken rsync for folder names with ``:`` in it
+- [8e2b75b](https://github.com/thevickypedia/RuTorrent/commit/8e2b75bf0551cadd0b3c8dee078ad26ea4792716) fix: Replace accidental rsync retry with intentional retry logic
+- [879356e](https://github.com/thevickypedia/RuTorrent/commit/879356e5222f7e7dcc67c09f48ea8697222f180d) refactor: Add helper function to improve code reusability in database functions
+- [2f937c4](https://github.com/thevickypedia/RuTorrent/commit/2f937c41f7731a7bbeb33323d9c486cd9997dd67) perf: Add a constant time check for authentication
+- [bece616](https://github.com/thevickypedia/RuTorrent/commit/bece616b8db272c0a07bb11611c57a451a68e6f6) perf: Avoid raw panics during startup and auth checks
+- [98263b5](https://github.com/thevickypedia/RuTorrent/commit/98263b5c3337aa1957bb5704c3758bbe5cf1367c) perf: Sanitize ``save_path`` when extracted from qBitAPI
+- [78c0800](https://github.com/thevickypedia/RuTorrent/commit/78c08009e41aab0ceb9a4b125c57c77bd10ac9c8) perf: Avoid stdout/stderr draining doing a deadlock on transfer
+- [cf802c8](https://github.com/thevickypedia/RuTorrent/commit/cf802c806cfd2d369f04affa7cd3415cf778ab97) perf: Avoid one bad magnet link wiping the entire batch when resolving payload
+- [1b2d871](https://github.com/thevickypedia/RuTorrent/commit/1b2d87179e2b062d8355fedc6a206b656704c0cc) perf: Avoid full tracker deserialization on every hop in background task for exist check logic; guard ``error`` state check after verifying terminal state
+- [7cd630f](https://github.com/thevickypedia/RuTorrent/commit/7cd630fbe8713035c633019fa9d0116af3bbca95) perf: Avoid full tracker deserialization on every hop in background task for exist check logic
+- [a32fa5c](https://github.com/thevickypedia/RuTorrent/commit/a32fa5c540c874db215edc0be53661d1d1d51f88) style: Set ``label`` and ``.field-hint`` to one shared size expressed in ``em``
+- [f2cfc21](https://github.com/thevickypedia/RuTorrent/commit/f2cfc21e8ff7e149869955beaef52c7a60c4103a) refactor: Remove code redundancies
+- [ccedfb5](https://github.com/thevickypedia/RuTorrent/commit/ccedfb5f1bdc68479d04c2f3b6cbfcfe400cd27b) perf: Deserialize individual fields for tracker to avoid one bad field resulting in a default value
+- [903b689](https://github.com/thevickypedia/RuTorrent/commit/903b6892d2d7c0720c6d4b91273a1ccee5151a08) perf: Add suggestions made by clippy
+- [6e73ee6](https://github.com/thevickypedia/RuTorrent/commit/6e73ee601dfd6cab61c34c3806edbd654ce1f74a) style: Update some UI context for readability
+- [26bb643](https://github.com/thevickypedia/RuTorrent/commit/26bb6439e014e92e7cb5c7fdef2e961e8e28f75f) perf: Parse fields required from qBitAPI and use a struct instead of raw JSON value
+- [3c60ded](https://github.com/thevickypedia/RuTorrent/commit/3c60ded1e2806e9ee41ed1b93d01d60c797d9c03) refactor: Move all env vars and defaults to dedicated mods
+- [cdc457a](https://github.com/thevickypedia/RuTorrent/commit/cdc457ac6bbfeba23bd979dc77f04d83828542a5) perf: Avoid missing ``magnet_uri`` and ``save_path`` for offline loads into qBitAPI
+- [927d4b7](https://github.com/thevickypedia/RuTorrent/commit/927d4b72830eaf60180a83647c548c9f766a5a54) perf: Replace transient in-memory state with DB as one-source of truth
+- [4e8c97c](https://github.com/thevickypedia/RuTorrent/commit/4e8c97c11d254327f75ff99c3f35748e923e8788) refactor: Move all functions into individual mods to avoid code cluttering
+- [9f441de](https://github.com/thevickypedia/RuTorrent/commit/9f441de9a28f878eb302e69a48e7849d0e421597) fix: Avoid torrents being stuck in a stale state even after deleting in the UI
+- [56a17a5](https://github.com/thevickypedia/RuTorrent/commit/56a17a5c723ef7b3100c4744398d3e07a2df95a7) fix: Address stale state for resumed torrents in the UI
+- [42ff787](https://github.com/thevickypedia/RuTorrent/commit/42ff7875082d730eed1e5fbe6c89a1e3866579d7) feat: Include an option to pause and resume the download from the UI
+- [8ab98c2](https://github.com/thevickypedia/RuTorrent/commit/8ab98c2b5337375ef3271e9bd48a6b69a8112a08) feat: Include an info (``i`` icon) modal to display the status information
+- [53f2656](https://github.com/thevickypedia/RuTorrent/commit/53f2656bc09822f1a74053cc2434f91222fad97c) perf: Include a max error counter for qBit session re-creation and avoid skipping updates when pending and state are empty
+- [003d872](https://github.com/thevickypedia/RuTorrent/commit/003d872d306763fc5205e2016b16b6efb6827d1f) feat: Include an option to retry download/transfer for failed torrents; sync qbit torrent statelessly
+- [c07fea6](https://github.com/thevickypedia/RuTorrent/commit/c07fea602c1a3669bb77c4c6ff242345ee63c20e) refactor: Remove ``data_storage`` as an option and set it to default
+- [9c1bef5](https://github.com/thevickypedia/RuTorrent/commit/9c1bef5e24390cf85ba27b6ad342970100e9416e) chore: Add a database troubleshooting guide
+- [e594e68](https://github.com/thevickypedia/RuTorrent/commit/e594e6834d2173f61d12e1aa24a7501ea33153f9) feat: Include an option to choose ``delete-files`` in the UI
+- [62fce42](https://github.com/thevickypedia/RuTorrent/commit/62fce424843e1c0c1f945b7ef6805e425890de4d) chore: Update release notes for v0.4.1
+
 v0.4.1 (08/07/2026)
 -------------------
 - [2cd96ed](https://github.com/thevickypedia/RuTorrent/commit/2cd96ed618e15511b072cbf6fa1785b30ce7b16f) chore: Release ``v0.4.1``
