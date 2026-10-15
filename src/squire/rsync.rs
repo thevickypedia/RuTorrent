@@ -83,14 +83,36 @@ fn get_remote_separator(path: &str) -> char {
     if path.contains('\\') { '\\' } else { '/' }
 }
 
-/// Runs a single rsync attempt, streaming stdout/stderr concurrently to
-/// avoid a pipe-fill deadlock. Returns `true` on success.
+/// Build an OS-agnostic remote path.
+fn escape_remote_path(input: &str) -> String {
+    input
+        // Filesystem-illegal characters — replace with safe substitutes
+        .replace(':', " -")
+        .replace(['\\', '*', '?', '"', '<', '>', '|'], "_")
+        // Shell metacharacters — escape so the remote shell treats them literally
+        .replace('$', "\\$")
+        .replace('`', "\\`")
+        .replace('!', "\\!")
+        .replace('{', "\\{")
+        .replace('}', "\\}")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
+        .replace('(', "\\(")
+        .replace(')', "\\)")
+        .replace('&', "\\&")
+        .replace('\'', "\\'")
+        .replace('#', "\\#")
+        // Leading ~ would expand to home dir on remote
+        .trim_start_matches('~')
+        .to_string()
+}
+
 async fn run_once(name: &str, put_item: &config::settings::PutItem) -> bool {
-    let safe_basename = std::path::Path::new(put_item.save_path.trim())
+    let raw_basename = std::path::Path::new(put_item.save_path.trim())
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or(name)
-        .replace(':', " -");
+        .unwrap_or(name);
+    let safe_basename = escape_remote_path(raw_basename);
     let remote = format!(
         "{}@{}:{}{}{}",
         put_item.remote_username,
