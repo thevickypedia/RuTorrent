@@ -952,6 +952,11 @@
                 padding-top: 0.5rem;
             }
 
+            .torrent-table td:nth-child(4) {
+                padding-top: 0.25rem;
+                font-size: 0.75rem;
+            }
+
             .status-bar {
                 padding: 0.75rem 1rem;
                 flex-wrap: wrap;
@@ -1082,6 +1087,10 @@
                 </th>
                 <th class="sortable" id="sortStatus">
                     Status
+                    <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" id="sortAdded">
+                    Added
                     <span class="sort-indicator"></span>
                 </th>
             </tr>
@@ -1497,6 +1506,7 @@
         if (s === 'copying') return 4;
         if (s === 'downloaded') return 5;
         if (s === 'completed') return 6;
+        if (s === 'transferred') return 7;
         return 3;
     }
 
@@ -1515,6 +1525,13 @@
                 );
             } else if (sortKey === 'status') {
                 result = statusWeight(a.status) - statusWeight(b.status);
+            } else if (sortKey === 'added') {
+                // added_at is already a formatted string; compare as strings since
+                // the format "Thu Oct 01 2026 06:20 EDT" sorts lexicographically wrong.
+                // Parse back to a timestamp for correct chronological sort.
+                const ta = a.added_at ? new Date(a.added_at).getTime() : 0;
+                const tb = b.added_at ? new Date(b.added_at).getTime() : 0;
+                result = ta - tb;
             }
 
             return sortDirection === 'asc'
@@ -1537,7 +1554,9 @@
         const active =
             sortKey === 'name'
                 ? document.getElementById('sortName')
-                : document.getElementById('sortStatus');
+                : sortKey === 'added'
+                    ? document.getElementById('sortAdded')
+                    : document.getElementById('sortStatus');
 
         active.classList.add(
             'active',
@@ -1580,6 +1599,12 @@
         .getElementById('sortStatus')
         .addEventListener('click', () => {
             setSort('status');
+        });
+
+    document
+        .getElementById('sortAdded')
+        .addEventListener('click', () => {
+            setSort('added');
         });
 
     document
@@ -1673,6 +1698,8 @@
                 </td>
                 <td>${esc(e.name)}</td>
                 <td>${badge(e)}</td>
+                <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">${esc(e.added_at || '—')}</td>
+                </tr>
             </tr>
         `).join('');
             body.querySelectorAll('tr').forEach(row => {
