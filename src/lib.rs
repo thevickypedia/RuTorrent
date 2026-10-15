@@ -1,7 +1,7 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -39,7 +39,10 @@ pub async fn start() -> std::io::Result<()> {
 
     let db_conn = database::db::open();
     let initial_pending = database::db::load_pending(&db_conn);
-    log::info!("Loaded {} pending entries from database", initial_pending.len());
+    log::info!(
+        "Loaded {} pending entries from database",
+        initial_pending.len()
+    );
     let pending: config::settings::PendingMap = Arc::new(RwLock::new(initial_pending));
 
     let client = match squire::qb::client(&config).await {
@@ -55,7 +58,12 @@ pub async fn start() -> std::io::Result<()> {
     let port = config.port;
     let workers = config.workers;
 
-    log::info!("Starting server on: http://{}:{} with {} workers", host, port, workers);
+    log::info!(
+        "Starting server on: http://{}:{} with {} workers",
+        host,
+        port,
+        workers
+    );
 
     HttpServer::new(move || {
         App::new()

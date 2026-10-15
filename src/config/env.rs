@@ -74,6 +74,7 @@ pub struct Config {
 
     // RuTorrent logger config
     pub utc_logger: bool,
+    pub timezone: chrono_tz::Tz,
     pub log: LogOptions,
     pub log_level: log::LevelFilter,
 
@@ -163,6 +164,17 @@ impl Config {
         }
 
         let utc_logger = squire::misc::get_env_var("utc_logger", Some("true")) == "true";
+        let tz_str = squire::misc::get_env_var("timezone", Some("UTC"));
+        let timezone = match tz_str.parse::<chrono_tz::Tz>() {
+            Ok(tz) => tz,
+            Err(_) => {
+                startup_error(format!(
+                    "Invalid 'timezone' value '{}'. Use an IANA zone name like 'America/Chicago' or 'UTC'.",
+                    tz_str
+                ).as_str());
+                std::process::exit(1)
+            }
+        };
         let default_log = squire::misc::get_env_var("log", Some("stdout"));
         let log = match default_log.parse::<LogOptions>() {
             Ok(log) => log,
@@ -225,6 +237,7 @@ impl Config {
             qbit_password,
             qbit_timeout,
             utc_logger,
+            timezone,
             log,
             log_level,
             ntfy_url,

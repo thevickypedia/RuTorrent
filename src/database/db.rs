@@ -1,5 +1,6 @@
 use crate::config;
-use rusqlite::{params, Connection};
+use chrono::TimeZone;
+use rusqlite::{Connection, params};
 use std::collections::HashMap;
 
 /// Opens (or creates) the SQLite database and ensures the required schema exists.
@@ -23,7 +24,8 @@ pub fn open() -> Connection {
             rsync_timeout INTEGER NOT NULL DEFAULT 3,
             delete_after_copy INTEGER NOT NULL DEFAULT 0,
             in_qbit     INTEGER NOT NULL DEFAULT 1,
-            files_deleted INTEGER NOT NULL DEFAULT 0
+            files_deleted INTEGER NOT NULL DEFAULT 0,
+            added_at    TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS pending (
             tag         TEXT PRIMARY KEY,
@@ -48,12 +50,30 @@ pub fn open() -> Connection {
 /// * `conn` - Active SQLite database connection.
 /// * `hash` - Unique torrent hash identifier.
 /// * `entry` - The `RsyncTrack` data to persist.
-pub fn upsert(conn: &Connection, hash: &str, entry: &config::settings::RsyncTrack) {
+pub fn upsert(
+    conn: &Connection,
+    hash: &str,
+    entry: &config::settings::RsyncTrack,
+    tz: chrono_tz::Tz,
+) {
     let (status, progress) = encode_status(&entry.status);
+    let existing_added_at: Option<String> = conn
+        .query_row(
+            "SELECT added_at FROM state WHERE hash = ?1",
+            params![hash],
+            |r| r.get(0),
+        )
+        .ok()
+        .filter(|s: &String| !s.is_empty());
+    let added_at = existing_added_at.unwrap_or_else(|| {
+        tz.from_utc_datetime(&chrono::Utc::now().naive_utc())
+            .format("%a %b %d %Y %H:%M %Z")
+            .to_string()
+    });
     match conn.execute(
         "INSERT OR REPLACE INTO state
-            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted, added_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
             hash,
             entry.name,
@@ -68,6 +88,7 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &config::settings::RsyncTrac
             entry.put_item.delete_after_copy as i32,
             entry.in_qbit as i32,
             entry.files_deleted as i32,
+            added_at,
         ],
     ) {
         Ok(_) => (),
@@ -197,6 +218,7 @@ fn row_to_entry(row: &rusqlite::Row) -> rusqlite::Result<(String, config::settin
     let delete_after_copy: i32 = row.get(10)?;
     let in_qbit: i32 = row.get(11)?;
     let files_deleted: i32 = row.get(12)?;
+    let added_at: String = row.get(13)?;
 
     let status = decode_status(&status_str, progress);
     let put_item = config::settings::PutItem {
@@ -220,12 +242,12 @@ fn row_to_entry(row: &rusqlite::Row) -> rusqlite::Result<(String, config::settin
             put_item,
             in_qbit: in_qbit != 0,
             files_deleted: files_deleted != 0,
+            added_at,
         },
     ))
 }
 
-const STATE_COLUMNS: &str = "hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted";
-
+const STATE_COLUMNS: &str = "hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted, added_at";
 /// Loads all tracked torrent entries from the database into memory.
 ///
 /// # Arguments

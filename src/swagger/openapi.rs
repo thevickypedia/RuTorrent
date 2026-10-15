@@ -1,8 +1,8 @@
 use crate::{api, config};
 use actix_web::HttpResponse;
-use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::Modify;
 use utoipa::OpenApi;
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(

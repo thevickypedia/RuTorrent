@@ -1,6 +1,6 @@
 use crate::{config, squire};
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use base64::{engine::general_purpose, Engine as _};
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
+use base64::{Engine as _, engine::general_purpose};
 use serde_json::json;
 
 /// API endpoint to render the UI.

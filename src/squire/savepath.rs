@@ -103,7 +103,10 @@ pub async fn get_default_save_path(
     match resp_json["save_path"].as_str() {
         Some(path) if !path.is_empty() => {
             log::info!("Using qBittorrent save path: {}", path);
-            Path::new(path).join(sanitize_dir_component(child_dir)).to_string_lossy().into_owned()
+            Path::new(path)
+                .join(sanitize_dir_component(child_dir))
+                .to_string_lossy()
+                .into_owned()
         }
         Some(_) => {
             log::info!("qBittorrent save_path is empty, using fallback");

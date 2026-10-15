@@ -1,6 +1,6 @@
 use crate::{api, config, database, squire};
 
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -560,7 +560,7 @@ pub async fn retry_torrent(
         if let Some(mut entry) = database::db::load_one(&conn, &hash) {
             entry.status = config::settings::Status::Copying;
             entry.put_item = put_item.clone();
-            database::db::upsert(&conn, &hash, &entry);
+            database::db::upsert(&conn, &hash, &entry, config.timezone);
         }
     }
 
@@ -568,7 +568,14 @@ pub async fn retry_torrent(
     let hash_clone = hash.clone();
     let name_clone = body.name.clone();
     tokio::spawn(async move {
-        squire::rsync::run(db_connection_clone, hash_clone, name_clone, put_item).await;
+        squire::rsync::run(
+            db_connection_clone,
+            hash_clone,
+            name_clone,
+            put_item,
+            config.timezone,
+        )
+        .await;
     });
 
     log::info!("Retry queued for: {}", body.name);

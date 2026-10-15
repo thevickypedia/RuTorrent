@@ -21,4 +21,5 @@ pub struct TorrentEntry {
     /// only a fresh re-download can recover this torrent.
     pub files_deleted: bool,
     pub qbit_state: String, // raw state string from qBittorrent, empty if not in qBit
+    pub added_at: String,
 }
