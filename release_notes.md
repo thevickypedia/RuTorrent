@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+v0.6.0 (10/15/2026)
+-------------------
+- [8bc9cbb](https://github.com/thevickypedia/RuTorrent/commit/8bc9cbb671185a425051ccfd81d1fb64be479bad) chore: Release ``v0.6.0``
+- [42fd5d2](https://github.com/thevickypedia/RuTorrent/commit/42fd5d20d614721d2bd1d07d015c58a9beaa1bf1) chore: Add a Python script to help with database migration
+- [eddd7e1](https://github.com/thevickypedia/RuTorrent/commit/eddd7e1e7b71ad7f58f2008f4081a21093452878) perf: Replace timezone aware datetime with an epoch timestamp that UI can convert to client's timezone
+- [3649d42](https://github.com/thevickypedia/RuTorrent/commit/3649d422998eb66e303955d7d94435412d5e9478) style: Include a new column in the UI to show ``added`` datetime
+- [74e092c](https://github.com/thevickypedia/RuTorrent/commit/74e092c20cda2169fee6a8f9f7d4967529383fd1) feat: Add a timezone aware timestamp for the backend
+- [e2099c3](https://github.com/thevickypedia/RuTorrent/commit/e2099c31851cc824c372a20f1ffc15bca622759b) perf: Escape remote path to make destination OS-agnostic
+- [8c266f4](https://github.com/thevickypedia/RuTorrent/commit/8c266f4ce9fd54c587b8c8a3f60f2fdb7d3a6daf) chore: Update release notes for v0.5.0
+
 v0.5.0 (10/13/2026)
 -------------------
 - [e374788](https://github.com/thevickypedia/RuTorrent/commit/e374788fc7032e8d90713c58c38f5f98f6ef99f4) chore: Release ``v0.5.0``
