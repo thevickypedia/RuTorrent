@@ -1017,6 +1017,161 @@
                 max-width: unset;
             }
         }
+
+        /* ── Torrent search ── */
+        .toolbar {
+            display: grid;
+            grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.5fr) minmax(150px, 1fr);
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            height: 36px;
+            padding: 0 0.65rem;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--border);
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .search-bar:focus-within {
+            border-color: var(--border-hi);
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        .search-bar.invalid {
+            border-color: var(--error);
+            box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.08);
+        }
+
+        .search-icon {
+            color: var(--muted);
+            font-size: 1.25rem;
+            opacity: 0.7;
+            line-height: 1;
+        }
+
+        .search-bar input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            width: auto;
+            padding: 0.35rem 0;
+            border: 0;
+            background: transparent;
+            font-size: 0.72rem;
+        }
+
+        .search-bar input[type="text"]:focus {
+            border: 0;
+        }
+
+        .search-info-btn,
+        .search-clear-btn {
+            flex-shrink: 0;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            font-family: var(--mono);
+        }
+
+        .search-info-btn {
+            width: 17px;
+            height: 17px;
+            border: 1px solid var(--border-hi);
+            border-radius: 50%;
+            color: var(--muted);
+            opacity: 0.65;
+            font-size: 0.62rem;
+            line-height: 15px;
+            text-align: center;
+        }
+
+        .search-info-btn:hover {
+            opacity: 1;
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .search-clear-btn {
+            display: none;
+            color: var(--muted);
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .search-clear-btn.visible {
+            display: block;
+        }
+
+        .refresh-controls {
+            justify-self: end;
+        }
+
+        /* Full-screen search progress overlay */
+        .search-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(10, 10, 11, 0.68);
+            backdrop-filter: blur(2px);
+        }
+
+        .search-loading.visible {
+            display: flex;
+        }
+
+        .search-spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid var(--border-hi);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .search-loading-label {
+            color: var(--muted);
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        /* Keep the overlay readable above the scan-line effect */
+        .search-loading {
+            z-index: 1100;
+        }
+
+        @media (max-width: 768px) {
+            .toolbar {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.85rem;
+            }
+
+            .search-bar {
+                width: 100%;
+                height: 44px;
+            }
+
+            .search-bar input[type="text"] {
+                font-size: 16px;
+            }
+
+            .refresh-controls {
+                justify-self: auto;
+                align-self: flex-start;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1062,6 +1217,30 @@
                 Active Torrents
                 <span id="torrentCount">(0)</span>
             </div>
+
+            <form id="searchForm" class="search-bar">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input
+                        id="torrentSearch"
+                        type="text"
+                        placeholder="Search torrents… (e.g. status: transferred)"
+                        aria-label="Search torrents"
+                        autocomplete="off"
+                        spellcheck="false"
+                >
+                <button
+                        type="button"
+                        id="searchInfoBtn"
+                        class="search-info-btn"
+                        aria-label="Show search syntax"
+                        title="Search syntax"
+                >i
+                </button>
+                <button type="button" id="clearSearchBtn"
+                        class="search-clear-btn" aria-label="Clear search">×
+                </button>
+            </form>
+
             <div class="refresh-controls">
                 <span class="refresh-dot"></span>
                 <span>auto-refresh</span>
@@ -1233,6 +1412,52 @@
     </div>
 </div>
 
+<!-- Search syntax modal -->
+<div class="modal-backdrop" id="searchInfoModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Search & Filter</div>
+            <button class="modal-close" id="closeSearchInfoModal">✕</button>
+        </div>
+
+        <div style="font-size:0.76rem; line-height:1.9;">
+            <p style="color:var(--muted); margin-bottom:0.8rem;">
+                Search is case-insensitive. Press Enter to apply.
+                Separate multiple filters with commas; all filters must match.
+            </p>
+
+            <p><code>added_at: 2021</code> — Added date</p>
+            <p><code>name: Sintel</code> — Torrent name</p>
+            <p><code>status: transferred</code> — Torrent status</p>
+            <p><code>url: magnet</code> — Source URL</p>
+            <p><code>save_path: Movies</code> — Local save path</p>
+            <p><code>remote_host: 192.168.1.100</code> — Remote host</p>
+            <p><code>remote_user: admin</code> — Remote username</p>
+            <p><code>remote_path: /home/admin</code> — Remote path</p>
+            <p><code>timeout: 3</code> — Transfer timeout</p>
+            <p><code>delete_after_copy: true</code> — Delete after transfer</p>
+            <p><code>files_deleted: false</code> — Local files deleted</p>
+
+            <div style="border-top:1px solid var(--border); margin-top:1rem; padding-top:0.75rem;">
+                <p><code>name: sintel, status: transferred</code></p>
+                <p><code>Sintel</code> — Global search across all fields</p>
+                <p><code>status: transferred, 2021</code> — Mixed filters</p>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelSearchInfoModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Search progress overlay -->
+<div class="search-loading" id="searchLoading"
+     role="status" aria-live="polite" aria-hidden="true">
+    <div class="search-spinner"></div>
+    <div class="search-loading-label">Filtering torrents…</div>
+</div>
+
 <!-- Delete Modal -->
 <div class="modal-backdrop" id="deleteModal">
     <div class="modal">
@@ -1273,6 +1498,186 @@
     let sortDirection = sessionStorage.getItem('sortDirection') || 'asc';
     const timeout = 3 * 1000;  // 3 seconds timeout
     const sessionExpiry = 30 * 60 * 1000;  // 30 minutes session
+
+    // ── Search / filter state ──────────────────────────────────
+    let activeSearchQuery = '';
+
+    const SEARCH_FIELDS = {
+        name: entry => entry.name,
+        status: entry => entry.status,
+        added_at: entry => entry.added_at
+            ? formatTimestamp(entry.added_at)
+            : '',
+        url: entry => entry.url,
+        save_path: entry => entry.save_path,
+        remote_host: entry => entry.remote_host,
+        remote_user: entry => entry.remote_username,
+        remote_username: entry => entry.remote_username,
+        remote_path: entry => entry.remote_path,
+        timeout: entry => entry.rsync_timeout,
+        rsync_timeout: entry => entry.rsync_timeout,
+        delete_after_copy: entry => entry.delete_after_copy,
+        files_deleted: entry => entry.files_deleted
+    };
+
+    function parseSearchQuery(query) {
+        if (!query.trim()) return [];
+
+        return query.split(',').map(part => {
+            const term = part.trim();
+
+            if (!term) {
+                throw new Error('Empty filter. Remove extra commas.');
+            }
+
+            const colon = term.indexOf(':');
+
+            // No key means a global search.
+            if (colon === -1) {
+                return {
+                    key: null,
+                    value: term.toLocaleLowerCase()
+                };
+            }
+
+            const key = term.slice(0, colon).trim().toLowerCase();
+            const value = term.slice(colon + 1).trim();
+
+            if (!key || !value) {
+                throw new Error(
+                    `Invalid filter "${term}". Use key: value.`
+                );
+            }
+
+            if (!Object.hasOwn(SEARCH_FIELDS, key)) {
+                throw new Error(
+                    `Unknown search key "${key}". Click i to see supported fields.`
+                );
+            }
+
+            return {
+                key,
+                value: value.toLocaleLowerCase()
+            };
+        });
+    }
+
+    function searchValue(value) {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'boolean') return String(value);
+        return String(value);
+    }
+
+    function matchesSearch(entry, filters) {
+        return filters.every(filter => {
+            if (filter.key) {
+                const value = SEARCH_FIELDS[filter.key](entry);
+                return searchValue(value)
+                    .toLocaleLowerCase()
+                    .includes(filter.value);
+            }
+
+            // Global search across all fields, including fields that
+            // aren't explicitly listed in SEARCH_FIELDS.
+            const values = Object.entries(entry).map(([key, value]) => {
+                const getter = SEARCH_FIELDS[key];
+                return getter
+                    ? searchValue(getter(entry))
+                    : searchValue(value);
+            });
+
+            return values.some(value =>
+                value.toLocaleLowerCase().includes(filter.value)
+            );
+        });
+    }
+
+    function setSearchLoading(visible) {
+        const overlay = document.getElementById('searchLoading');
+        overlay.classList.toggle('visible', visible);
+        overlay.setAttribute('aria-hidden', String(!visible));
+    }
+
+    async function applySearch() {
+        const input = document.getElementById('torrentSearch');
+        const form = document.getElementById('searchForm');
+        const query = input.value.trim();
+
+        let filters;
+
+        try {
+            filters = parseSearchQuery(query);
+        } catch (err) {
+            form.classList.add('invalid');
+            toast(err.message, 'error');
+            input.focus();
+            return;
+        }
+
+        form.classList.remove('invalid');
+        setSearchLoading(true);
+
+        // Allow the browser to paint the loading overlay before filtering.
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        try {
+            activeSearchQuery = query;
+            await fetchTorrents();
+            document.getElementById('clearSearchBtn')
+                .classList.toggle('visible', !!query);
+            toast(
+                query ? `Search applied: ${query}` : 'Search cleared',
+                'success'
+            );
+        } finally {
+            setSearchLoading(false);
+        }
+    }
+
+    document.getElementById('searchForm')
+        .addEventListener('submit', event => {
+            event.preventDefault();
+            applySearch();
+        });
+
+    document.getElementById('torrentSearch')
+        .addEventListener('input', () => {
+            // Typing never triggers a search. Only clear stale validation.
+            document.getElementById('searchForm')
+                .classList.remove('invalid');
+        });
+
+    document.getElementById('clearSearchBtn')
+        .addEventListener('click', () => {
+            document.getElementById('torrentSearch').value = '';
+            applySearch();
+        });
+
+    function closeSearchInfo() {
+        document.getElementById('searchInfoModal')
+            .classList.remove('open');
+        resumePollingAfterModal();
+    }
+
+    document.getElementById('searchInfoBtn')
+        .addEventListener('click', () => {
+            pausePollingForModal();
+            document.getElementById('searchInfoModal')
+                .classList.add('open');
+        });
+
+    document.getElementById('closeSearchInfoModal')
+        .addEventListener('click', closeSearchInfo);
+
+    document.getElementById('cancelSearchInfoModal')
+        .addEventListener('click', closeSearchInfo);
+
+    document.getElementById('searchInfoModal')
+        .addEventListener('click', event => {
+            if (event.target === event.currentTarget) {
+                closeSearchInfo();
+            }
+        });
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -1669,36 +2074,57 @@
                 return;
             }
 
-            const entries = sortEntries(rawData);
-            document.getElementById('torrentCount').textContent = `(${entries.length})`;
-            const validNames = new Set(entries.map(e => e.name));
+            // Keep the complete dataset for selection and torrent actions.
+            const allEntries = sortEntries(rawData);
+
+            torrentsData = {};
+            allEntries.forEach(entry => {
+                torrentsData[entry.name] = entry;
+            });
+
+            const filters = parseSearchQuery(activeSearchQuery);
+            const entries = allEntries.filter(entry =>
+                matchesSearch(entry, filters)
+            );
+
+            document.getElementById('torrentCount').textContent =
+                activeSearchQuery
+                    ? `(${entries.length}/${allEntries.length})`
+                    : `(${entries.length})`;
+
+            const validNames = new Set(allEntries.map(entry => entry.name));
             selectedNames.forEach(name => {
                 if (!validNames.has(name)) {
                     selectedNames.delete(name);
                 }
             });
 
-            torrentsData = {};
-            entries.forEach(e => {
-                torrentsData[e.name] = e;
-            });
-
-            body.innerHTML = entries.map(e => `
-            <tr class="${selectedNames.has(e.name) ? 'selected' : ''}" data-name="${esc(e.name)}">
-                <td>
-                    <input
-                        class="torrent-check"
-                        type="checkbox"
-                        value="${esc(e.name)}"
-                        ${selectedNames.has(e.name) ? 'checked' : ''}
-                    >
-                </td>
-                <td>${esc(e.name)}</td>
-                <td>${badge(e)}</td>
-                <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">${e.added_at ? formatTimestamp(e.added_at) : '—'}</td>
-                </tr>
-            </tr>
-        `).join('');
+            body.innerHTML = entries.length
+                ? entries.map(e => `
+                    <tr class="${selectedNames.has(e.name) ? 'selected' : ''}"
+                        data-name="${esc(e.name)}">
+                        <td>
+                            <input class="torrent-check"
+                                   type="checkbox"
+                                   value="${esc(e.name)}"
+                                   ${selectedNames.has(e.name) ? 'checked' : ''}>
+                        </td>
+                        <td>${esc(e.name)}</td>
+                        <td>${badge(e)}</td>
+                        <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
+                            ${e.added_at ? formatTimestamp(e.added_at) : '—'}
+                        </td>
+                    </tr>
+                `).join('')
+                : `
+                    <tr>
+                        <td class="empty-state" colspan="4">
+                            ${activeSearchQuery
+                    ? 'No torrents match your search'
+                    : 'No active torrents'}
+                        </td>
+                    </tr>
+                `;
             body.querySelectorAll('tr').forEach(row => {
                 row.addEventListener('click', e => {
                     if (e.target.tagName !== 'INPUT') {
