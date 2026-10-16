@@ -34,7 +34,7 @@ pub fn to_entry(
         delete_after_copy: local.put_item.delete_after_copy,
         files_deleted: local.files_deleted,
         qbit_state: live_state,
-        added_at: local.added_at.clone(),
+        added_at: local.added_at,
     }
 }
 
@@ -61,7 +61,7 @@ pub fn untracked_entry(
         delete_after_copy: false,
         files_deleted: false,
         qbit_state,
-        added_at: String::new(),
+        added_at: 0.0,
     }
 }
 

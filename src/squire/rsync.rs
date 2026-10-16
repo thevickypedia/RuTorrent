@@ -35,7 +35,6 @@ pub async fn run(
     hash: String,
     name: String,
     put_item: config::settings::PutItem,
-    tz: chrono_tz::Tz,
 ) {
     let mut attempt = 0;
     loop {
@@ -52,7 +51,6 @@ pub async fn run(
                 &db_connection,
                 &hash,
                 config::settings::Status::Completed,
-                tz,
             );
             return;
         }
@@ -67,7 +65,6 @@ pub async fn run(
                 &db_connection,
                 &hash,
                 config::settings::Status::CopyError,
-                tz,
             );
             return;
         }
@@ -77,7 +74,7 @@ pub async fn run(
         // is never mistaken for a fresh download completion. That mistaken
         // re-trigger is what caused the repeated "Download Complete"
         // notifications before this change.
-        set_status(&db_connection, &hash, config::settings::Status::Copying, tz);
+        set_status(&db_connection, &hash, config::settings::Status::Copying);
         log::warn!(
             "rsync attempt {}/{} failed for {}, retrying in {:?}",
             attempt,
@@ -199,7 +196,6 @@ fn set_status(
     db_connection: &config::settings::DBConnection,
     hash: &str,
     status: config::settings::Status,
-    tz: chrono_tz::Tz,
 ) {
     let Ok(conn) = db_connection.lock() else {
         log::error!("Failed to lock database connection for {}", hash);
@@ -210,5 +206,5 @@ fn set_status(
         return;
     };
     entry.status = status;
-    database::db::upsert(&conn, hash, &entry, tz);
+    database::db::upsert(&conn, hash, &entry);
 }

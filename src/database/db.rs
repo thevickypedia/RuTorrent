@@ -1,5 +1,4 @@
-use crate::config;
-use chrono::TimeZone;
+use crate::{config, squire};
 use rusqlite::{Connection, params};
 use std::collections::HashMap;
 
@@ -25,7 +24,7 @@ pub fn open() -> Connection {
             delete_after_copy INTEGER NOT NULL DEFAULT 0,
             in_qbit     INTEGER NOT NULL DEFAULT 1,
             files_deleted INTEGER NOT NULL DEFAULT 0,
-            added_at    TEXT NOT NULL DEFAULT ''
+            added_at    REAL NOT NULL
         );
         CREATE TABLE IF NOT EXISTS pending (
             tag         TEXT PRIMARY KEY,
@@ -54,21 +53,18 @@ pub fn upsert(
     conn: &Connection,
     hash: &str,
     entry: &config::settings::RsyncTrack,
-    tz: chrono_tz::Tz,
 ) {
     let (status, progress) = encode_status(&entry.status);
-    let existing_added_at: Option<String> = conn
+    let existing_added_at: Option<f64> = conn
         .query_row(
             "SELECT added_at FROM state WHERE hash = ?1",
             params![hash],
             |r| r.get(0),
         )
         .ok()
-        .filter(|s: &String| !s.is_empty());
+        .filter(|s: &f64| !s.is_nan());
     let added_at = existing_added_at.unwrap_or_else(|| {
-        tz.from_utc_datetime(&chrono::Utc::now().naive_utc())
-            .format("%a %b %d %Y %H:%M %Z")
-            .to_string()
+        squire::misc::timestamp()
     });
     match conn.execute(
         "INSERT OR REPLACE INTO state
@@ -218,7 +214,7 @@ fn row_to_entry(row: &rusqlite::Row) -> rusqlite::Result<(String, config::settin
     let delete_after_copy: i32 = row.get(10)?;
     let in_qbit: i32 = row.get(11)?;
     let files_deleted: i32 = row.get(12)?;
-    let added_at: String = row.get(13)?;
+    let added_at: f64 = row.get(13)?;
 
     let status = decode_status(&status_str, progress);
     let put_item = config::settings::PutItem {

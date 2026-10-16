@@ -560,7 +560,7 @@ pub async fn retry_torrent(
         if let Some(mut entry) = database::db::load_one(&conn, &hash) {
             entry.status = config::settings::Status::Copying;
             entry.put_item = put_item.clone();
-            database::db::upsert(&conn, &hash, &entry, config.timezone);
+            database::db::upsert(&conn, &hash, &entry);
         }
     }
 
@@ -573,7 +573,6 @@ pub async fn retry_torrent(
             hash_clone,
             name_clone,
             put_item,
-            config.timezone,
         )
         .await;
     });

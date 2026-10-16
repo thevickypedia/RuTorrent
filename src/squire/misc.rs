@@ -1,6 +1,7 @@
 use regex::Regex;
 use reqwest::Client;
 use serde_json::Value;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Sends a GET request to the qBittorrent API and parses the JSON response.
 ///
@@ -127,4 +128,10 @@ pub fn constant_time_eq(a: &str, b: &str) -> bool {
         diff |= x ^ y;
     }
     diff == 0
+}
+
+/// Return current timestamp with respect to system time.
+pub fn timestamp() -> f64 {
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    now.as_secs_f64()
 }

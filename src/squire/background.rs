@@ -1,5 +1,4 @@
 use crate::{config, database, notifier, squire};
-use chrono::TimeZone;
 use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{Duration, sleep};
@@ -71,7 +70,6 @@ async fn resolve_new_torrents(
     array: &Vec<Value>,
     pending: &config::settings::PendingMap,
     db_connection: &config::settings::DBConnection,
-    config: &config::env::Config,
 ) {
     let mut pending_lock = pending.write().await;
 
@@ -126,24 +124,19 @@ async fn resolve_new_torrents(
                 delete_after_copy: false,
             }
         };
-        let added_at = config
-            .timezone
-            .from_utc_datetime(&chrono::Utc::now().naive_utc())
-            .format("%a %b %d %Y %H:%M %Z")
-            .to_string();
         let entry = config::settings::RsyncTrack {
             name: torrent.name,
             status: config::settings::Status::Downloading(0.0),
             put_item: item,
             in_qbit: true,
             files_deleted: false,
-            added_at,
+            added_at: squire::misc::timestamp(),
         };
 
         if let Some(tag) = matched_tag {
             database::db::remove_pending(&conn, tag);
         }
-        database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+        database::db::upsert(&conn, &torrent.hash, &entry);
         existing.insert(torrent.hash, entry);
     }
 }
@@ -230,7 +223,7 @@ pub fn spawn_worker(
                     continue;
                 };
                 log::trace!("Torrents active: {:?}", array);
-                resolve_new_torrents(array, &pending, &db_connection, &config).await;
+                resolve_new_torrents(array, &pending, &db_connection).await;
             } else {
                 log::error!("Failed to get info from QBitAPI");
                 client = match squire::qb::client(&config).await {
@@ -288,7 +281,7 @@ pub fn spawn_worker(
                     log::info!("Torrent removed from QBitAPI, keeping DB record: {}", h);
                     if let Some(mut entry) = database::db::load_one(&conn, h) {
                         entry.in_qbit = false;
-                        database::db::upsert(&conn, h, &entry, config.timezone);
+                        database::db::upsert(&conn, h, &entry);
                     }
                 }
             }
@@ -325,7 +318,7 @@ pub fn spawn_worker(
                     );
                     entry.status = config::settings::Status::Failed;
                     if let Ok(conn) = db_connection.lock() {
-                        database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                        database::db::upsert(&conn, &torrent.hash, &entry);
                     }
                 }
 
@@ -336,7 +329,7 @@ pub fn spawn_worker(
                     log::error!("Download errored for {}: {}", entry.name, state_str);
                     entry.status = config::settings::Status::Failed;
                     if let Ok(conn) = db_connection.lock() {
-                        database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                        database::db::upsert(&conn, &torrent.hash, &entry);
                     }
                     notifier(
                         "RuTorrent: Download Error".to_string(),
@@ -361,7 +354,7 @@ pub fn spawn_worker(
                             log::info!("Download complete → rsync: {}", entry.name);
                             entry.status = config::settings::Status::Copying;
                             if let Ok(conn) = db_connection.lock() {
-                                database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                                database::db::upsert(&conn, &torrent.hash, &entry);
                             }
                             let db_connection_clone = db_connection.clone();
                             let hash_clone = torrent.hash.clone();
@@ -373,7 +366,6 @@ pub fn spawn_worker(
                                     hash_clone,
                                     name_clone,
                                     put_item_clone,
-                                    config.timezone,
                                 )
                                 .await;
                             });
@@ -386,7 +378,7 @@ pub fn spawn_worker(
                             log::info!("Download complete (no rsync): {}", entry.name);
                             entry.status = config::settings::Status::DownloadComplete;
                             if let Ok(conn) = db_connection.lock() {
-                                database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                                database::db::upsert(&conn, &torrent.hash, &entry);
                             }
                             notifier(
                                 "RuTorrent: Download Complete".to_string(),
@@ -397,7 +389,7 @@ pub fn spawn_worker(
                     } else {
                         entry.status = config::settings::Status::Downloading(progress);
                         if let Ok(conn) = db_connection.lock() {
-                            database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                            database::db::upsert(&conn, &torrent.hash, &entry);
                         }
                     }
                 }
@@ -449,7 +441,7 @@ pub fn spawn_worker(
                         entry.status = config::settings::Status::Transferred;
                     }
                     if let Ok(conn) = db_connection.lock() {
-                        database::db::upsert(&conn, &torrent.hash, &entry, config.timezone);
+                        database::db::upsert(&conn, &torrent.hash, &entry);
                     }
                 }
             }

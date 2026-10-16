@@ -46,7 +46,7 @@ pub struct RsyncTrack {
     /// possible since there's nothing left locally to copy — only a fresh
     /// re-download can recover this torrent.
     pub files_deleted: bool,
-    pub added_at: String,
+    pub added_at: f64,
 }
 
 /// ### PutItem
