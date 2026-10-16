@@ -1172,6 +1172,114 @@
                 align-self: flex-start;
             }
         }
+
+        .search-wrap {
+            position: relative;
+            min-width: 0;
+            z-index: 20;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            max-height: 280px;
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border-hi);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+            z-index: 50;
+        }
+
+        .search-suggestions[hidden] {
+            display: none;
+        }
+
+        .search-suggestion {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            width: 100%;
+            padding: 0.7rem 0.85rem;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .search-suggestion:last-child {
+            border-bottom: 0;
+        }
+
+        .search-suggestion:hover,
+        .search-suggestion.active {
+            background: var(--surface-hi);
+        }
+
+        .search-suggestion.active {
+            box-shadow: inset 2px 0 var(--accent);
+        }
+
+        .suggestion-key {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .suggestion-description {
+            color: var(--muted);
+            font-size: 0.65rem;
+            text-align: right;
+        }
+
+        .search-suggestion.global-option {
+            border-bottom: 1px solid var(--border-hi);
+        }
+
+        .search-suggestion.global-option .suggestion-key {
+            color: var(--text);
+        }
+
+        .search-bar.invalid,
+        .search-bar.invalid:focus-within {
+            border-color: var(--error);
+            box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.12);
+        }
+
+        .search-bar.invalid input {
+            color: var(--error);
+        }
+
+        .search-bar.invalid .search-icon {
+            color: var(--error);
+        }
+
+        .search-validation {
+            margin-top: 0.4rem;
+            color: var(--error);
+            font-size: 0.65rem;
+            line-height: 1.5;
+        }
+
+        .search-validation[hidden] {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .search-wrap {
+                width: 100%;
+            }
+
+            .search-suggestions {
+                max-height: 240px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -1218,28 +1326,43 @@
                 <span id="torrentCount">(0)</span>
             </div>
 
-            <form id="searchForm" class="search-bar">
-                <span class="search-icon" aria-hidden="true">⌕</span>
-                <input
-                        id="torrentSearch"
-                        type="text"
-                        placeholder="Search torrents… (e.g. status: transferred)"
-                        aria-label="Search torrents"
-                        autocomplete="off"
-                        spellcheck="false"
-                >
-                <button
-                        type="button"
-                        id="searchInfoBtn"
-                        class="search-info-btn"
-                        aria-label="Show search syntax"
-                        title="Search syntax"
-                >i
-                </button>
-                <button type="button" id="clearSearchBtn"
-                        class="search-clear-btn" aria-label="Clear search">×
-                </button>
-            </form>
+            <div class="search-wrap">
+                <form id="searchForm" class="search-bar" autocomplete="off">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input
+                            id="torrentSearch"
+                            type="text"
+                            placeholder="Search torrents… (e.g. status: transferred)"
+                            aria-label="Search torrents"
+                            aria-autocomplete="list"
+                            aria-controls="searchSuggestions"
+                            aria-expanded="false"
+                            spellcheck="false"
+                    >
+                    <button
+                            type="button"
+                            id="searchInfoBtn"
+                            class="search-info-btn"
+                            aria-label="Show search syntax"
+                            title="Search syntax"
+                    >i
+                    </button>
+                    <button
+                            type="button"
+                            id="clearSearchBtn"
+                            class="search-clear-btn"
+                            aria-label="Clear search"
+                    >×
+                    </button>
+                </form>
+                <div
+                        id="searchSuggestions"
+                        class="search-suggestions"
+                        role="listbox"
+                        aria-label="Search filter suggestions"
+                        hidden
+                ></div>
+            </div>
 
             <div class="refresh-controls">
                 <span class="refresh-dot"></span>
@@ -1520,6 +1643,246 @@
         files_deleted: entry => entry.files_deleted
     };
 
+    const SEARCH_FIELD_HINTS = {
+        name: 'Torrent name',
+        status: 'Torrent status',
+        added_at: 'Added date',
+        url: 'Source URL',
+        save_path: 'Local save path',
+        remote_host: 'Remote host',
+        remote_user: 'Remote username',
+        remote_username: 'Remote username (alias)',
+        remote_path: 'Remote path',
+        timeout: 'Transfer timeout',
+        rsync_timeout: 'Transfer timeout (alias)',
+        delete_after_copy: 'Delete after transfer',
+        files_deleted: 'Local files deleted'
+    };
+
+    const searchInput = document.getElementById('torrentSearch');
+    const searchForm = document.getElementById('searchForm');
+    const suggestionsBox = document.getElementById('searchSuggestions');
+
+    let activeSuggestionIndex = -1;
+
+    function getCurrentFilterFragment(query) {
+        // Only autocomplete the current comma-separated segment.
+        const fragment = query.split(',').pop() ?? '';
+        const colon = fragment.indexOf(':');
+
+        return {
+            fragment,
+            keyPart: (colon === -1
+                    ? fragment
+                    : fragment.slice(0, colon)
+            ).trim().toLowerCase(),
+            hasColon: colon !== -1
+        };
+    }
+
+    function getSearchSuggestions(query) {
+        const {fragment, keyPart, hasColon} =
+            getCurrentFilterFragment(query);
+
+        // Once a colon is entered, the user is typing a value,
+        // not a filter key.
+        if (hasColon) return [];
+
+        const options = [
+            {
+                key: '',
+                label: 'Global search',
+                description: 'Search all fields'
+            },
+            ...Object.keys(SEARCH_FIELDS).map(key => ({
+                key,
+                label: key,
+                description: SEARCH_FIELD_HINTS[key] || key
+            }))
+        ];
+
+        if (!keyPart) return options;
+
+        return options.filter(option =>
+            option.label.toLowerCase().includes(keyPart)
+        );
+    }
+
+    function hideSearchSuggestions() {
+        suggestionsBox.hidden = true;
+        searchInput.setAttribute('aria-expanded', 'false');
+        activeSuggestionIndex = -1;
+    }
+
+    function renderSearchSuggestions() {
+        const suggestions = getSearchSuggestions(searchInput.value);
+
+        suggestionsBox.replaceChildren();
+        activeSuggestionIndex = -1;
+
+        if (document.activeElement !== searchInput || !suggestions.length) {
+            hideSearchSuggestions();
+            return;
+        }
+
+        suggestions.forEach((option, index) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'search-suggestion';
+            item.setAttribute('role', 'option');
+            item.setAttribute('aria-selected', 'false');
+
+            if (option.key === '') {
+                item.classList.add('global-option');
+            }
+
+            const key = document.createElement('span');
+            key.className = 'suggestion-key';
+            key.textContent = option.key || option.label;
+
+            const description = document.createElement('span');
+            description.className = 'suggestion-description';
+            description.textContent = option.description;
+
+            item.append(key, description);
+
+            item.addEventListener('mousedown', event => {
+                // Keep the input focused while clicking a suggestion.
+                event.preventDefault();
+            });
+
+            item.addEventListener('click', () => {
+                selectSearchSuggestion(option);
+            });
+
+            suggestionsBox.appendChild(item);
+        });
+
+        suggestionsBox.hidden = false;
+        searchInput.setAttribute('aria-expanded', 'true');
+    }
+
+    function selectSearchSuggestion(option) {
+        const query = searchInput.value;
+        const commaIndex = query.lastIndexOf(',');
+        const prefix = commaIndex === -1
+            ? ''
+            : query.slice(0, commaIndex + 1);
+
+        const separator = prefix && !prefix.endsWith(' ')
+            ? ' '
+            : '';
+
+        if (!option.key) {
+            // Global search doesn't require a filter key.
+            searchInput.value = prefix + separator;
+        } else {
+            searchInput.value =
+                prefix + separator + option.key + ': ';
+        }
+
+        hideSearchSuggestions();
+        validateSearchWhileTyping();
+        searchInput.focus();
+    }
+
+    function moveSearchSuggestion(direction) {
+        const items = [
+            ...suggestionsBox.querySelectorAll('.search-suggestion')
+        ];
+
+        if (suggestionsBox.hidden || !items.length) return false;
+
+        activeSuggestionIndex =
+            (activeSuggestionIndex + direction + items.length)
+            % items.length;
+
+        items.forEach((item, index) => {
+            const active = index === activeSuggestionIndex;
+            item.classList.toggle('active', active);
+            item.setAttribute('aria-selected', String(active));
+        });
+
+        items[activeSuggestionIndex].scrollIntoView({
+            block: 'nearest'
+        });
+
+        return true;
+    }
+
+    // Validate keys immediately without applying the search.
+    function validateSearchWhileTyping() {
+        const query = searchInput.value;
+        const form = searchForm;
+        let error = '';
+
+        try {
+            parseSearchQuery(query);
+        } catch (err) {
+            error = err.message;
+        }
+
+        form.classList.toggle('invalid', !!error);
+
+        let message = document.getElementById('searchValidation');
+
+        if (!message) {
+            message = document.createElement('div');
+            message.id = 'searchValidation';
+            message.className = 'search-validation';
+            message.setAttribute('role', 'status');
+            form.insertAdjacentElement('afterend', message);
+        }
+
+        message.textContent = error;
+        message.hidden = !error;
+    }
+
+    searchInput.addEventListener('focus', () => {
+        renderSearchSuggestions();
+    });
+
+    searchInput.addEventListener('click', () => {
+        renderSearchSuggestions();
+    });
+
+    searchInput.addEventListener('input', () => {
+        validateSearchWhileTyping();
+        renderSearchSuggestions();
+    });
+
+    searchInput.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown') {
+            if (moveSearchSuggestion(1)) {
+                event.preventDefault();
+            }
+        } else if (event.key === 'ArrowUp') {
+            if (moveSearchSuggestion(-1)) {
+                event.preventDefault();
+            }
+        } else if (event.key === 'Escape') {
+            hideSearchSuggestions();
+        } else if (
+            event.key === 'Enter' &&
+            !suggestionsBox.hidden &&
+            activeSuggestionIndex >= 0
+        ) {
+            event.preventDefault();
+
+            const items = [
+                ...suggestionsBox.querySelectorAll('.search-suggestion')
+            ];
+
+            items[activeSuggestionIndex]?.click();
+        }
+    });
+
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.search-wrap')) {
+            hideSearchSuggestions();
+        }
+    });
+
     function parseSearchQuery(query) {
         if (!query.trim()) return [];
 
@@ -1598,6 +1961,7 @@
         overlay.setAttribute('aria-hidden', String(!visible));
     }
 
+
     async function applySearch() {
         const input = document.getElementById('torrentSearch');
         const form = document.getElementById('searchForm');
@@ -1608,23 +1972,31 @@
         try {
             filters = parseSearchQuery(query);
         } catch (err) {
-            form.classList.add('invalid');
+            validateSearchWhileTyping();
             toast(err.message, 'error');
             input.focus();
             return;
         }
 
         form.classList.remove('invalid');
+        hideSearchSuggestions();
+        const validation = document.getElementById('searchValidation');
+        if (validation) {
+            validation.hidden = true;
+        }
         setSearchLoading(true);
-
-        // Allow the browser to paint the loading overlay before filtering.
         await new Promise(resolve => setTimeout(resolve, 0));
 
         try {
             activeSearchQuery = query;
             await fetchTorrents();
             document.getElementById('clearSearchBtn')
-                .classList.toggle('visible', !!query);
+                .addEventListener('click', () => {
+                    searchInput.value = '';
+                    validateSearchWhileTyping();
+                    renderSearchSuggestions();
+                    applySearch();
+                });
             toast(
                 query ? `Search applied: ${query}` : 'Search cleared',
                 'success'
