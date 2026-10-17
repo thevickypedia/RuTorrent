@@ -1,4 +1,4 @@
-use crate::{api, config, squire};
+use crate::{api, config, search, squire};
 
 use reqwest::Client;
 use serde_json::Value;
@@ -137,14 +137,18 @@ pub async fn get_existing(
 /// # Arguments
 ///
 /// * `body` - Request body that takes `PutItem` object.
+/// * `config` - Reference to the `Config` object.
 ///
 /// # Returns
 ///
 /// Returns the extended `PutItem` with attached `name`, `hash` and `trackers`
-pub fn resolve_payload(body: &[config::settings::PutItem]) -> Vec<config::settings::PutItem> {
+pub async fn resolve_payload(
+    body: &[config::settings::PutItem],
+    config: &config::env::Config,
+) -> Vec<config::settings::PutItem> {
     let mut ret: Vec<config::settings::PutItem> = Vec::new();
     for item in body.iter() {
-        let url = match Url::parse(&item.url) {
+        let mut url = match Url::parse(&item.url) {
             Ok(url) => url,
             Err(e) => {
                 log::error!("Invalid URL '{}': {}", item.url, e);
@@ -167,6 +171,23 @@ pub fn resolve_payload(body: &[config::settings::PutItem]) -> Vec<config::settin
                 name = value;
             } else {
                 trackers.push(value);
+            }
+        }
+        if trackers.is_empty() {
+            let ident = if name.is_empty() {
+                &item.url.to_string()
+            } else {
+                &name
+            };
+            log::warn!("No trackers found for {}, using search trackers.", ident);
+            // MARK 1: If trackers are empty; use search trackers to backfill
+            let trackers_bak = search::api::ensure_trackers(config).await;
+            trackers.extend(trackers_bak.to_vec());
+            // MARK 2: Since the Url is passed to QBit, update its query params with new trackers' list
+            log::info!("Adding {} trackers to the source Url", trackers.len());
+            let mut pairs = url.query_pairs_mut();
+            for tracker in &trackers {
+                pairs.append_pair("tr", tracker);
             }
         }
         ret.push(config::settings::PutItem {

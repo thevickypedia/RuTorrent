@@ -135,7 +135,7 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
 /// # Returns
 ///
 /// Returns a reference to the cached tracker list, initializing it asynchronously on the first call.
-async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<String> {
+pub async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<String> {
     TRACKERS
         .get_or_init(|| async { search::trackers::get(config).await })
         .await

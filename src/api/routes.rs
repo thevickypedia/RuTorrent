@@ -234,7 +234,7 @@ pub async fn put_torrent(
         .collect();
 
     let mut response: Vec<HashMap<String, String>> = Vec::new();
-    for mut item in api::squire::resolve_payload(&body.into_inner()) {
+    for mut item in api::squire::resolve_payload(&body.into_inner(), &config).await {
         let tag = Uuid::new_v4().to_string();
         let url = item.url.to_string();
         let name = item.name.as_ref().unwrap().to_string();

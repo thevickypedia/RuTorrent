@@ -94,7 +94,7 @@ async fn fetch_io_trackers(filepath: &PathBuf, lines: usize) -> std::io::Result<
 pub async fn get(config: &config::env::Config) -> Vec<String> {
     let mut trackers: Vec<String> = Vec::new();
     if let Some(filepath) = config.trackers_file.as_ref() {
-        let io_trackers = fetch_io_trackers(&filepath, config.max_trackers).await.unwrap_or_else(|e| {
+        let io_trackers = fetch_io_trackers(filepath, config.max_trackers).await.unwrap_or_else(|e| {
             log::warn!("Failed to read IO trackers: {e}");
             Vec::new()
         });
