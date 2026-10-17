@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{squire, warning};
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 /// Formats and prints the startup error message.
@@ -132,6 +133,10 @@ pub struct Config {
     pub tor_host: String,
     pub tor_port: u16,
     pub tor_timeout: u64,
+
+    // Trackers
+    pub trackers_file: Option<PathBuf>,
+    pub max_trackers: usize,
 }
 
 impl Config {
@@ -274,6 +279,28 @@ impl Config {
         let telegram_timeout = get_and_parse_timeout("telegram_timeout", "3");
         let tor_timeout = get_and_parse_timeout("tor_timeout", "10");
 
+        let raw_trackers_file = squire::misc::get_env_var("trackers_file", None);
+        let trackers_file: Option<PathBuf> = if raw_trackers_file.is_empty() {
+            None
+        } else {
+            Some(PathBuf::from(raw_trackers_file))
+        };
+
+        let max_trackers = match squire::misc::get_env_var("max_trackers", Some("50")).parse::<usize>() {
+            Ok(mt) => {
+                if mt > 0 { mt } else {
+                    startup_error(
+                        format!("Invalid 'max_trackers' value '{mt}'").as_str(),
+                    );
+                    std::process::exit(1);
+                }
+            },
+            Err(err) => {
+                startup_error(&err.to_string());
+                std::process::exit(1)
+            }
+        };
+
         Self {
             host,
             port,
@@ -300,6 +327,8 @@ impl Config {
             tor_host,
             tor_port,
             tor_timeout,
+            trackers_file,
+            max_trackers,
         }
     }
 }

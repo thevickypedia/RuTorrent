@@ -128,12 +128,16 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
 
 /// Initialize the shared tracker list if it has not already been initialized.
 ///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+///
 /// # Returns
 ///
 /// Returns a reference to the cached tracker list, initializing it asynchronously on the first call.
-async fn ensure_trackers() -> &'static Vec<String> {
+async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<String> {
     TRACKERS
-        .get_or_init(|| async { search::trackers::get().await })
+        .get_or_init(|| async { search::trackers::get(config).await })
         .await
 }
 
@@ -189,7 +193,7 @@ pub async fn search(
         Client::builder().build()?
     };
     // TODO: May be I should apply trackers for all incoming torrents?
-    ensure_trackers().await;
+    ensure_trackers(config).await;
     let mut torrents = Vec::new();
     for page in 0..pages {
         let response = client

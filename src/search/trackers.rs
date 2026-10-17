@@ -1,4 +1,4 @@
-use crate::{api, squire};
+use crate::{api, config};
 use reqwest::Client;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -24,11 +24,15 @@ pub const TRACKERS: &[&str] = &[
 
 /// Fetch tracker URLs from the remote Git repository.
 ///
+/// # Arguments
+///
+/// * `take` - Number of trackers to take.
+///
 /// # Returns
 ///
-/// Returns up to 50 unique tracker URLs using supported protocols (`udp://`, `http://`, and `https://`).
+/// Returns up to N unique tracker URLs using supported protocols (`udp://`, `http://`, and `https://`).
 /// Returns an error if the request fails, the response has an unsuccessful status, or no valid trackers are found.
-async fn fetch_git_trackers() -> api::schema::Result<Vec<String>> {
+async fn fetch_git_trackers(take: usize) -> api::schema::Result<Vec<String>> {
     log::info!("Fetching git trackers from {}", TRACKER_LIST_URL);
     let body = Client::new()
         .get(TRACKER_LIST_URL)
@@ -40,8 +44,6 @@ async fn fetch_git_trackers() -> api::schema::Result<Vec<String>> {
         .await?;
 
     let mut seen = HashSet::new();
-
-    // TODO: Remove hard coded upper bound
     let trackers = body
         .lines()
         .map(str::trim)
@@ -51,7 +53,7 @@ async fn fetch_git_trackers() -> api::schema::Result<Vec<String>> {
                 || line.starts_with("http://")
         })
         .filter(|line| seen.insert(line.to_string()))
-        .take(50)
+        .take(take)
         .map(str::to_owned)
         .collect::<Vec<_>>();
 
@@ -67,30 +69,14 @@ async fn fetch_git_trackers() -> api::schema::Result<Vec<String>> {
 /// # Arguments
 ///
 /// * `filepath` - Path to the file containing tracker URLs.
+/// * `lines` - Number of lines to take.
 ///
 /// # Returns
 ///
-/// Returns up to 50 lines from the file as a vector of strings, or an I/O error if the file cannot be read.
-async fn fetch_io_trackers(filepath: &PathBuf) -> std::io::Result<Vec<String>> {
-    // TODO: Remove hard coded upper bound
+/// Returns up to N lines from the file as a vector of strings, or an I/O error if the file cannot be read.
+async fn fetch_io_trackers(filepath: &PathBuf, lines: usize) -> std::io::Result<Vec<String>> {
     let contents = std::fs::read_to_string(filepath)?;
-    Ok(contents.lines().take(50).map(String::from).collect())
-}
-
-/// Retrieve the configured local tracker file path from the environment.
-///
-/// # Returns
-///
-/// Returns the configured file path if the `trackers_file` environment variable is non-empty; otherwise, returns `None`.
-fn get_trackers_file() -> Option<PathBuf> {
-    // TODO: Move standalone env var to config and update readme
-    let raw_trackers_file = squire::misc::get_env_var("trackers_file", None);
-    let trackers_file: Option<PathBuf> = if raw_trackers_file.is_empty() {
-        None
-    } else {
-        Some(PathBuf::from(raw_trackers_file))
-    };
-    trackers_file
+    Ok(contents.lines().take(lines).map(|l| l.trim().to_string()).collect())
 }
 
 /// Retrieve tracker URLs from the configured sources in priority order.
@@ -98,25 +84,29 @@ fn get_trackers_file() -> Option<PathBuf> {
 /// Attempts to load trackers from the configured local file first, then fetches them from the remote Git repository.
 /// Falls back to the built-in tracker list if the remote request fails.
 ///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+///
 /// # Returns
 ///
 /// Returns a vector of tracker URLs from the first available source containing usable trackers.
-pub async fn get() -> Vec<String> {
+pub async fn get(config: &config::env::Config) -> Vec<String> {
     let mut trackers: Vec<String> = Vec::new();
-    if let Some(filepath) = &get_trackers_file() {
-        let io_trackers = fetch_io_trackers(filepath).await.unwrap_or_else(|e| {
+    if let Some(filepath) = config.trackers_file.as_ref() {
+        let io_trackers = fetch_io_trackers(&filepath, config.max_trackers).await.unwrap_or_else(|e| {
             log::warn!("Failed to read IO trackers: {e}");
             Vec::new()
         });
         if !io_trackers.is_empty() {
-            log::info!("Trackers loaded from {:?}: {:?}", filepath.to_str(), trackers);
+            log::info!("Trackers loaded from {:?}: {:?}", &filepath, trackers);
             trackers.extend(io_trackers);
         }
     }
     if !trackers.is_empty() {
         return trackers;
     }
-    fetch_git_trackers().await.unwrap_or_else(|e| {
+    fetch_git_trackers(config.max_trackers).await.unwrap_or_else(|e| {
         log::warn!("Failed to fetch Git trackers, using hard coded list");
         log::error!("{e}");
         TRACKERS.iter().copied().map(String::from).collect()
