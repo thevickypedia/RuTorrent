@@ -1,6 +1,25 @@
 Release Notes
 =============
 
+v0.7.0 (10/17/2026)
+-------------------
+- [d1a494f](https://github.com/thevickypedia/RuTorrent/commit/d1a494fcab3db981f2ed6616585c3ebb3fbe32bd) chore: Release ``v0.7.0``
+- [866069b](https://github.com/thevickypedia/RuTorrent/commit/866069b22a32ad6e7b76304cb5918ae7268c4764) refactor: Cleanup ``rbay`` references
+- [cf00d65](https://github.com/thevickypedia/RuTorrent/commit/cf00d65d09ebe846070a7b77efa67c9c23dfd09d) fix: Hardcode trackers to avoid stalling downloads
+- [1a9205a](https://github.com/thevickypedia/RuTorrent/commit/1a9205a3673bb715959fda4a216703e9534bb223) chore: Add primary key for hash in the DB migration guide
+- [40bb4fe](https://github.com/thevickypedia/RuTorrent/commit/40bb4fe0fbb740755d10feb2725ad6d1fcdd0637) feat: Allow directly downloading from the explore page
+- [67d3c84](https://github.com/thevickypedia/RuTorrent/commit/67d3c84c0a3acf60c5f9ec5f57152e7f25c25957) fix: Keep explore filter input mounted during result updates; set ``maxPages`` to 1 by default
+- [ed9b22b](https://github.com/thevickypedia/RuTorrent/commit/ed9b22b11b003537ee90792db20c514424e64dc1) feat: Add UI controls to explore torrents, view as a table and copy magnet links to clipboard
+- [a066581](https://github.com/thevickypedia/RuTorrent/commit/a066581663e7139c12a6dff6e32deab514f72db8) refactor: Improve logging and rename ``strict_mode`` to ``strict``
+- [274820a](https://github.com/thevickypedia/RuTorrent/commit/274820a60db27f572bc76c970a91efa7a4501167) style: Improve search UX and refactor torrent UI
+- [f49e776](https://github.com/thevickypedia/RuTorrent/commit/f49e7766b32323b8fb996c163cfdf6ecf2266855) docs: Add docstrings
+- [495f49e](https://github.com/thevickypedia/RuTorrent/commit/495f49e90133152f8b39dba88eb3c28c91157c2e) feat: Allow users to change the tor scheme; rename base module
+- [64a7934](https://github.com/thevickypedia/RuTorrent/commit/64a79342e9d8ac9cdf087362d904efdf8dd2b627) perf: Log Tor IP and include the results' length in the response header
+- [2b80f2b](https://github.com/thevickypedia/RuTorrent/commit/2b80f2bcdab21ca212efd55aee6e018f4ce01345) perf: Simplify the logic to check tor connection stats and make search params more logical
+- [35a8564](https://github.com/thevickypedia/RuTorrent/commit/35a8564a7355dce42e4b459878a993e2d4573d12) refactor: Move new search schema into ``api.schema`` module; use metadata for package version
+- [1a2d36b](https://github.com/thevickypedia/RuTorrent/commit/1a2d36b30bae22e6b103db955cf4ede13ebe7cc0) feat: Create search option for torrents with ``tor`` proxy support
+- [c6aa106](https://github.com/thevickypedia/RuTorrent/commit/c6aa10667fbaad6b3897fbd17cb2ee3ff72350ee) chore: Update release notes for v0.6.1
+
 v0.6.1 (10/16/2026)
 -------------------
 - [f36c909](https://github.com/thevickypedia/RuTorrent/commit/f36c90958d015ff786d9e43d0eeaf9b4f4d99ff4) chore: Release ``v0.6.1``
