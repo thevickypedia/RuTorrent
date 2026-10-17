@@ -12,7 +12,7 @@ import time
 from typing import Any, Dict, List
 
 SCHEMA = {
-    "hash": "TEXT",
+    "hash": "TEXT PRIMARY KEY",
     "name": "TEXT",
     "status": "TEXT",
     "progress": "REAL DEFAULT 0.0",
@@ -41,14 +41,28 @@ for row in rows:
 col_names = list(SCHEMA.keys())
 col_defs = ", ".join(f"{c} {t}" for c, t in SCHEMA.items())
 
-user_input = input(
-    "Continue with DB migration? This will drop the existing 'state' table and create a new one. (y/n): "
-)
+conn = sqlite3.connect("rutorrent.db")
+
+try:
+    count = conn.execute("SELECT COUNT(*) FROM state").fetchone()[0]
+except sqlite3.OperationalError as error:
+    if "no such table" in str(error):
+        count = None
+    else:
+        raise
+
+if count:
+    user_input = input(
+        f"Continue with DB migration? This will drop the existing 'state' table with {count} rows and create a new one with {len(rows)} rows. (y/n): "
+    )
+else:
+    user_input = input(
+        f"Continue with DB migration? This will drop the existing 'state' table and create a new one with {len(rows)} records. (y/n): "
+    )
 if user_input.lower() != "y":
     print("DB migration aborted.")
     exit(0)
 
-conn = sqlite3.connect("rutorrent.db")
 conn.execute("DROP TABLE state")
 conn.execute(f"CREATE TABLE IF NOT EXISTS state ({col_defs})")
 
