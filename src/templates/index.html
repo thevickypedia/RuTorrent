@@ -242,7 +242,7 @@
         }
 
         .section-title {
-            font-size: 0.65rem;
+            font-size: 0.85rem;
             letter-spacing: 0.2em;
             text-transform: uppercase;
             color: var(--muted);
@@ -268,7 +268,7 @@
         .torrent-table th {
             padding: 0.6rem 1rem;
             text-align: left;
-            font-size: 0.62rem;
+            font-size: 0.75rem;
             letter-spacing: 0.15em;
             text-transform: uppercase;
             color: var(--muted);
@@ -467,7 +467,7 @@
             background: var(--surface);
             border-top: 1px solid var(--border);
             padding: 0.4rem 2rem;
-            font-size: 0.62rem;
+            font-size: 0.85rem;
             color: var(--muted);
             display: flex;
             align-items: center;
@@ -478,6 +478,7 @@
             color: var(--accent);
         }
 
+        /* ── Auto refresh ── */
         .refresh-dot {
             display: inline-block;
             width: 6px;
@@ -493,7 +494,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             color: var(--muted);
             justify-self: end;
         }
@@ -1676,7 +1677,7 @@
 
     <div class="status-bar">
         <div style="display:flex; gap:2rem; align-items:center;">
-            <span class="accent">RuTorrent</span>
+            <a href="/swagger-ui" target="_blank" class="accent">RuTorrent</a>
             <span id="versionText">v—</span>
             <span id="lastUpdated">—</span>
         </div>
