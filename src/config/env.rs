@@ -61,6 +61,10 @@ pub enum TorScheme {
 }
 
 impl fmt::Display for TorScheme {
+
+    /// Formats the display trait for `TorScheme` value.
+    ///
+    /// Returns a lowercased value for the enum.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TorScheme::Socks5 => write!(f, "socks5"),
@@ -70,6 +74,14 @@ impl fmt::Display for TorScheme {
 }
 impl FromStr for TorScheme {
     type Err = String;
+
+    /// Parses a string into a `TorScheme` value.
+    ///
+    /// Accepted values are:
+    /// - `"socks5"` → uses local DNS resolution
+    /// - `"socks5h"` → uses remote DNS resolution
+    ///
+    /// Returns an error if the input does not match a supported option.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "socks5" => Ok(TorScheme::Socks5),

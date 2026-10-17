@@ -26,10 +26,16 @@ pub struct TorrentEntry {
     pub added_at: f64,
 }
 
-/// Simplified `Result` object for TOR setup.
+/// A shared result type for operations that may fail with any error that is
+/// thread-safe and can be transferred across threads, allowing callers to
+/// propagate errors without requiring a specific error type.
 pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
-/// Struct for the base torrent object.
+/// ### BaseTorrent
+/// A normalized representation of a torrent listing returned by a search
+/// provider — includes available metadata such as the title, category, size,
+/// seed and leech counts, magnet link, uploader, and upload date, with optional
+/// fields to accommodate incomplete or provider-specific results.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct BaseTorrent {
     pub title: Option<String>,
@@ -39,6 +45,8 @@ pub struct BaseTorrent {
     pub leechers: Option<i64>,
     pub magnet_link: Option<String>,
     pub uploader: Option<String>,
+    /// The date the torrent was uploaded, serialized and deserialized using
+    /// the `date_uploaded` field name for compatibility with provider responses.
     #[serde(rename = "date_uploaded")]
     pub date: Option<String>,
 }

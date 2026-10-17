@@ -2,6 +2,16 @@ use crate::{api, search, config};
 use reqwest::Client;
 use serde_json::Value;
 
+/// Extract a non-empty string or number field from a JSON object.
+///
+/// # Arguments
+///
+/// * `row` - JSON object containing the field.
+/// * `key` - Name of the field to extract.
+///
+/// # Returns
+///
+/// Returns the trimmed field value as a `String`, or `None` if the field is missing, empty, or has an unsupported type.
 fn string_field(row: &Value, key: &str) -> Option<String> {
     let value = row.get(key)?;
     let result = match value {
@@ -13,10 +23,29 @@ fn string_field(row: &Value, key: &str) -> Option<String> {
     (!result.is_empty()).then_some(result)
 }
 
+/// Extract an integer field from a JSON object.
+///
+/// # Arguments
+///
+/// * `row` - JSON object containing the field.
+/// * `key` - Name of the field to extract.
+///
+/// # Returns
+///
+/// Returns the field value as an `i64`, or `None` if it is missing or cannot be parsed.
 fn integer_field(row: &Value, key: &str) -> Option<i64> {
     string_field(row, key)?.parse().ok()
 }
 
+/// Format a byte count as a human-readable size.
+///
+/// # Arguments
+///
+/// * `bytes` - Size in bytes.
+///
+/// # Returns
+///
+/// Returns the formatted size with an appropriate unit, from bytes to terabytes.
 fn format_size(bytes: i64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes.max(0) as f64;
@@ -34,6 +63,15 @@ fn format_size(bytes: i64) -> String {
     }
 }
 
+/// Parse a JSON object into a base torrent representation.
+///
+/// # Arguments
+///
+/// * `row` - JSON object containing torrent metadata.
+///
+/// # Returns
+///
+/// Returns a `BaseTorrent` if the object contains a valid title and is not an error or empty-result entry; otherwise, returns `None`.
 fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
     let title = string_field(row, "name")?;
 
@@ -65,10 +103,20 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
     })
 }
 
-/// Searches for torrents using JSON api torrents.
+/// Search for torrents using the JSON API, optionally routing requests through Tor.
 ///
-/// The API's `page` parameter is zero-based; page 0 is the first page.
-/// Each page will return a maximum of 100 results.
+/// # Arguments
+///
+/// * `query` - Search query string.
+/// * `pages` - Number of result pages to retrieve, starting at page zero.
+/// * `use_tor` - Whether to route requests through the Tor network.
+/// * `strict_mode` - Whether to fail if Tor verification fails.
+/// * `config` - Application environment configuration.
+/// * `metadata` - Application metadata required for Tor setup and verification.
+///
+/// # Returns
+///
+/// Returns a `Result` containing the collected torrent results, or an error if client creation, request execution, response validation, or strict Tor verification fails.
 pub async fn search(
     query: &str,
     pages: usize,
@@ -82,7 +130,7 @@ pub async fn search(
         // Mark 2: A new connection is created and verified everytime and this is a design choice
         match search::tor::client(config, metadata).await {
             Ok(client) => {
-                // Mark 3: If client creation is successful, verify if the client is routed through Tor network
+                // Mark 3: If client creation is successful, verify if client is routed through Tor network
                 match search::tor::verify(config, metadata, Some(client.clone())).await {
                     Ok(_) => {
                         log::info!("Connection is secure. Using Tor network.");
