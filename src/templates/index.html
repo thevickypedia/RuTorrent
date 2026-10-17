@@ -1714,9 +1714,9 @@
             <div class="explore-control-group">
                 <span>Pages</span>
                 <select id="exploreMaxPages">
-                    <option value="1">1</option>
+                    <option value="1" selected>1</option>
                     <option value="2">2</option>
-                    <option value="3" selected>3</option>
+                    <option value="3">3</option>
                     <option value="4">4</option>
                     <option value="5">5</option>
                     <option value="6">6</option>
@@ -3132,9 +3132,14 @@
         });
     });
 
+    // Add this variable alongside the other explore state vars at the top:
+    let exploreLastQuery = '';
+
     async function runExploreSearch() {
         const query = document.getElementById('exploreTorrentSearch').value.trim();
         if (!query) return;
+
+        exploreLastQuery = query;   // ← cache it
 
         const maxPages = document.getElementById('exploreMaxPages').value;
         const useTor   = document.getElementById('exploreUseTor').checked;
@@ -3159,12 +3164,21 @@
                 date_uploaded: r.date_uploaded ? String(r.date_uploaded) : null
             }));
 
-            // Move hero to compact bar
-            const hero = document.getElementById('exploreHero');
-            hero.classList.add('has-results');
-
+            document.getElementById('exploreHero').classList.add('has-results');
             document.getElementById('exploreResultsArea').hidden = false;
-            renderExploreResults(exploreResults, query);
+
+            // Build the header + filter input ONCE on a fresh search
+            const header = document.getElementById('exploreResultsHeader');
+            header.innerHTML = `
+                <span id="exploreResultsCount"></span>
+                <div class="explore-filter-bar">
+                    <span class="explore-filter-label">Filter</span>
+                    <input type="text" id="exploreFilterInput" placeholder="Filter results…">
+                </div>`;
+            document.getElementById('exploreFilterInput').addEventListener('input', () =>
+                renderExploreResults(exploreResults));
+
+            renderExploreResults(exploreResults);
         } catch (err) {
             toast(err.message || 'Explore search failed', 'error');
         } finally {
@@ -3182,7 +3196,7 @@
         return n * (map[u] || 1);
     }
 
-    function renderExploreResults(results, searchText) {
+    function renderExploreResults(results) {
         // Update sort UI
         document.querySelectorAll('#exploreTable .sortable').forEach(el =>
             el.classList.remove('active', 'asc', 'desc'));
@@ -3194,7 +3208,7 @@
         const activeEl = document.getElementById(keyToId[exploreSortKey]);
         if (activeEl) activeEl.classList.add('active', exploreSortDir);
 
-        // Apply filter
+        // Apply filter — read from the persistent input, don't rebuild it
         const filterVal = (document.getElementById('exploreFilterInput')?.value || '').trim().toLowerCase();
         let filtered = results;
         if (filterVal) {
@@ -3216,18 +3230,11 @@
             return exploreSortDir === 'asc' ? res : -res;
         });
 
-        // Header
-        const header = document.getElementById('exploreResultsHeader');
-        const displayQuery = searchText || document.getElementById('exploreTorrentSearch').value.trim();
-        header.innerHTML = `
-            <span>Results for: <strong>${esc(displayQuery)}</strong> &mdash; ${sorted.length} of ${results.length}</span>
-            <div class="explore-filter-bar">
-                <span class="explore-filter-label">Filter</span>
-                <input type="text" id="exploreFilterInput" placeholder="Filter results…" value="${esc(filterVal)}">
-            </div>`;
-
-        document.getElementById('exploreFilterInput').addEventListener('input', () =>
-            renderExploreResults(exploreResults));
+        // Update only the count — never touch the filter input
+        const countEl = document.getElementById('exploreResultsCount');
+        if (countEl) {
+            countEl.innerHTML = `Results for: <strong>${esc(exploreLastQuery)}</strong> &mdash; ${sorted.length} of ${results.length}`;
+        }
 
         // Rows
         const body = document.getElementById('exploreBody');
@@ -3244,12 +3251,9 @@
                     ${r.date_uploaded ? formatTimestamp(Number(r.date_uploaded)) : '—'}
                 </td>
                 <td>
-                    <button
-                        class="magnet-btn"
-                        title="Copy magnet link"
+                    <button class="magnet-btn" title="Copy magnet link"
                         data-magnet="${esc(r.magnet_link)}"
-                        onclick="copyMagnet(this)"
-                    >🧲</button>
+                        onclick="copyMagnet(this)">🧲</button>
                 </td>
                 <td style="white-space:nowrap;">${esc(r.size)}</td>
                 <td style="color:var(--ok);">${r.seeders ?? '—'}</td>
