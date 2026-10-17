@@ -1,23 +1,5 @@
-use crate::{config, bay};
-use serde::{Deserialize, Serialize};
+use crate::{bay, config, api};
 use serde_json::Value;
-use std::error::Error;
-use utoipa::ToSchema;
-
-pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
-pub struct BaseTorrent {
-    pub title: Option<String>,
-    pub category: Option<String>,
-    pub size: Option<String>,
-    pub seeders: Option<i64>,
-    pub leechers: Option<i64>,
-    pub magnet_link: Option<String>,
-    pub uploader: Option<String>,
-    #[serde(rename = "date_uploaded")]
-    pub date: Option<String>,
-}
 
 fn string_field(row: &Value, key: &str) -> Option<String> {
     let value = row.get(key)?;
@@ -51,7 +33,7 @@ fn format_size(bytes: i64) -> String {
     }
 }
 
-fn parse_torrent(row: &Value) -> Option<BaseTorrent> {
+fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
     let title = string_field(row, "name")?;
 
     if title.eq_ignore_ascii_case("no results returned") || title.eq_ignore_ascii_case("error") {
@@ -70,7 +52,7 @@ fn parse_torrent(row: &Value) -> Option<BaseTorrent> {
         )
     });
 
-    Some(BaseTorrent {
+    Some(api::schema::BaseTorrent {
         title: Some(title),
         category: string_field(row, "category"),
         size,
@@ -89,15 +71,16 @@ pub async fn search(
     query: &str,
     pages: usize,
     config: &config::env::Config,
-) -> Result<Vec<BaseTorrent>> {
-    let client = match bay::tor::client(config).await {
+    metadata: &config::constant::MetaData,
+) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
+    let client = match bay::tor::client(config, metadata).await {
         Ok(client) => client,
         Err(e) => {
             return Err(e);
         }
     };
     // TODO: Fail if tor verification fails and query param is missing bypass tor
-    bay::tor::verify(config, Some(client.clone())).await;
+    bay::tor::verify(config, metadata, Some(client.clone())).await;
     let mut torrents = Vec::new();
     for page in 0..pages {
         let response = client

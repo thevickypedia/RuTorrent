@@ -1,3 +1,5 @@
+use std::error::Error;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 /// ### TorrentEntry
@@ -22,4 +24,21 @@ pub struct TorrentEntry {
     pub files_deleted: bool,
     pub qbit_state: String, // raw state string from qBittorrent, empty if not in qBit
     pub added_at: f64,
+}
+
+/// Simplified `Result` object for TOR setup.
+pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+
+/// Struct for the base torrent object.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+pub struct BaseTorrent {
+    pub title: Option<String>,
+    pub category: Option<String>,
+    pub size: Option<String>,
+    pub seeders: Option<i64>,
+    pub leechers: Option<i64>,
+    pub magnet_link: Option<String>,
+    pub uploader: Option<String>,
+    #[serde(rename = "date_uploaded")]
+    pub date: Option<String>,
 }

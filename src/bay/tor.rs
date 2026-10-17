@@ -1,18 +1,18 @@
-use crate::config;
+use crate::{config, api};
 use reqwest::{Client, Proxy};
 use std::time::Duration;
 
-pub async fn client(config: &config::env::Config) -> crate::bay::api::Result<Client> {
+pub async fn client(config: &config::env::Config, metadata: &config::constant::MetaData) -> api::schema::Result<Client> {
     let url = format!("socks5h://{}:{}", config.tor_host, config.tor_port);
     let builder = Client::builder()
         .timeout(Duration::from_secs(config.tor_timeout))
-        .user_agent("thebay-rs/0.1")
+        .user_agent(format!("thebay-rs/{}", metadata.pkg_version))
         .proxy(Proxy::all(url)?);
     Ok(builder.build()?)
 }
 
-pub async fn verify(config: &config::env::Config, existing_client: Option<Client>) -> bool {
-    let tor_client = existing_client.unwrap_or(client(config).await.unwrap_or_default());
+pub async fn verify(config: &config::env::Config, metadata: &config::constant::MetaData, existing_client: Option<Client>) -> bool {
+    let tor_client = existing_client.unwrap_or(client(config, metadata).await.unwrap_or_default());
 
     let url = "https://httpbin.org/get";
     let tor_response = match tor_client.get(url).timeout(Duration::from_secs(3)).send().await {

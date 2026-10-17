@@ -864,18 +864,19 @@ pub struct SearchQuery {
     path = "/torrents",
     params(SearchQuery),
     responses(
-        (status = 200, description = "Search for torrents", body = Vec<bay::api::BaseTorrent>)
+        (status = 200, description = "Search for torrents", body = Vec<api::schema::BaseTorrent>)
     )
 )]
 pub async fn search_torrents(
     request: HttpRequest,
     payload: web::Query<SearchQuery>,
     config: web::Data<config::env::Config>,
+    metadata: web::Data<config::constant::MetaData>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let torrents = match bay::api::search(&payload.query, payload.max_pages.unwrap_or(3), &config).await {
+    let torrents = match bay::api::search(&payload.query, payload.max_pages.unwrap_or(3), &config, &metadata).await {
         Ok(torrents) => torrents,
         Err(e) => {
             log::error!("Failed to search for {} - {}", payload.query, e);
