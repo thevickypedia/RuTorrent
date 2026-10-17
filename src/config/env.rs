@@ -88,6 +88,11 @@ pub struct Config {
     pub telegram_chat_id: String,
     pub telegram_bot_token: String,
     pub telegram_timeout: u64,
+
+    // Tor configuration
+    pub tor_host: String,
+    pub tor_port: u16,
+    pub tor_timeout: u64,
 }
 
 impl Config {
@@ -156,11 +161,19 @@ impl Config {
             // NOTE: Since QBitTorrentAPI does not have a built-in callback function,
             // the current process monitors ongoing downloads and then triggers rsync
             // This requires both QBitTorrent and RuTorrent to run on the same device
-            // TODO: Replace QbitTorrent with a reliable torrent crate - all in one place
             warning!(
                 "qbit_url appears to be a remote location. This will invalidate the rsync callback."
             );
         }
+
+        let tor_host = squire::misc::get_env_var("tor_host", Some("127.0.0.1"));
+        let tor_port = match squire::misc::get_env_var("tor_port", Some("9050")).parse::<u16>() {
+            Ok(p) => p,
+            Err(e) => {
+                startup_error(format!("Invalid 'tor_host' value: {e}").as_str());
+                std::process::exit(1)
+            }
+        };
 
         let utc_logger = squire::misc::get_env_var("utc_logger", Some("true")) == "true";
         let default_log = squire::misc::get_env_var("log", Some("stdout"));
@@ -212,6 +225,7 @@ impl Config {
         let qbit_timeout = get_and_parse_timeout("qbit_timeout", "3");
         let ntfy_timeout = get_and_parse_timeout("ntfy_timeout", "3");
         let telegram_timeout = get_and_parse_timeout("telegram_timeout", "3");
+        let tor_timeout = get_and_parse_timeout("tor_timeout", "10");
 
         Self {
             host,
@@ -235,6 +249,9 @@ impl Config {
             telegram_bot_token,
             telegram_chat_id,
             telegram_timeout,
+            tor_host,
+            tor_port,
+            tor_timeout,
         }
     }
 }

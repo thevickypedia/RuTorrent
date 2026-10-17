@@ -12,6 +12,7 @@ mod notifier;
 mod output;
 mod squire;
 mod swagger;
+mod bay;
 
 use output::display;
 
@@ -75,6 +76,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/health", web::get().to(api::routes::status))
             .route("/version", web::get().to(api::routes::version))
             .route("/torrent", web::get().to(api::routes::get_torrents))
+            .route("/torrents", web::get().to(api::routes::search_torrents))
             .route("/torrent", web::put().to(api::routes::put_torrent))
             .route("/torrent", web::delete().to(api::routes::delete_torrent))
             .route("/retry", web::post().to(api::routes::retry_torrent))

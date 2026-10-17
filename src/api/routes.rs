@@ -1,8 +1,10 @@
-use crate::{api, config, database, squire};
+use crate::{api, bay, config, database, squire};
 
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use serde_json::json;
 use std::collections::HashMap;
+use serde::Deserialize;
+use utoipa::IntoParams;
 use uuid::Uuid;
 
 /// API endpoint to get the current health status.
@@ -800,4 +802,85 @@ pub async fn pause_torrent(
         name
     );
     HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
+}
+
+#[derive(Deserialize, IntoParams)]
+#[into_params(style = Form, parameter_in = Query)]
+pub struct SearchQuery {
+    /// Search query
+    query: String,
+    /// Max pages for pagination
+    max_pages: Option<usize>,
+}
+/// API endpoint to search for torrents.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `payload` - Reference to the `SearchQuery` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl localhost:3000/torrents?query=ubuntu&max_pages=1
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// [
+///     {
+///         "title": "Ubuntu 22.04 LTS",
+///         "category": "303",
+///         "size": "3.40 GB",
+///         "seeders": 40,
+///         "leechers": 12,
+///         "magnet_link": "magnet:?xt=urn:btih:2C6B6858D61DA9543D4231A71DB4B1C9264B0685&dn=Ubuntu%2022.04%20LTS",
+///         "uploader": "rjaa",
+///         "date_uploaded": "1652877231"
+///     },
+///     {
+///         "title": "Clinton D., Negus C. Ubuntu Linux Bible 11ed 2025",
+///         "category": "601",
+///         "size": "8.16 MB",
+///         "seeders": 27,
+///         "leechers": 0,
+///         "magnet_link": "magnet:?xt=urn:btih:232CD67EB3FFBD7C37BF9EC3EE887417E5AE1EE6&dn=Clinton%20D.%2C%20Negus%20C.%20Ubuntu%20Linux%20Bible%2011ed%202025",
+///         "uploader": "andryold1",
+///         "date_uploaded": "1765526528"
+///     }
+/// ]
+/// ```
+///
+/// #### Status
+/// * `200`: Successfully queued.
+/// * `400`: Invalid request.
+/// * `500`: Server error.
+///
+/// # Returns
+///
+/// Returns a JSON array of [`BaseTorrent`] objects.
+#[utoipa::path(
+    get,
+    path = "/torrents",
+    params(SearchQuery),
+    responses(
+        (status = 200, description = "Search for torrents", body = Vec<bay::api::BaseTorrent>)
+    )
+)]
+pub async fn search_torrents(
+    request: HttpRequest,
+    payload: web::Query<SearchQuery>,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let torrents = match bay::api::search(&payload.query, payload.max_pages.unwrap_or(3), &config).await {
+        Ok(torrents) => torrents,
+        Err(e) => {
+            log::error!("Failed to search for {} - {}", payload.query, e);
+            return HttpResponse::InternalServerError().json(e.to_string())
+        },
+    };
+    HttpResponse::Ok().json(torrents)
 }

@@ -1,4 +1,4 @@
-use crate::{api, config};
+use crate::{api, config, bay};
 use actix_web::HttpResponse;
 use utoipa::Modify;
 use utoipa::OpenApi;
@@ -10,12 +10,13 @@ use utoipa_swagger_ui::SwaggerUi;
         api::routes::status,
         api::routes::version,
         api::routes::get_torrents,
+        api::routes::search_torrents,
         api::routes::put_torrent,
         api::routes::pause_torrent,
         api::routes::delete_torrent,
         api::routes::retry_torrent
     ),
-    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry)),
+    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry, bay::api::BaseTorrent)),
     security(
         ("apikey" = [])
     ),
