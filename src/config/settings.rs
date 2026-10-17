@@ -99,11 +99,11 @@ pub struct RetryOptions {
     pub delete_after_copy: bool,
 }
 
-/// ### GetTorrents
+/// ### SearchTorrents
 /// Represents query params on an incoming request to explore torrents with optional specs.
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(style = Form, parameter_in = Query)]
-pub struct GetTorrents {
+pub struct SearchTorrents {
     pub query: String,
     #[serde(default = "defaults::default_max_pages")]
     pub max_pages: usize,

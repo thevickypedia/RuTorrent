@@ -3194,7 +3194,7 @@
         setSearchLoading(true);
         try {
             const resp = await fetch(
-                `/torrents?query=${encodeURIComponent(query)}&max_pages=${maxPages}&use_tor=${useTor}&strict=${strict}`,
+                `/search?query=${encodeURIComponent(query)}&max_pages=${maxPages}&use_tor=${useTor}&strict=${strict}`,
                 {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
             if (resp.status === 401) {

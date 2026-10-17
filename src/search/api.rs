@@ -192,7 +192,6 @@ pub async fn search(
     } else {
         Client::builder().build()?
     };
-    // TODO: May be I should apply trackers for all incoming torrents?
     ensure_trackers(config).await;
     let mut torrents = Vec::new();
     for page in 0..pages {

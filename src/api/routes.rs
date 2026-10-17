@@ -808,7 +808,7 @@ pub async fn pause_torrent(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl localhost:3000/torrents?query=ubuntu&max_pages=1
+/// curl localhost:3000/search?query=ubuntu&max_pages=1
 /// ```
 ///
 /// #### Sample Response
@@ -847,15 +847,15 @@ pub async fn pause_torrent(
 /// Returns a JSON array of [`BaseTorrent`] objects.
 #[utoipa::path(
     get,
-    path = "/torrents",
-    params(config::settings::GetTorrents),
+    path = "/search",
+    params(config::settings::SearchTorrents),
     responses(
         (status = 200, description = "Search for torrents", body = Vec<api::schema::BaseTorrent>)
     )
 )]
 pub async fn search_torrents(
     request: HttpRequest,
-    payload: web::Query<config::settings::GetTorrents>,
+    payload: web::Query<config::settings::SearchTorrents>,
     config: web::Data<config::env::Config>,
     metadata: web::Data<config::constant::MetaData>,
 ) -> impl Responder {
