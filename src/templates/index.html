@@ -1872,6 +1872,51 @@
 </div>
 
 <!-- ══════════════════════════════
+     EXPLORE DOWNLOAD MODAL
+══════════════════════════════ -->
+<div class="modal-backdrop" id="exploreDownloadModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">Download Torrent</div>
+            <button class="modal-close" id="closeExploreDownloadModal">&#x2715;</button>
+        </div>
+        <div class="form-grid">
+            <div class="field full">
+                <label for="ed-url">Magnet URL</label>
+                <input id="ed-url" readonly type="text"
+                       style="opacity:0.5; cursor:default; border-color:var(--border);">
+            </div>
+            <div class="field">
+                <label for="ed-host">Remote Host</label>
+                <input id="ed-host" placeholder="192.168.1.100" type="text">
+            </div>
+            <div class="field">
+                <label for="ed-user">Remote Username</label>
+                <input id="ed-user" placeholder="admin" type="text">
+            </div>
+            <div class="field full">
+                <label for="ed-path">Remote Path</label>
+                <input id="ed-path" placeholder="/home/admin/Movies" type="text">
+            </div>
+            <div class="field full">
+                <label for="ed-timeout">Connection Timeout</label>
+                <input id="ed-timeout" max="30" min="1" placeholder="3" type="number">
+            </div>
+            <div class="field full">
+                <div class="toggle-field">
+                    <input class="toggle" id="ed-delete" type="checkbox">
+                    <label class="toggle-label" for="ed-delete">Delete local files after transfer</label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-ghost" id="cancelExploreDownloadModal">Cancel</button>
+            <button class="btn btn-primary" id="submitExploreDownload">Download &#x2192;</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
      INFO MODAL
 ══════════════════════════════ -->
 <div class="modal-backdrop" id="infoModal">
@@ -3114,10 +3159,10 @@
     // Sort headers
     [
         ['expSortCategory', 'category'],
-        ['expSortName',     'title'],
-        ['expSortDate',     'date_uploaded'],
-        ['expSortSize',     'size_bytes'],
-        ['expSortSeeders',  'seeders'],
+        ['expSortName', 'title'],
+        ['expSortDate', 'date_uploaded'],
+        ['expSortSize', 'size_bytes'],
+        ['expSortSeeders', 'seeders'],
         ['expSortLeechers', 'leechers'],
         ['expSortUploader', 'uploader'],
     ].forEach(([id, key]) => {
@@ -3142,16 +3187,19 @@
         exploreLastQuery = query;   // ← cache it
 
         const maxPages = document.getElementById('exploreMaxPages').value;
-        const useTor   = document.getElementById('exploreUseTor').checked;
-        const strict   = document.getElementById('exploreStrict').checked;
+        const useTor = document.getElementById('exploreUseTor').checked;
+        const strict = document.getElementById('exploreStrict').checked;
 
         setSearchLoading(true);
         try {
             const resp = await fetch(
                 `/torrents?query=${encodeURIComponent(query)}&max_pages=${maxPages}&use_tor=${useTor}&strict=${strict}`,
-                { headers: authHeaders(), signal: AbortSignal.timeout(30000) }
+                {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
-            if (resp.status === 401) { handleUnauth(); return; }
+            if (resp.status === 401) {
+                handleUnauth();
+                return;
+            }
             if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
 
             const raw = await resp.json();
@@ -3192,7 +3240,7 @@
         if (!m) return 0;
         const n = parseFloat(m[1]);
         const u = m[2].toUpperCase();
-        const map = { B: 1, KB: 1024, MB: 1024**2, GB: 1024**3, TB: 1024**4 };
+        const map = {B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4};
         return n * (map[u] || 1);
     }
 
@@ -3225,7 +3273,7 @@
             if (typeof av === 'number' && typeof bv === 'number') {
                 res = av - bv;
             } else {
-                res = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+                res = String(av).localeCompare(String(bv), undefined, {numeric: true, sensitivity: 'base'});
             }
             return exploreSortDir === 'asc' ? res : -res;
         });
@@ -3250,10 +3298,14 @@
                 <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
                     ${r.date_uploaded ? formatTimestamp(Number(r.date_uploaded)) : '—'}
                 </td>
-                <td>
+                <td style="white-space:nowrap;">
                     <button class="magnet-btn" title="Copy magnet link"
                         data-magnet="${esc(r.magnet_link)}"
                         onclick="copyMagnet(this)">🧲</button>
+                    <button class="magnet-btn" title="Download torrent"
+                        data-magnet="${esc(r.magnet_link)}"
+                        onclick="openExploreDownload(this)"
+                        style="margin-left:0.3rem; border-color:rgba(71,255,179,0.25); color:var(--ok);">⬇️</button>
                 </td>
                 <td style="white-space:nowrap;">${esc(r.size)}</td>
                 <td style="color:var(--ok);">${r.seeders ?? '—'}</td>
@@ -3293,6 +3345,77 @@
             }
         }
     }
+
+    // ── Explore Download Modal ────────────────────────────────
+    function openExploreDownload(btn) {
+        document.getElementById('ed-url').value = btn.dataset.magnet;
+        document.getElementById('ed-host').value = '';
+        document.getElementById('ed-user').value = '';
+        document.getElementById('ed-path').value = '';
+        document.getElementById('ed-timeout').value = '';
+        document.getElementById('ed-delete').checked = false;
+        document.getElementById('exploreDownloadModal').classList.add('open');
+    }
+
+    function closeExploreDownload() {
+        document.getElementById('exploreDownloadModal').classList.remove('open');
+    }
+
+    document.getElementById('closeExploreDownloadModal').addEventListener('click', closeExploreDownload);
+    document.getElementById('cancelExploreDownloadModal').addEventListener('click', closeExploreDownload);
+    document.getElementById('exploreDownloadModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('exploreDownloadModal')) closeExploreDownload();
+    });
+
+    document.getElementById('submitExploreDownload').addEventListener('click', async () => {
+        const url = document.getElementById('ed-url').value.trim();
+        if (!url) return;
+
+        const payload = {
+            url,
+            delete_after_copy: document.getElementById('ed-delete').checked
+        };
+        const host = document.getElementById('ed-host').value.trim();
+        const user = document.getElementById('ed-user').value.trim();
+        const path = document.getElementById('ed-path').value.trim();
+        const timeout = parseInt(document.getElementById('ed-timeout').value.trim(), 10);
+        if (host) payload.remote_host = host;
+        if (user) payload.remote_username = user;
+        if (path) payload.remote_path = path;
+        if (!isNaN(timeout) && timeout > 0) payload.rsync_timeout = timeout;
+
+        const btn = document.getElementById('submitExploreDownload');
+        btn.disabled = true;
+        btn.textContent = 'Queueing…';
+
+        try {
+            const resp = await fetch('/torrent', {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify([payload]),
+                signal: AbortSignal.timeout(timeout * 1000 || 10000)
+            });
+            if (resp.status === 401) {
+                handleUnauth();
+                return;
+            }
+            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
+
+            const data = await resp.json();
+            const [name, status] = Object.entries(data[0])[0];
+            if (status.startsWith('OK')) {
+                toast(`Queued: ${name}`, 'success');
+                closeExploreDownload();
+            } else {
+                toast(`${name}: ${status}`, 'error');
+            }
+        } catch (err) {
+            toast(err.message || 'Download failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Download →';
+        }
+    });
 
     // ── Utilities ─────────────────────────────────────────────
     function formatTimestamp(timestamp) {
