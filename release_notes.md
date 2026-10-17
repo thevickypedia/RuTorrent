@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+v0.7.1 (10/17/2026)
+-------------------
+- [57bc9df](https://github.com/thevickypedia/RuTorrent/commit/57bc9df86db0db9154d6d3311957f0fbc491bda4) chore: Release ``v0.7.1``
+- [0803565](https://github.com/thevickypedia/RuTorrent/commit/08035656a7ff6daadb580649465bc238e52b6fdc) chore: Update README.md
+- [a7f4b14](https://github.com/thevickypedia/RuTorrent/commit/a7f4b14022a7b838b71c012ec64fede601031495) perf: Remove hard-coded upper bound for trackers and move ``trackers_file`` env var to config
+- [86ae6c3](https://github.com/thevickypedia/RuTorrent/commit/86ae6c3cb968e1ce91de74fb6eeb386d8bdd6238) feat: Create a robust solution for trackers
+- [2273ad3](https://github.com/thevickypedia/RuTorrent/commit/2273ad3b0c407619a145a6afbee8ee581b43bfa3) chore: Update release notes for v0.7.0
+
 v0.7.0 (10/17/2026)
 -------------------
 - [d1a494f](https://github.com/thevickypedia/RuTorrent/commit/d1a494fcab3db981f2ed6616585c3ebb3fbe32bd) chore: Release ``v0.7.0``
