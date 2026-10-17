@@ -65,9 +65,10 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
     })
 }
 
-/// Search `pages` pages and return all parsed torrents.
+/// Searches for torrents using JSON api torrents.
 ///
 /// The API's `page` parameter is zero-based; page 0 is the first page.
+/// Each page will return a maximum of 100 results.
 pub async fn search(
     query: &str,
     pages: usize,
@@ -76,14 +77,19 @@ pub async fn search(
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
+    // Mark 1: Checks if the client has requested to use tor network
     let client: Client = if use_tor {
+        // Mark 2: A new connection is created and verified everytime and this is a design choice
         match bay::tor::client(config, metadata).await {
             Ok(client) => {
+                // Mark 3: If client creation is successful, verify if the client is routed through Tor network
                 match bay::tor::verify(config, metadata, Some(client.clone())).await {
                     Ok(_) => {
                         log::info!("Connection is secure. Using Tor network.");
                     }
                     Err(e) => {
+                        // Mark 4: If Tor verification has failed, and strict mode is enabled fail the request;
+                        // Otherwise, log a warning and continue
                         if strict_mode {
                             log::info!("Strict mode was enabled, so failing due to: {}", e);
                             return Err(e);

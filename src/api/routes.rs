@@ -1,9 +1,11 @@
+use actix_web::http::header::{HeaderName, HeaderValue};
+
 use crate::{api, bay, config, database, squire};
 
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
+use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
-use serde::Deserialize;
 use utoipa::IntoParams;
 use uuid::Uuid;
 
@@ -570,13 +572,7 @@ pub async fn retry_torrent(
     let hash_clone = hash.clone();
     let name_clone = body.name.clone();
     tokio::spawn(async move {
-        squire::rsync::run(
-            db_connection_clone,
-            hash_clone,
-            name_clone,
-            put_item,
-        )
-        .await;
+        squire::rsync::run(db_connection_clone, hash_clone, name_clone, put_item).await;
     });
 
     log::info!("Retry queued for: {}", body.name);
@@ -814,7 +810,7 @@ pub struct SearchQuery {
     /// Boolean flag to use tor proxy. Defaults to true, set it to false if proxy server is invalid/unreacbale.
     use_tor: Option<bool>,
     /// Checks the IP address and fails the request if TOR connection could not be verified.
-    strict_mode: Option<bool>
+    strict_mode: Option<bool>,
 }
 /// API endpoint to search for torrents.
 ///
@@ -886,14 +882,21 @@ pub async fn search_torrents(
         payload.use_tor.unwrap_or(true),
         payload.strict_mode.unwrap_or(true),
         &config,
-        &metadata
-    ).await {
+        &metadata,
+    )
+    .await
+    {
         Ok(torrents) => torrents,
         Err(e) => {
             log::error!("Failed to search for {} - {}", payload.query, e);
-            return HttpResponse::InternalServerError().json(e.to_string())
-        },
+            return HttpResponse::InternalServerError().json(e.to_string());
+        }
     };
-    // TODO: Set response headers with number of torrents found
-    HttpResponse::Ok().json(torrents)
+    let length = torrents.len();
+    let mut response = HttpResponse::Ok().json(torrents);
+    response.headers_mut().insert(
+        HeaderName::from_static("results"),
+        HeaderValue::from(length),
+    );
+    response
 }

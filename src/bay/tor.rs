@@ -29,6 +29,9 @@ pub async fn verify(
         .await?;
 
     if response["IsTor"].as_bool().unwrap_or(false) {
+        if let Some(ip) = response.get("IP").and_then(serde_json::Value::as_str) {
+            log::info!("Tor IP: {}", ip);
+        }
         Ok(tor_client.clone())
     } else {
         Err("Connection is not secure. Aborting...".into())
