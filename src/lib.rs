@@ -1,5 +1,6 @@
 #![allow(rustdoc::bare_urls)]
 #![doc = include_str!("../README.md")]
+extern crate core;
 
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;

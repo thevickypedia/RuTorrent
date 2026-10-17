@@ -1,6 +1,10 @@
-use crate::{api, search, config};
+use crate::{api, config, search};
 use reqwest::Client;
 use serde_json::Value;
+use tokio::sync::OnceCell;
+
+/// Stores and provides a thread-safe, asynchronously initialized cache of tracker URLs shared across callers.
+static TRACKERS: OnceCell<Vec<String>> = OnceCell::const_new();
 
 /// Extract a non-empty string or number field from a JSON object.
 ///
@@ -83,27 +87,27 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
         .map(format_size)
         .or_else(|| string_field(row, "size"));
 
-    const TRACKERS: &[&str] = &[
-        "udp://tracker.coppersurfer.tk:6969/announce",
-        "udp://tracker.openbittorrent.com:6969/announce",
-        "udp://tracker.bittor.pw:1337/announce",
-        "udp://tracker.opentrackr.org:1337",
-        "udp://bt.xxx-tracker.com:2710/announce",
-        "udp://public.popcorn-tracker.org:6969/announce",
-        "udp://eddie4.nl:6969/announce",
-        "udp://tracker.torrent.eu.org:451/announce",
-        "udp://p4p.arenabg.com:1337/announce",
-        "udp://tracker.tiny-vps.com:6969/announce",
-        "udp://open.stealth.si:80/announce",
-    ];
-
     let magnet_link = string_field(row, "info_hash").map(|hash| {
         let mut magnet = format!(
             "magnet:?xt=urn:btih:{}&dn={}",
             hash,
             urlencoding::encode(&title)
         );
-        for tracker in TRACKERS {
+        let trackers: &Vec<String> = match TRACKERS.get() {
+            Some(trackers) => {
+                log::info!("Found [{}] trackers in memory", trackers.len());
+                trackers
+            }
+            None => {
+                log::warn!("No trackers in memory; using fallback");
+                &search::trackers::TRACKERS
+                    .iter()
+                    .copied()
+                    .map(String::from)
+                    .collect()
+            }
+        };
+        for tracker in trackers {
             magnet.push_str("&tr=");
             magnet.push_str(&urlencoding::encode(tracker));
         }
@@ -120,6 +124,17 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
         uploader: string_field(row, "username"),
         date: string_field(row, "added"),
     })
+}
+
+/// Initialize the shared tracker list if it has not already been initialized.
+///
+/// # Returns
+///
+/// Returns a reference to the cached tracker list, initializing it asynchronously on the first call.
+async fn ensure_trackers() -> &'static Vec<String> {
+    TRACKERS
+        .get_or_init(|| async { search::trackers::get().await })
+        .await
 }
 
 /// Search for torrents using the JSON API, optionally routing requests through Tor.
@@ -173,6 +188,8 @@ pub async fn search(
     } else {
         Client::builder().build()?
     };
+    // TODO: May be I should apply trackers for all incoming torrents?
+    ensure_trackers().await;
     let mut torrents = Vec::new();
     for page in 0..pages {
         let response = client
