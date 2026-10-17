@@ -42,7 +42,7 @@ pub fn default_delete_after_copy() -> bool {
 pub fn default_max_pages() -> usize {
     squire::misc::get_env_var("max_pages", Some("1"))
         .parse::<usize>()
-        .unwrap_or(3)
+        .unwrap_or(1)
 }
 
 /// Returns the default boolean flag to use Tor network for explore.

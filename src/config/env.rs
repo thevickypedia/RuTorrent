@@ -286,7 +286,7 @@ impl Config {
             Some(PathBuf::from(raw_trackers_file))
         };
 
-        let max_trackers = match squire::misc::get_env_var("max_trackers", Some("50")).parse::<usize>() {
+        let max_trackers = match squire::misc::get_env_var("max_trackers", Some("10")).parse::<usize>() {
             Ok(mt) => {
                 if mt > 0 { mt } else {
                     startup_error(
