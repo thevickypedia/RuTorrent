@@ -110,7 +110,7 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
 /// * `query` - Search query string.
 /// * `pages` - Number of result pages to retrieve, starting at page zero.
 /// * `use_tor` - Whether to route requests through the Tor network.
-/// * `strict_mode` - Whether to fail if Tor verification fails.
+/// * `strict` - Whether to fail if Tor verification fails.
 /// * `config` - Application environment configuration.
 /// * `metadata` - Application metadata required for Tor setup and verification.
 ///
@@ -121,24 +121,23 @@ pub async fn search(
     query: &str,
     pages: usize,
     use_tor: bool,
-    strict_mode: bool,
+    strict: bool,
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
     // Mark 1: Checks if the client has requested to use tor network
     let client: Client = if use_tor {
+        log::info!("Connecting to Tor network...");
         // Mark 2: A new connection is created and verified everytime and this is a design choice
         match search::tor::client(config, metadata).await {
             Ok(client) => {
                 // Mark 3: If client creation is successful, verify if client is routed through Tor network
                 match search::tor::verify(config, metadata, Some(client.clone())).await {
-                    Ok(_) => {
-                        log::info!("Connection is secure. Using Tor network.");
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         // Mark 4: If Tor verification has failed, and strict mode is enabled fail the request;
                         // Otherwise, log a warning and continue
-                        if strict_mode {
+                        if strict {
                             log::info!("Strict mode was enabled, so failing due to: {}", e);
                             return Err(e);
                         } else {
@@ -169,5 +168,6 @@ pub async fn search(
         };
         torrents.extend(rows.iter().filter_map(parse_torrent));
     }
+    log::info!("Found {} torrents.", torrents.len());
     Ok(torrents)
 }

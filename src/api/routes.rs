@@ -800,7 +800,7 @@ pub async fn pause_torrent(
     HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
 }
 
-#[derive(Deserialize, IntoParams)]
+#[derive(Debug, Deserialize, IntoParams)]
 #[into_params(style = Form, parameter_in = Query)]
 pub struct SearchQuery {
     /// Search query.
@@ -810,7 +810,7 @@ pub struct SearchQuery {
     /// Boolean flag to use tor proxy. Defaults to true, set it to false if proxy server is invalid/unreacbale.
     use_tor: Option<bool>,
     /// Checks the IP address and fails the request if TOR connection could not be verified.
-    strict_mode: Option<bool>,
+    strict: Option<bool>,
 }
 /// API endpoint to search for torrents.
 ///
@@ -876,11 +876,12 @@ pub async fn search_torrents(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
+    log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,
         payload.max_pages.unwrap_or(3),
         payload.use_tor.unwrap_or(true),
-        payload.strict_mode.unwrap_or(true),
+        payload.strict.unwrap_or(true),
         &config,
         &metadata,
     )
