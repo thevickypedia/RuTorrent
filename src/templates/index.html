@@ -137,10 +137,8 @@
             margin-bottom: 2.5rem;
         }
 
+        /* Single lever: label + hint scale together with the field */
         .field {
-            /* Single lever for this field's text scale — label and hint below
-               are both sized in `em` relative to this, so nudging this one
-               value grows them together, proportionally. */
             font-size: 0.75rem;
             margin-bottom: 1.25rem;
         }
@@ -233,10 +231,13 @@
             overflow-y: auto;
         }
 
+        /* ── Toolbar: 3-column grid.
+           First definition wins — the old flex version has been removed. ── */
         .toolbar {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.5fr) minmax(150px, 1fr);
             align-items: center;
-            justify-content: space-between;
+            gap: 1.25rem;
             margin-bottom: 1.5rem;
         }
 
@@ -252,7 +253,7 @@
             margin-left: 0.35rem;
         }
 
-        /* Table */
+        /* ── Table ── */
         .torrent-table {
             width: 100%;
             border-collapse: collapse;
@@ -314,6 +315,23 @@
             border-radius: 3px;
         }
 
+        input[type="checkbox"].torrent-check:checked {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        input[type="checkbox"].torrent-check:checked::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid #000;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
         .sortable {
             cursor: pointer;
             user-select: none;
@@ -348,23 +366,7 @@
             content: '↓';
         }
 
-        input[type="checkbox"].torrent-check:checked {
-            border-color: var(--accent);
-            background: var(--accent);
-        }
-
-        input[type="checkbox"].torrent-check:checked::after {
-            content: '';
-            position: absolute;
-            left: 4px;
-            top: 1px;
-            width: 4px;
-            height: 8px;
-            border: solid #000;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-
+        /* ── Badges ── */
         .badge {
             display: inline-block;
             font-size: 0.62rem;
@@ -410,6 +412,7 @@
             background: rgba(255, 79, 79, 0.07);
         }
 
+        /* ── Icon buttons (retry / pause / info) ── */
         .retry-icon {
             font-size: 12px;
             line-height: 12px;
@@ -459,7 +462,7 @@
             letter-spacing: 0.1em;
         }
 
-        /* Status bar */
+        /* ── Status bar ── */
         .status-bar {
             background: var(--surface);
             border-top: 1px solid var(--border);
@@ -484,12 +487,15 @@
             animation: pulse 2s infinite;
         }
 
+        /* refresh-controls lives in the grid's third column; justify-self
+           pushes it to the right edge inside that cell. */
         .refresh-controls {
             display: flex;
             align-items: center;
             gap: 0.5rem;
             font-size: 0.65rem;
             color: var(--muted);
+            justify-self: end;
         }
 
         .refresh-select {
@@ -652,9 +658,6 @@
         }
 
         .field-hint {
-            /* Relative to .field's font-size (like `label` above), so it
-               always stays ~87% of the label's size no matter how that
-               shared base is tuned — never bigger than the field name. */
             font-size: 0.87em;
             color: var(--muted);
             opacity: 0.8;
@@ -838,6 +841,288 @@
         }
 
         /* ══════════════════════════════
+           SEARCH BAR
+        ══════════════════════════════ */
+        .search-wrap {
+            position: relative;
+            min-width: 0;
+            z-index: 20;
+        }
+
+        .search-bar {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            height: 36px;
+            padding: 0 0.65rem;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid var(--border);
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .search-bar:focus-within {
+            border-color: var(--border-hi);
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        /* Invalid state — consolidated so no rule overrides another */
+        .search-bar.invalid,
+        .search-bar.invalid:focus-within {
+            border-color: var(--error);
+            box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.12);
+        }
+
+        .search-bar.invalid input {
+            color: var(--error);
+        }
+
+        .search-bar.invalid .search-icon {
+            color: var(--error);
+        }
+
+        .search-icon {
+            color: var(--muted);
+            font-size: 1.25rem;
+            opacity: 0.7;
+            line-height: 1;
+        }
+
+        .search-bar input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            width: auto;
+            padding: 0.35rem 0;
+            border: 0;
+            background: transparent;
+            font-size: 0.72rem;
+        }
+
+        .search-bar input[type="text"]:focus {
+            border: 0;
+        }
+
+        .search-info-btn,
+        .search-clear-btn {
+            flex-shrink: 0;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            font-family: var(--mono);
+        }
+
+        .search-info-btn {
+            width: 17px;
+            height: 17px;
+            border: 1px solid var(--border-hi);
+            border-radius: 50%;
+            color: var(--muted);
+            opacity: 0.65;
+            font-size: 0.62rem;
+            line-height: 15px;
+            text-align: center;
+        }
+
+        .search-info-btn:hover {
+            opacity: 1;
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .search-clear-btn {
+            display: none;
+            color: var(--muted);
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .search-clear-btn.visible {
+            display: block;
+        }
+
+        /* Inline validation message */
+        .search-validation {
+            margin-top: 0.4rem;
+            color: var(--error);
+            font-size: 0.65rem;
+            line-height: 1.5;
+        }
+
+        .search-validation[hidden] {
+            display: none;
+        }
+
+        /* Autocomplete dropdown */
+        .search-suggestions {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            max-height: 280px;
+            overflow-y: auto;
+            background: var(--surface);
+            border: 1px solid var(--border-hi);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+            z-index: 50;
+        }
+
+        .search-suggestions[hidden] {
+            display: none;
+        }
+
+        .search-suggestion {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            width: 100%;
+            padding: 0.7rem 0.85rem;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .search-suggestion:last-child {
+            border-bottom: 0;
+        }
+
+        .search-suggestion:hover,
+        .search-suggestion.active {
+            background: var(--surface-hi);
+        }
+
+        .search-suggestion.active {
+            box-shadow: inset 2px 0 var(--accent);
+        }
+
+        .suggestion-key {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .suggestion-description {
+            color: var(--muted);
+            font-size: 0.65rem;
+            text-align: right;
+        }
+
+        .search-suggestion.global-option {
+            border-bottom: 1px solid var(--border-hi);
+        }
+
+        .search-suggestion.global-option .suggestion-key {
+            color: var(--text);
+        }
+
+        /* Full-screen search progress overlay — single z-index: 1100
+           so it sits above the body::before scan-line layer (z-index 999). */
+        .search-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(10, 10, 11, 0.68);
+            backdrop-filter: blur(2px);
+        }
+
+        .search-loading.visible {
+            display: flex;
+        }
+
+        .search-spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid var(--border-hi);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .search-loading-label {
+            color: var(--muted);
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        /* ══════════════════════════════
+           SEARCH INFO MODAL — structured layout
+        ══════════════════════════════ */
+        .search-info-body {
+            font-size: 0.76rem;
+            line-height: 1.7;
+        }
+
+        .search-info-intro {
+            color: var(--muted);
+            margin-bottom: 1rem;
+            font-size: 0.72rem;
+        }
+
+        .search-info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .search-info-table td {
+            padding: 0.35rem 0.6rem;
+            vertical-align: top;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.72rem;
+        }
+
+        .search-info-table td:first-child {
+            white-space: nowrap;
+            padding-left: 0;
+        }
+
+        .search-info-table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .search-info-table code {
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+
+        .search-info-table td:last-child {
+            color: var(--muted);
+        }
+
+        .search-info-divider {
+            border-top: 1px solid var(--border);
+            padding-top: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .search-info-examples {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .search-info-examples code {
+            color: var(--accent);
+            font-family: var(--mono);
+            font-size: 0.72rem;
+        }
+
+        .search-info-examples .example-note {
+            color: var(--muted);
+            font-size: 0.65rem;
+        }
+
+        /* ══════════════════════════════
            MOBILE
         ══════════════════════════════ */
         @media (max-width: 768px) {
@@ -877,10 +1162,35 @@
                 padding: 1rem;
             }
 
+            /* Consolidated mobile toolbar — single rule replaces the two
+               that were previously split across two @media blocks. */
             .toolbar {
+                display: flex;
                 flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
+                align-items: stretch;
+                gap: 0.85rem;
+            }
+
+            .search-bar {
+                width: 100%;
+                height: 44px;
+            }
+
+            .search-bar input[type="text"] {
+                font-size: 16px;
+            }
+
+            .search-wrap {
+                width: 100%;
+            }
+
+            .search-suggestions {
+                max-height: 240px;
+            }
+
+            .refresh-controls {
+                justify-self: auto;
+                align-self: flex-start;
             }
 
             .torrent-table {
@@ -992,6 +1302,7 @@
                     opacity: 1;
                 }
             }
+
             .form-grid {
                 grid-template-columns: 1fr;
             }
@@ -1017,269 +1328,6 @@
                 max-width: unset;
             }
         }
-
-        /* ── Torrent search ── */
-        .toolbar {
-            display: grid;
-            grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.5fr) minmax(150px, 1fr);
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .search-bar {
-            display: flex;
-            align-items: center;
-            min-width: 0;
-            height: 36px;
-            padding: 0 0.65rem;
-            gap: 0.5rem;
-            background: rgba(255, 255, 255, 0.015);
-            border: 1px solid var(--border);
-            transition: border-color 0.15s, background 0.15s;
-        }
-
-        .search-bar:focus-within {
-            border-color: var(--border-hi);
-            background: rgba(255, 255, 255, 0.025);
-        }
-
-        .search-bar.invalid {
-            border-color: var(--error);
-            box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.08);
-        }
-
-        .search-icon {
-            color: var(--muted);
-            font-size: 1.25rem;
-            opacity: 0.7;
-            line-height: 1;
-        }
-
-        .search-bar input[type="text"] {
-            flex: 1;
-            min-width: 0;
-            width: auto;
-            padding: 0.35rem 0;
-            border: 0;
-            background: transparent;
-            font-size: 0.72rem;
-        }
-
-        .search-bar input[type="text"]:focus {
-            border: 0;
-        }
-
-        .search-info-btn,
-        .search-clear-btn {
-            flex-shrink: 0;
-            border: 0;
-            background: transparent;
-            cursor: pointer;
-            font-family: var(--mono);
-        }
-
-        .search-info-btn {
-            width: 17px;
-            height: 17px;
-            border: 1px solid var(--border-hi);
-            border-radius: 50%;
-            color: var(--muted);
-            opacity: 0.65;
-            font-size: 0.62rem;
-            line-height: 15px;
-            text-align: center;
-        }
-
-        .search-info-btn:hover {
-            opacity: 1;
-            color: var(--text);
-            border-color: var(--muted);
-        }
-
-        .search-clear-btn {
-            display: none;
-            color: var(--muted);
-            font-size: 1.1rem;
-            line-height: 1;
-        }
-
-        .search-clear-btn.visible {
-            display: block;
-        }
-
-        .refresh-controls {
-            justify-self: end;
-        }
-
-        /* Full-screen search progress overlay */
-        .search-loading {
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 1rem;
-            background: rgba(10, 10, 11, 0.68);
-            backdrop-filter: blur(2px);
-        }
-
-        .search-loading.visible {
-            display: flex;
-        }
-
-        .search-spinner {
-            width: 38px;
-            height: 38px;
-            border: 3px solid var(--border-hi);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        .search-loading-label {
-            color: var(--muted);
-            font-size: 0.7rem;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        /* Keep the overlay readable above the scan-line effect */
-        .search-loading {
-            z-index: 1100;
-        }
-
-        @media (max-width: 768px) {
-            .toolbar {
-                display: flex;
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.85rem;
-            }
-
-            .search-bar {
-                width: 100%;
-                height: 44px;
-            }
-
-            .search-bar input[type="text"] {
-                font-size: 16px;
-            }
-
-            .refresh-controls {
-                justify-self: auto;
-                align-self: flex-start;
-            }
-        }
-
-        .search-wrap {
-            position: relative;
-            min-width: 0;
-            z-index: 20;
-        }
-
-        .search-suggestions {
-            position: absolute;
-            top: calc(100% + 6px);
-            left: 0;
-            right: 0;
-            max-height: 280px;
-            overflow-y: auto;
-            background: var(--surface);
-            border: 1px solid var(--border-hi);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-            z-index: 50;
-        }
-
-        .search-suggestions[hidden] {
-            display: none;
-        }
-
-        .search-suggestion {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            width: 100%;
-            padding: 0.7rem 0.85rem;
-            border: 0;
-            border-bottom: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            text-align: left;
-            cursor: pointer;
-        }
-
-        .search-suggestion:last-child {
-            border-bottom: 0;
-        }
-
-        .search-suggestion:hover,
-        .search-suggestion.active {
-            background: var(--surface-hi);
-        }
-
-        .search-suggestion.active {
-            box-shadow: inset 2px 0 var(--accent);
-        }
-
-        .suggestion-key {
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        .suggestion-description {
-            color: var(--muted);
-            font-size: 0.65rem;
-            text-align: right;
-        }
-
-        .search-suggestion.global-option {
-            border-bottom: 1px solid var(--border-hi);
-        }
-
-        .search-suggestion.global-option .suggestion-key {
-            color: var(--text);
-        }
-
-        .search-bar.invalid,
-        .search-bar.invalid:focus-within {
-            border-color: var(--error);
-            box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.12);
-        }
-
-        .search-bar.invalid input {
-            color: var(--error);
-        }
-
-        .search-bar.invalid .search-icon {
-            color: var(--error);
-        }
-
-        .search-validation {
-            margin-top: 0.4rem;
-            color: var(--error);
-            font-size: 0.65rem;
-            line-height: 1.5;
-        }
-
-        .search-validation[hidden] {
-            display: none;
-        }
-
-        @media (max-width: 768px) {
-            .search-wrap {
-                width: 100%;
-            }
-
-            .search-suggestions {
-                max-height: 240px;
-            }
-        }
-
     </style>
 </head>
 <body>
@@ -1332,7 +1380,7 @@
                     <input
                             id="torrentSearch"
                             type="text"
-                            placeholder="Search torrents… (e.g. status: transferred)"
+                            placeholder="Search… (e.g. status: transferred)"
                             aria-label="Search torrents"
                             aria-autocomplete="list"
                             aria-controls="searchSuggestions"
@@ -1399,7 +1447,8 @@
             </thead>
             <tbody id="torrentBody">
             <tr>
-                <td class="empty-state" colspan="3">Loading…</td>
+                <!-- colspan=4 matches the four columns: checkbox, Name, Status, Added -->
+                <td class="empty-state" colspan="4">Loading…</td>
             </tr>
             </tbody>
         </table>
@@ -1411,12 +1460,13 @@
             <span id="versionText">v—</span>
             <span id="lastUpdated">—</span>
         </div>
-
         <span id="sessionRemaining">-</span>
     </div>
 </div>
 
-<!-- Add Torrent Modal -->
+<!-- ══════════════════════════════
+     ADD TORRENT MODAL
+══════════════════════════════ -->
 <div class="modal-backdrop" id="addModal">
     <div class="modal">
         <div class="modal-header">
@@ -1464,7 +1514,9 @@
     </div>
 </div>
 
-<!-- Retry Modal -->
+<!-- ══════════════════════════════
+     RETRY MODAL
+══════════════════════════════ -->
 <div class="modal-backdrop" id="retryModal">
     <div class="modal">
         <div class="modal-header">
@@ -1521,7 +1573,9 @@
     </div>
 </div>
 
-<!-- Info Modal -->
+<!-- ══════════════════════════════
+     INFO MODAL
+══════════════════════════════ -->
 <div class="modal-backdrop" id="infoModal">
     <div class="modal">
         <div class="modal-header">
@@ -1535,36 +1589,86 @@
     </div>
 </div>
 
-<!-- Search syntax modal -->
+<!-- ══════════════════════════════
+     SEARCH SYNTAX MODAL
+══════════════════════════════ -->
 <div class="modal-backdrop" id="searchInfoModal">
     <div class="modal">
         <div class="modal-header">
-            <div class="modal-title">Search & Filter</div>
+            <div class="modal-title">Search &amp; Filter</div>
             <button class="modal-close" id="closeSearchInfoModal">✕</button>
         </div>
 
-        <div style="font-size:0.76rem; line-height:1.9;">
-            <p style="color:var(--muted); margin-bottom:0.8rem;">
-                Search is case-insensitive. Press Enter to apply.
-                Separate multiple filters with commas; all filters must match.
+        <div class="search-info-body">
+            <p class="search-info-intro">
+                Case-insensitive. Press <strong>Enter</strong> to apply.
+                Separate multiple filters with commas — all must match.
             </p>
 
-            <p><code>added_at: 2021</code> — Added date</p>
-            <p><code>name: Sintel</code> — Torrent name</p>
-            <p><code>status: transferred</code> — Torrent status</p>
-            <p><code>url: magnet</code> — Source URL</p>
-            <p><code>save_path: Movies</code> — Local save path</p>
-            <p><code>remote_host: 192.168.1.100</code> — Remote host</p>
-            <p><code>remote_user: admin</code> — Remote username</p>
-            <p><code>remote_path: /home/admin</code> — Remote path</p>
-            <p><code>timeout: 3</code> — Transfer timeout</p>
-            <p><code>delete_after_copy: true</code> — Delete after transfer</p>
-            <p><code>files_deleted: false</code> — Local files deleted</p>
+            <table class="search-info-table">
+                <tbody>
+                <tr>
+                    <td><code>name: Sintel</code></td>
+                    <td>Torrent name</td>
+                </tr>
+                <tr>
+                    <td><code>status: transferred</code></td>
+                    <td>Torrent status</td>
+                </tr>
+                <tr>
+                    <td><code>added_at: 2021</code></td>
+                    <td>Added date (matches formatted timestamp)</td>
+                </tr>
+                <tr>
+                    <td><code>url: magnet</code></td>
+                    <td>Source URL</td>
+                </tr>
+                <tr>
+                    <td><code>save_path: Movies</code></td>
+                    <td>Local save path</td>
+                </tr>
+                <tr>
+                    <td><code>remote_host: 192.168.1</code></td>
+                    <td>Remote host</td>
+                </tr>
+                <tr>
+                    <td><code>remote_user: admin</code></td>
+                    <td>Remote username</td>
+                </tr>
+                <tr>
+                    <td><code>remote_path: /home</code></td>
+                    <td>Remote path</td>
+                </tr>
+                <tr>
+                    <td><code>timeout: 3</code></td>
+                    <td>Transfer timeout (seconds)</td>
+                </tr>
+                <tr>
+                    <td><code>delete_after_copy: true</code></td>
+                    <td>Delete after transfer</td>
+                </tr>
+                <tr>
+                    <td><code>files_deleted: false</code></td>
+                    <td>Local files already deleted</td>
+                </tr>
+                </tbody>
+            </table>
 
-            <div style="border-top:1px solid var(--border); margin-top:1rem; padding-top:0.75rem;">
-                <p><code>name: sintel, status: transferred</code></p>
-                <p><code>Sintel</code> — Global search across all fields</p>
-                <p><code>status: transferred, 2021</code> — Mixed filters</p>
+            <div class="search-info-divider">
+                <div class="search-info-examples">
+                    <div>
+                        <code>name: sintel, status: transferred</code>
+                        <div class="example-note">Multiple key filters — all must match</div>
+                    </div>
+                    <div>
+                        <code>Sintel</code>
+                        <div class="example-note">Global search — matches any field</div>
+                    </div>
+                    <div>
+                        <code>status: transferred, 2021</code>
+                        <div class="example-note">Mixed key + global filters</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1574,14 +1678,9 @@
     </div>
 </div>
 
-<!-- Search progress overlay -->
-<div class="search-loading" id="searchLoading"
-     role="status" aria-live="polite" aria-hidden="true">
-    <div class="search-spinner"></div>
-    <div class="search-loading-label">Filtering torrents…</div>
-</div>
-
-<!-- Delete Modal -->
+<!-- ══════════════════════════════
+     DELETE MODAL
+══════════════════════════════ -->
 <div class="modal-backdrop" id="deleteModal">
     <div class="modal">
         <div class="modal-header">
@@ -1605,6 +1704,13 @@
     </div>
 </div>
 
+<!-- Search progress overlay -->
+<div class="search-loading" id="searchLoading"
+     role="status" aria-live="polite" aria-hidden="true">
+    <div class="search-spinner"></div>
+    <div class="search-loading-label">Filtering torrents…</div>
+</div>
+
 <div class="toast-area" id="toastArea"></div>
 
 <script>
@@ -1619,8 +1725,8 @@
     let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
     let sortKey = sessionStorage.getItem('sortKey') || 'status';
     let sortDirection = sessionStorage.getItem('sortDirection') || 'asc';
-    const timeout = 3 * 1000;  // 3 seconds timeout
-    const sessionExpiry = 30 * 60 * 1000;  // 30 minutes session
+    const timeout = 3 * 1000;        // 3 s per request
+    const sessionExpiry = 30 * 60 * 1000;  // 30 min session
 
     // ── Search / filter state ──────────────────────────────────
     let activeSearchQuery = '';
@@ -1628,9 +1734,7 @@
     const SEARCH_FIELDS = {
         name: entry => entry.name,
         status: entry => entry.status,
-        added_at: entry => entry.added_at
-            ? formatTimestamp(entry.added_at)
-            : '',
+        added_at: entry => entry.added_at ? formatTimestamp(entry.added_at) : '',
         url: entry => entry.url,
         save_path: entry => entry.save_path,
         remote_host: entry => entry.remote_host,
@@ -1662,38 +1766,36 @@
     const searchInput = document.getElementById('torrentSearch');
     const searchForm = document.getElementById('searchForm');
     const suggestionsBox = document.getElementById('searchSuggestions');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
 
     let activeSuggestionIndex = -1;
 
+    // ── Search — clear button (registered once at module level) ──
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearchBtn.classList.remove('visible');
+        validateSearchWhileTyping();
+        renderSearchSuggestions();
+        applySearch();
+    });
+
+    // ── Search — suggestions ──────────────────────────────────
     function getCurrentFilterFragment(query) {
-        // Only autocomplete the current comma-separated segment.
         const fragment = query.split(',').pop() ?? '';
         const colon = fragment.indexOf(':');
-
         return {
             fragment,
-            keyPart: (colon === -1
-                    ? fragment
-                    : fragment.slice(0, colon)
-            ).trim().toLowerCase(),
+            keyPart: (colon === -1 ? fragment : fragment.slice(0, colon)).trim().toLowerCase(),
             hasColon: colon !== -1
         };
     }
 
     function getSearchSuggestions(query) {
-        const {fragment, keyPart, hasColon} =
-            getCurrentFilterFragment(query);
-
-        // Once a colon is entered, the user is typing a value,
-        // not a filter key.
+        const {keyPart, hasColon} = getCurrentFilterFragment(query);
         if (hasColon) return [];
 
         const options = [
-            {
-                key: '',
-                label: 'Global search',
-                description: 'Search all fields'
-            },
+            {key: '', label: 'Global search', description: 'Search all fields'},
             ...Object.keys(SEARCH_FIELDS).map(key => ({
                 key,
                 label: key,
@@ -1702,10 +1804,7 @@
         ];
 
         if (!keyPart) return options;
-
-        return options.filter(option =>
-            option.label.toLowerCase().includes(keyPart)
-        );
+        return options.filter(o => o.label.toLowerCase().includes(keyPart));
     }
 
     function hideSearchSuggestions() {
@@ -1716,7 +1815,6 @@
 
     function renderSearchSuggestions() {
         const suggestions = getSearchSuggestions(searchInput.value);
-
         suggestionsBox.replaceChildren();
         activeSuggestionIndex = -1;
 
@@ -1725,35 +1823,26 @@
             return;
         }
 
-        suggestions.forEach((option, index) => {
+        suggestions.forEach(option => {
             const item = document.createElement('button');
             item.type = 'button';
             item.className = 'search-suggestion';
             item.setAttribute('role', 'option');
             item.setAttribute('aria-selected', 'false');
-
-            if (option.key === '') {
-                item.classList.add('global-option');
-            }
+            if (option.key === '') item.classList.add('global-option');
 
             const key = document.createElement('span');
             key.className = 'suggestion-key';
             key.textContent = option.key || option.label;
 
-            const description = document.createElement('span');
-            description.className = 'suggestion-description';
-            description.textContent = option.description;
+            const desc = document.createElement('span');
+            desc.className = 'suggestion-description';
+            desc.textContent = option.description;
 
-            item.append(key, description);
+            item.append(key, desc);
 
-            item.addEventListener('mousedown', event => {
-                // Keep the input focused while clicking a suggestion.
-                event.preventDefault();
-            });
-
-            item.addEventListener('click', () => {
-                selectSearchSuggestion(option);
-            });
+            item.addEventListener('mousedown', e => e.preventDefault());
+            item.addEventListener('click', () => selectSearchSuggestion(option));
 
             suggestionsBox.appendChild(item);
         });
@@ -1765,21 +1854,12 @@
     function selectSearchSuggestion(option) {
         const query = searchInput.value;
         const commaIndex = query.lastIndexOf(',');
-        const prefix = commaIndex === -1
-            ? ''
-            : query.slice(0, commaIndex + 1);
+        const prefix = commaIndex === -1 ? '' : query.slice(0, commaIndex + 1);
+        const separator = prefix && !prefix.endsWith(' ') ? ' ' : '';
 
-        const separator = prefix && !prefix.endsWith(' ')
-            ? ' '
-            : '';
-
-        if (!option.key) {
-            // Global search doesn't require a filter key.
-            searchInput.value = prefix + separator;
-        } else {
-            searchInput.value =
-                prefix + separator + option.key + ': ';
-        }
+        searchInput.value = option.key
+            ? prefix + separator + option.key + ': '
+            : prefix + separator;
 
         hideSearchSuggestions();
         validateSearchWhileTyping();
@@ -1787,33 +1867,22 @@
     }
 
     function moveSearchSuggestion(direction) {
-        const items = [
-            ...suggestionsBox.querySelectorAll('.search-suggestion')
-        ];
-
+        const items = [...suggestionsBox.querySelectorAll('.search-suggestion')];
         if (suggestionsBox.hidden || !items.length) return false;
 
-        activeSuggestionIndex =
-            (activeSuggestionIndex + direction + items.length)
-            % items.length;
-
-        items.forEach((item, index) => {
-            const active = index === activeSuggestionIndex;
+        activeSuggestionIndex = (activeSuggestionIndex + direction + items.length) % items.length;
+        items.forEach((item, i) => {
+            const active = i === activeSuggestionIndex;
             item.classList.toggle('active', active);
             item.setAttribute('aria-selected', String(active));
         });
-
-        items[activeSuggestionIndex].scrollIntoView({
-            block: 'nearest'
-        });
-
+        items[activeSuggestionIndex].scrollIntoView({block: 'nearest'});
         return true;
     }
 
-    // Validate keys immediately without applying the search.
+    // ── Search — validation ───────────────────────────────────
     function validateSearchWhileTyping() {
         const query = searchInput.value;
-        const form = searchForm;
         let error = '';
 
         try {
@@ -1822,151 +1891,113 @@
             error = err.message;
         }
 
-        form.classList.toggle('invalid', !!error);
+        searchForm.classList.toggle('invalid', !!error);
 
         let message = document.getElementById('searchValidation');
-
         if (!message) {
             message = document.createElement('div');
             message.id = 'searchValidation';
             message.className = 'search-validation';
             message.setAttribute('role', 'status');
-            form.insertAdjacentElement('afterend', message);
+            searchForm.insertAdjacentElement('afterend', message);
         }
-
         message.textContent = error;
         message.hidden = !error;
     }
 
-    searchInput.addEventListener('focus', () => {
-        renderSearchSuggestions();
-    });
-
-    searchInput.addEventListener('click', () => {
-        renderSearchSuggestions();
-    });
+    // ── Search — input events ─────────────────────────────────
+    searchInput.addEventListener('focus', renderSearchSuggestions);
+    searchInput.addEventListener('click', renderSearchSuggestions);
 
     searchInput.addEventListener('input', () => {
         validateSearchWhileTyping();
         renderSearchSuggestions();
+        // Toggle clear button visibility while typing
+        clearSearchBtn.classList.toggle('visible', searchInput.value.length > 0);
     });
 
     searchInput.addEventListener('keydown', event => {
         if (event.key === 'ArrowDown') {
-            if (moveSearchSuggestion(1)) {
-                event.preventDefault();
-            }
+            if (moveSearchSuggestion(1)) event.preventDefault();
         } else if (event.key === 'ArrowUp') {
-            if (moveSearchSuggestion(-1)) {
-                event.preventDefault();
-            }
+            if (moveSearchSuggestion(-1)) event.preventDefault();
         } else if (event.key === 'Escape') {
             hideSearchSuggestions();
-        } else if (
-            event.key === 'Enter' &&
-            !suggestionsBox.hidden &&
-            activeSuggestionIndex >= 0
-        ) {
+        } else if (event.key === 'Enter' && !suggestionsBox.hidden && activeSuggestionIndex >= 0) {
             event.preventDefault();
-
-            const items = [
-                ...suggestionsBox.querySelectorAll('.search-suggestion')
-            ];
-
-            items[activeSuggestionIndex]?.click();
+            [...suggestionsBox.querySelectorAll('.search-suggestion')][activeSuggestionIndex]?.click();
         }
     });
 
     document.addEventListener('click', event => {
-        if (!event.target.closest('.search-wrap')) {
-            hideSearchSuggestions();
-        }
+        if (!event.target.closest('.search-wrap')) hideSearchSuggestions();
     });
 
+    // ── Search — form submit ──────────────────────────────────
+    searchForm.addEventListener('submit', event => {
+        event.preventDefault();
+        applySearch();
+    });
+
+    // Clear stale validation on typing (does NOT trigger a search)
+    document.getElementById('torrentSearch')
+        .addEventListener('input', () => {
+            searchForm.classList.remove('invalid');
+        });
+
+    // ── Search — parse & match ────────────────────────────────
     function parseSearchQuery(query) {
         if (!query.trim()) return [];
 
         return query.split(',').map(part => {
             const term = part.trim();
-
-            if (!term) {
-                throw new Error('Empty filter. Remove extra commas.');
-            }
+            if (!term) throw new Error('Empty filter. Remove extra commas.');
 
             const colon = term.indexOf(':');
-
-            // No key means a global search.
-            if (colon === -1) {
-                return {
-                    key: null,
-                    value: term.toLocaleLowerCase()
-                };
-            }
+            if (colon === -1) return {key: null, value: term.toLocaleLowerCase()};
 
             const key = term.slice(0, colon).trim().toLowerCase();
             const value = term.slice(colon + 1).trim();
 
-            if (!key || !value) {
-                throw new Error(
-                    `Invalid filter "${term}". Use key: value.`
-                );
-            }
+            if (!key || !value) throw new Error(`Invalid filter "${term}". Use key: value.`);
+            if (!Object.hasOwn(SEARCH_FIELDS, key))
+                throw new Error(`Unknown search key "${key}". Click i to see supported fields.`);
 
-            if (!Object.hasOwn(SEARCH_FIELDS, key)) {
-                throw new Error(
-                    `Unknown search key "${key}". Click i to see supported fields.`
-                );
-            }
-
-            return {
-                key,
-                value: value.toLocaleLowerCase()
-            };
+            return {key, value: value.toLocaleLowerCase()};
         });
     }
 
     function searchValue(value) {
         if (value === null || value === undefined) return '';
-        if (typeof value === 'boolean') return String(value);
         return String(value);
     }
 
     function matchesSearch(entry, filters) {
         return filters.every(filter => {
             if (filter.key) {
-                const value = SEARCH_FIELDS[filter.key](entry);
-                return searchValue(value)
+                return searchValue(SEARCH_FIELDS[filter.key](entry))
                     .toLocaleLowerCase()
                     .includes(filter.value);
             }
-
-            // Global search across all fields, including fields that
-            // aren't explicitly listed in SEARCH_FIELDS.
-            const values = Object.entries(entry).map(([key, value]) => {
+            // Global search across all fields
+            return Object.entries(entry).some(([key, value]) => {
                 const getter = SEARCH_FIELDS[key];
-                return getter
-                    ? searchValue(getter(entry))
-                    : searchValue(value);
+                return searchValue(getter ? getter(entry) : value)
+                    .toLocaleLowerCase()
+                    .includes(filter.value);
             });
-
-            return values.some(value =>
-                value.toLocaleLowerCase().includes(filter.value)
-            );
         });
     }
 
+    // ── Search — apply ────────────────────────────────────────
     function setSearchLoading(visible) {
         const overlay = document.getElementById('searchLoading');
         overlay.classList.toggle('visible', visible);
         overlay.setAttribute('aria-hidden', String(!visible));
     }
 
-
     async function applySearch() {
-        const input = document.getElementById('torrentSearch');
-        const form = document.getElementById('searchForm');
-        const query = input.value.trim();
-
+        const query = searchInput.value.trim();
         let filters;
 
         try {
@@ -1974,82 +2005,47 @@
         } catch (err) {
             validateSearchWhileTyping();
             toast(err.message, 'error');
-            input.focus();
+            searchInput.focus();
             return;
         }
 
-        form.classList.remove('invalid');
+        searchForm.classList.remove('invalid');
         hideSearchSuggestions();
+
         const validation = document.getElementById('searchValidation');
-        if (validation) {
-            validation.hidden = true;
-        }
+        if (validation) validation.hidden = true;
+
+        // Sync clear-button visibility with the committed query
+        clearSearchBtn.classList.toggle('visible', query.length > 0);
+
         setSearchLoading(true);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         try {
             activeSearchQuery = query;
             await fetchTorrents();
-            document.getElementById('clearSearchBtn')
-                .addEventListener('click', () => {
-                    searchInput.value = '';
-                    validateSearchWhileTyping();
-                    renderSearchSuggestions();
-                    applySearch();
-                });
-            toast(
-                query ? `Search applied: ${query}` : 'Search cleared',
-                'success'
-            );
+            toast(query ? `Search applied: ${query}` : 'Search cleared', 'success');
         } finally {
             setSearchLoading(false);
         }
     }
 
-    document.getElementById('searchForm')
-        .addEventListener('submit', event => {
-            event.preventDefault();
-            applySearch();
-        });
-
-    document.getElementById('torrentSearch')
-        .addEventListener('input', () => {
-            // Typing never triggers a search. Only clear stale validation.
-            document.getElementById('searchForm')
-                .classList.remove('invalid');
-        });
-
-    document.getElementById('clearSearchBtn')
-        .addEventListener('click', () => {
-            document.getElementById('torrentSearch').value = '';
-            applySearch();
-        });
-
+    // ── Search info modal ─────────────────────────────────────
     function closeSearchInfo() {
-        document.getElementById('searchInfoModal')
-            .classList.remove('open');
+        document.getElementById('searchInfoModal').classList.remove('open');
         resumePollingAfterModal();
     }
 
-    document.getElementById('searchInfoBtn')
-        .addEventListener('click', () => {
-            pausePollingForModal();
-            document.getElementById('searchInfoModal')
-                .classList.add('open');
-        });
+    document.getElementById('searchInfoBtn').addEventListener('click', () => {
+        pausePollingForModal();
+        document.getElementById('searchInfoModal').classList.add('open');
+    });
 
-    document.getElementById('closeSearchInfoModal')
-        .addEventListener('click', closeSearchInfo);
-
-    document.getElementById('cancelSearchInfoModal')
-        .addEventListener('click', closeSearchInfo);
-
-    document.getElementById('searchInfoModal')
-        .addEventListener('click', event => {
-            if (event.target === event.currentTarget) {
-                closeSearchInfo();
-            }
-        });
+    document.getElementById('closeSearchInfoModal').addEventListener('click', closeSearchInfo);
+    document.getElementById('cancelSearchInfoModal').addEventListener('click', closeSearchInfo);
+    document.getElementById('searchInfoModal').addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeSearchInfo();
+    });
 
     // ── Views ─────────────────────────────────────────────────
     function showView(id) {
@@ -2092,7 +2088,7 @@
             if (resp.ok) {
                 const data = await resp.json();
                 apikey = data.apikey;
-                sessionExpiresAt = Date.now() + (sessionExpiry);
+                sessionExpiresAt = Date.now() + sessionExpiry;
                 sessionStorage.setItem('apikey', apikey);
                 sessionStorage.setItem('sessionExpiresAt', `${sessionExpiresAt}`);
                 startSessionTimer();
@@ -2110,7 +2106,6 @@
         }
     });
 
-    // Allow Enter key on login inputs
     ['username', 'password'].forEach(id => {
         document.getElementById(id).addEventListener('keydown', e => {
             if (e.key === 'Enter') document.getElementById('loginBtn').click();
@@ -2124,7 +2119,6 @@
 
     function stopPolling() {
         pollPaused = true;
-
         if (pollTimer) {
             clearInterval(pollTimer);
             pollTimer = null;
@@ -2132,18 +2126,9 @@
     }
 
     function startPolling() {
-        if (pollPaused) {
-            pollPaused = false;
-        }
-
-        if (pollTimer) {
-            clearInterval(pollTimer);
-        }
-
-        pollTimer = setInterval(
-            fetchTorrents,
-            refreshInterval
-        );
+        if (pollPaused) pollPaused = false;
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(fetchTorrents, refreshInterval);
     }
 
     function pausePollingForModal() {
@@ -2151,13 +2136,7 @@
     }
 
     function resumePollingAfterModal() {
-        const anyModalOpen = document.querySelector(
-            '.modal-backdrop.open'
-        );
-
-        if (!anyModalOpen) {
-            startPolling();
-        }
+        if (!document.querySelector('.modal-backdrop.open')) startPolling();
     }
 
     function startSessionTimer() {
@@ -2181,20 +2160,11 @@
     }
 
     function updateSessionRemaining() {
-        const remaining =
-            Math.max(0, sessionExpiresAt - Date.now());
-        const totalSeconds =
-            Math.floor(remaining / 1000);
-        const minutes =
-            String(Math.floor(totalSeconds / 60))
-                .padStart(2, '0');
-        const seconds =
-            String(totalSeconds % 60)
-                .padStart(2, '0');
-        document.getElementById(
-            'sessionRemaining'
-        ).textContent =
-            `Session: ${minutes}:${seconds}`;
+        const remaining = Math.max(0, sessionExpiresAt - Date.now());
+        const totalSeconds = Math.floor(remaining / 1000);
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        document.getElementById('sessionRemaining').textContent = `Session: ${minutes}:${seconds}`;
     }
 
     function startDashboard() {
@@ -2203,25 +2173,15 @@
         fetchTorrents();
         startPolling();
         const dropdown = document.getElementById('refreshInterval');
-        if (dropdown) {
-            dropdown.value = String(refreshInterval);
-        }
+        if (dropdown) dropdown.value = String(refreshInterval);
     }
 
     document.addEventListener('change', e => {
-        if (e.target.id !== 'refreshInterval') {
-            return;
-        }
+        if (e.target.id !== 'refreshInterval') return;
         refreshInterval = Number(e.target.value);
-        localStorage.setItem(
-            'refreshInterval',
-            String(refreshInterval)
-        );
+        localStorage.setItem('refreshInterval', String(refreshInterval));
         startDashboard();
-        toast(
-            'Refresh interval updated',
-            'success'
-        );
+        toast('Refresh interval updated', 'success');
     });
 
     function handleUnauth() {
@@ -2250,29 +2210,20 @@
     // ── Fetch version ─────────────────────────────────────────
     async function fetchVersion() {
         try {
-            const resp = await fetch(
-                '/version',
-                {signal: AbortSignal.timeout(timeout)}
-            );
-            if (!resp.ok) {
-                throw new Error(`Failed to fetch version: ${resp.statusText || resp.status}`);
-            }
+            const resp = await fetch('/version', {signal: AbortSignal.timeout(timeout)});
+            if (!resp.ok) throw new Error(`Failed to fetch version: ${resp.statusText || resp.status}`);
             const data = await resp.json();
-            document.getElementById('versionText').textContent =
-                `v${data.version}`;
+            document.getElementById('versionText').textContent = `v${data.version}`;
         } catch (err) {
             console.error(err);
             toast(err.message || `Failed to fetch version: ${err.description}`, 'error');
-            document.getElementById('versionText').textContent =
-                'v?';
+            document.getElementById('versionText').textContent = 'v?';
         }
     }
 
+    // ── Sort ──────────────────────────────────────────────────
     function getPercent(str) {
-        return parseInt(
-            str.match(/\d+/)?.[0] || '0',
-            10
-        );
+        return parseInt(str.match(/\d+/)?.[0] || '0', 10);
     }
 
     function statusWeight(status) {
@@ -2290,126 +2241,64 @@
     function sortEntries(entries) {
         return [...entries].sort((a, b) => {
             let result = 0;
-
             if (sortKey === 'name') {
-                result = a.name.localeCompare(
-                    b.name,
-                    undefined,
-                    {
-                        numeric: true,
-                        sensitivity: 'base'
-                    }
-                );
+                result = a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
             } else if (sortKey === 'status') {
                 result = statusWeight(a.status) - statusWeight(b.status);
             } else if (sortKey === 'added') {
-                const ta = a.added_at ?? 0;
-                const tb = b.added_at ?? 0;
-                result = ta - tb;
+                result = (a.added_at ?? 0) - (b.added_at ?? 0);
             }
-
-            return sortDirection === 'asc'
-                ? result
-                : -result;
+            return sortDirection === 'asc' ? result : -result;
         });
     }
 
     function updateSortUI() {
-        document
-            .querySelectorAll('.sortable')
-            .forEach(el => {
-                el.classList.remove(
-                    'active',
-                    'asc',
-                    'desc'
-                );
-            });
-
-        const active =
-            sortKey === 'name'
-                ? document.getElementById('sortName')
-                : sortKey === 'added'
-                    ? document.getElementById('sortAdded')
-                    : document.getElementById('sortStatus');
-
-        active.classList.add(
-            'active',
-            sortDirection
-        );
+        document.querySelectorAll('.sortable').forEach(el => el.classList.remove('active', 'asc', 'desc'));
+        const active = sortKey === 'name'
+            ? document.getElementById('sortName')
+            : sortKey === 'added'
+                ? document.getElementById('sortAdded')
+                : document.getElementById('sortStatus');
+        active.classList.add('active', sortDirection);
     }
 
     function setSort(key) {
         if (sortKey === key) {
-            sortDirection =
-                sortDirection === 'asc'
-                    ? 'desc'
-                    : 'asc';
+            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             sortKey = key;
             sortDirection = 'asc';
         }
-
-        sessionStorage.setItem(
-            'sortKey',
-            sortKey
-        );
-
-        sessionStorage.setItem(
-            'sortDirection',
-            sortDirection
-        );
-
+        sessionStorage.setItem('sortKey', sortKey);
+        sessionStorage.setItem('sortDirection', sortDirection);
         updateSortUI();
         fetchTorrents();
     }
 
-    document
-        .getElementById('sortName')
-        .addEventListener('click', () => {
-            setSort('name');
-        });
+    document.getElementById('sortName').addEventListener('click', () => setSort('name'));
+    document.getElementById('sortStatus').addEventListener('click', () => setSort('status'));
+    document.getElementById('sortAdded').addEventListener('click', () => setSort('added'));
 
-    document
-        .getElementById('sortStatus')
-        .addEventListener('click', () => {
-            setSort('status');
+    document.getElementById('selectAll').addEventListener('change', e => {
+        const checked = e.target.checked;
+        document.querySelectorAll('#torrentBody tr[data-name]').forEach(row => {
+            const cb = row.querySelector('.torrent-check');
+            const name = row.dataset.name;
+            cb.checked = checked;
+            if (checked) {
+                selectedNames.add(name);
+                row.classList.add('selected');
+            } else {
+                selectedNames.delete(name);
+                row.classList.remove('selected');
+            }
         });
-
-    document
-        .getElementById('sortAdded')
-        .addEventListener('click', () => {
-            setSort('added');
-        });
-
-    document
-        .getElementById('selectAll')
-        .addEventListener('change', e => {
-            const checked = e.target.checked;
-            document
-                .querySelectorAll('#torrentBody tr[data-name]')
-                .forEach(row => {
-                    const cb =
-                        row.querySelector('.torrent-check');
-                    const name =
-                        row.dataset.name;
-                    cb.checked = checked;
-                    if (checked) {
-                        selectedNames.add(name);
-                        row.classList.add('selected');
-                    } else {
-                        selectedNames.delete(name);
-                        row.classList.remove('selected');
-                    }
-                });
-            document.getElementById('deleteBtn').disabled =
-                selectedNames.size === 0;
-        });
+        document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
+    });
 
     // ── Fetch torrents ─────────────────────────────────────────
     async function fetchTorrents() {
-        if (document.querySelector('.modal-backdrop.open')) {
-            return;
-        }
+        if (document.querySelector('.modal-backdrop.open')) return;
         try {
             const resp = await fetch('/torrent', {
                 headers: authHeaders(),
@@ -2419,12 +2308,9 @@
                 handleUnauth();
                 return;
             }
-            if (!resp.ok) {
-                throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-            }
+            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
 
-            document.getElementById('lastUpdated').textContent =
-                'Updated ' + new Date().toLocaleTimeString();
+            document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
 
             const rawData = await resp.json();
             const body = document.getElementById('torrentBody');
@@ -2433,52 +2319,38 @@
                 document.getElementById('torrentCount').textContent = '(0)';
                 document.getElementById('selectAll').checked = false;
                 body.innerHTML = `
-                <tr>
-                    <td colspan="3" class="empty-state">
-                        No active torrents
-                    </td>
-                </tr>
-            `;
-
+                    <tr>
+                        <td colspan="4" class="empty-state">No active torrents</td>
+                    </tr>`;
                 selectedNames.clear();
                 document.getElementById('deleteBtn').disabled = true;
                 torrentsData = {};
                 return;
             }
 
-            // Keep the complete dataset for selection and torrent actions.
             const allEntries = sortEntries(rawData);
-
             torrentsData = {};
             allEntries.forEach(entry => {
                 torrentsData[entry.name] = entry;
             });
 
             const filters = parseSearchQuery(activeSearchQuery);
-            const entries = allEntries.filter(entry =>
-                matchesSearch(entry, filters)
-            );
+            const entries = allEntries.filter(entry => matchesSearch(entry, filters));
 
-            document.getElementById('torrentCount').textContent =
-                activeSearchQuery
-                    ? `(${entries.length}/${allEntries.length})`
-                    : `(${entries.length})`;
+            document.getElementById('torrentCount').textContent = activeSearchQuery
+                ? `(${entries.length}/${allEntries.length})`
+                : `(${entries.length})`;
 
-            const validNames = new Set(allEntries.map(entry => entry.name));
+            const validNames = new Set(allEntries.map(e => e.name));
             selectedNames.forEach(name => {
-                if (!validNames.has(name)) {
-                    selectedNames.delete(name);
-                }
+                if (!validNames.has(name)) selectedNames.delete(name);
             });
 
             body.innerHTML = entries.length
                 ? entries.map(e => `
-                    <tr class="${selectedNames.has(e.name) ? 'selected' : ''}"
-                        data-name="${esc(e.name)}">
+                    <tr class="${selectedNames.has(e.name) ? 'selected' : ''}" data-name="${esc(e.name)}">
                         <td>
-                            <input class="torrent-check"
-                                   type="checkbox"
-                                   value="${esc(e.name)}"
+                            <input class="torrent-check" type="checkbox" value="${esc(e.name)}"
                                    ${selectedNames.has(e.name) ? 'checked' : ''}>
                         </td>
                         <td>${esc(e.name)}</td>
@@ -2486,17 +2358,13 @@
                         <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
                             ${e.added_at ? formatTimestamp(e.added_at) : '—'}
                         </td>
-                    </tr>
-                `).join('')
-                : `
-                    <tr>
-                        <td class="empty-state" colspan="4">
-                            ${activeSearchQuery
-                    ? 'No torrents match your search'
-                    : 'No active torrents'}
-                        </td>
-                    </tr>
-                `;
+                    </tr>`).join('')
+                : `<tr>
+                       <td class="empty-state" colspan="4">
+                           ${activeSearchQuery ? 'No torrents match your search' : 'No active torrents'}
+                       </td>
+                   </tr>`;
+
             body.querySelectorAll('tr').forEach(row => {
                 row.addEventListener('click', e => {
                     if (e.target.tagName !== 'INPUT') {
@@ -2515,6 +2383,7 @@
                     document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
                 });
             });
+
             document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
             document.getElementById('selectAll').checked = entries.length > 0 && selectedNames.size === entries.length;
         } catch (err) {
@@ -2533,11 +2402,11 @@
         document.getElementById('delete-modal-title').textContent =
             _deleteNames.length === 1 ? 'Delete Torrent' : `Delete ${_deleteNames.length} Torrents`;
         document.getElementById('delete-modal-names').innerHTML =
-            `<div style="max-height: 150px; overflow-y: auto;">
-            <ul style="list-style-type: disc; padding-left: 40px;">
-                ${_deleteNames.map(name => `<li>${name}</li>`).join('')}
-            </ul>
-        </div>`;
+            `<div style="max-height:150px; overflow-y:auto;">
+                <ul style="list-style-type:disc; padding-left:40px;">
+                    ${_deleteNames.map(name => `<li>${esc(name)}</li>`).join('')}
+                </ul>
+            </div>`;
 
         document.getElementById('d-include-files').checked = true;
         pausePollingForModal();
@@ -2560,32 +2429,23 @@
         const names = _deleteNames;
         if (names.length === 0) return;
         const includeFiles = document.getElementById('d-include-files').checked;
-
         const btn = document.getElementById('submitDelete');
         btn.disabled = true;
         btn.textContent = 'Deleting…';
 
         try {
-            await Promise.all(
-                names.map(async name => {
-                    const resp = await fetch(
-                        `/torrent?name=${encodeURIComponent(name)}&delete-files=${includeFiles}`,
-                        {
-                            method: 'DELETE',
-                            headers: authHeaders(),
-                            signal: AbortSignal.timeout(timeout)
-                        },
-                    );
-                    if (resp.status === 401) {
-                        handleUnauth();
-                        return;
-                    }
-                    if (!resp.ok) {
-                        throw new Error(`${name}: ${await resp.text()}`);
-                    }
-                    toast(await resp.text(), resp.status === 200 ? 'success' : 'warning')
-                })
-            );
+            await Promise.all(names.map(async name => {
+                const resp = await fetch(
+                    `/torrent?name=${encodeURIComponent(name)}&delete-files=${includeFiles}`,
+                    {method: 'DELETE', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
+                );
+                if (resp.status === 401) {
+                    handleUnauth();
+                    return;
+                }
+                if (!resp.ok) throw new Error(`${name}: ${await resp.text()}`);
+                toast(await resp.text(), resp.status === 200 ? 'success' : 'warning');
+            }));
             selectedNames.clear();
             closeDelete();
             await fetchTorrents();
@@ -2611,7 +2471,9 @@
     function closeAdd() {
         document.getElementById('addModal').classList.remove('open');
         resumePollingAfterModal();
-        ['f-url', 'f-save', 'f-host', 'f-user', 'f-path'].forEach(id => document.getElementById(id).value = '');
+        ['f-url', 'f-save', 'f-host', 'f-user', 'f-path'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
         document.getElementById('f-delete').checked = false;
     }
 
@@ -2622,29 +2484,16 @@
             return;
         }
 
-        const basePayload = {
-            url,
-            delete_after_copy: document.getElementById('f-delete').checked,
-        };
-
+        const basePayload = {url, delete_after_copy: document.getElementById('f-delete').checked};
         const savePath = document.getElementById('f-save').value.trim();
         const remoteHost = document.getElementById('f-host').value.trim();
-        const remoteUsername = document.getElementById('f-user').value.trim();
+        const remoteUser = document.getElementById('f-user').value.trim();
         const remotePath = document.getElementById('f-path').value.trim();
 
-        if (savePath) {
-            basePayload.save_path = savePath;
-        }
-        if (remoteHost) {
-            basePayload.remote_host = remoteHost;
-        }
-        if (remoteUsername) {
-            basePayload.remote_username = remoteUsername;
-        }
-        if (remotePath) {
-            basePayload.remote_path = remotePath;
-        }
-        const payload = [basePayload];
+        if (savePath) basePayload.save_path = savePath;
+        if (remoteHost) basePayload.remote_host = remoteHost;
+        if (remoteUser) basePayload.remote_username = remoteUser;
+        if (remotePath) basePayload.remote_path = remotePath;
 
         const btn = document.getElementById('submitAdd');
         btn.disabled = true;
@@ -2654,20 +2503,17 @@
             const resp = await fetch('/torrent', {
                 method: 'PUT',
                 headers: authHeaders(),
-                body: JSON.stringify(payload),
+                body: JSON.stringify([basePayload]),
                 signal: AbortSignal.timeout(timeout)
             });
             if (resp.status === 401) {
                 handleUnauth();
                 return;
             }
-            if (!resp.ok) {
-                throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-            }
+            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
 
             const data = await resp.json();
             const [name, status] = Object.entries(data[0])[0];
-
             if (status.startsWith('OK')) {
                 toast(`Queued: ${name}`, 'success');
                 closeAdd();
@@ -2691,57 +2537,58 @@
         const isActive = s.startsWith('downloading') || qs === 'downloading' || qs === 'stalleddl' || qs === 'forceddl' || qs === 'metadl';
 
         let html;
-        if (isPaused)
+        if (isPaused) {
             html = `<span class="badge" style="color:var(--muted); border-color:rgba(107,107,120,0.4); background:rgba(107,107,120,0.07);">Paused</span>`;
-        else if (s.includes('→ copy queued') || s.startsWith('downloading'))
+        } else if (s.includes('→ copy queued') || s.startsWith('downloading')) {
             html = `<span class="badge badge-downloading">${esc(entry.status)}</span>`;
-        else if (s === 'copying')
+        } else if (s === 'copying') {
             html = `<span class="badge badge-copying">Copying</span>`;
-        else if (s === 'downloaded') html = `
-        <span class="badge badge-downloaded">Downloaded</span>
-        <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
-                style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-            <span class="retry-icon">⧉</span>
-        </button>`;
-        else if (s === 'completed')
+        } else if (s === 'downloaded') {
+            html = `<span class="badge badge-downloaded">Downloaded</span>
+                    <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
+                            style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+                        <span class="retry-icon">⧉</span>
+                    </button>`;
+        } else if (s === 'completed') {
             html = `<span class="badge badge-completed">Completed</span>`;
-        else if (s === 'transferred') {
+        } else if (s === 'transferred') {
             const title = entry.files_deleted ? 'Re-download' : 'Restart Rsync';
-            html = `
-        <span class="badge badge-completed">Transferred</span>
-        <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
-                style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-            <span class="retry-icon">⧉</span>
-        </button>`;
-        } else if (s === 'failed') html = `
-        <span class="badge badge-failed">Failed</span>
-        <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
-            <span class="retry-icon">↻</span>
-        </button>`;
-        else if (s === 'copyerror') html = `
-        <span class="badge badge-copy-error">Copy Error</span>
-        <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
-            <span class="retry-icon">↻</span>
-        </button>`;
-        else
+            html = `<span class="badge badge-completed">Transferred</span>
+                    <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
+                            style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
+                        <span class="retry-icon">⧉</span>
+                    </button>`;
+        } else if (s === 'failed') {
+            html = `<span class="badge badge-failed">Failed</span>
+                    <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
+                        <span class="retry-icon">↻</span>
+                    </button>`;
+        } else if (s === 'copyerror') {
+            html = `<span class="badge badge-copy-error">Copy Error</span>
+                    <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
+                        <span class="retry-icon">↻</span>
+                    </button>`;
+        } else {
             html = `<span class="badge">${esc(entry.status)}</span>`;
+        }
 
-        // Pause/resume button: show for anything still active in qBit
-        if (isPaused)
+        // Pause / resume button for live qBit torrents
+        if (isPaused) {
             html += ` <button class="retry-btn" title="Resume" onclick="doPauseResume(this, event)"
-            style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
-            <span class="retry-icon">▶</span>
-        </button>`;
-        else if (isActive)
+                              style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
+                          <span class="retry-icon">▶</span>
+                      </button>`;
+        } else if (isActive) {
             html += ` <button class="retry-btn" title="Pause" onclick="doPauseResume(this, event)"
-            style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
-            <span class="retry-icon">⏸</span>
-        </button>`;
+                              style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
+                          <span class="retry-icon">⏸</span>
+                      </button>`;
+        }
 
         html += ` <button class="retry-btn" title="Info" onclick="doInfo(this, event)"
-        style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
-        <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
-    </button>`;
+                          style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
+                      <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
+                  </button>`;
         return html;
     }
 
@@ -2752,12 +2599,13 @@
         const transferRadio = document.getElementById('r-mode-transfer');
         const isRedownload = document.getElementById('r-mode-redownload').checked;
         const hint = document.getElementById('r-mode-hint');
+
         if (transferRadio.disabled) {
             hint.textContent = 'Local files were deleted after the last transfer — only re-download is available.';
         } else {
             hint.textContent = isRedownload
                 ? '💡 Deletes the existing local files and starts a fresh download, then transfers them when complete.'
-                : '💡 Resumes the transfer using the existing local files. If they’re unavailable, starts a fresh download.';
+                : '💡 Resumes the transfer using the existing local files. If they\'re unavailable, starts a fresh download.';
         }
         document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Re-transfer →';
     }
@@ -2774,6 +2622,7 @@
         const entry = torrentsData[name] || {};
         const filesGone = !!entry.files_deleted;
         _retryBtn = btn;
+
         document.getElementById('r-name').value = name;
 
         const transferRadio = document.getElementById('r-mode-transfer');
@@ -2791,6 +2640,7 @@
         document.getElementById('r-path').value = entry.remote_path || '';
         document.getElementById('r-timeout').value = entry.rsync_timeout || '';
         document.getElementById('r-delete').checked = !!entry.delete_after_copy;
+
         updateRetryMode();
         document.getElementById('retry-modal-title').innerHTML = btn.title;
         pausePollingForModal();
@@ -2815,9 +2665,7 @@
 
         if (redownload && !confirm(
             `Re-download "${name}"?\n\nThis deletes any existing local files for this torrent and starts a fresh download from the original link.`
-        )) {
-            return;
-        }
+        )) return;
 
         const btn = document.getElementById('submitRetry');
         btn.disabled = true;
@@ -2827,20 +2675,14 @@
             _retryBtn.disabled = true;
         }
 
-        const rHost = document.getElementById('r-host');
-        const rUser = document.getElementById('r-user');
-        const rPath = document.getElementById('r-path');
-        const rTimeout = document.getElementById('r-timeout');
-        const rDelete = document.getElementById('r-delete');
-
         const payload = {
             name,
             redownload,
-            remote_host: rHost ? rHost.value.trim() : '',
-            remote_username: rUser ? rUser.value.trim() : '',
-            remote_path: rPath ? rPath.value.trim() : '',
-            rsync_timeout: rTimeout ? parseInt(rTimeout.value.trim(), 10) || 0 : 0, // provide default
-            delete_after_copy: rDelete ? rDelete.checked : false, // provide default
+            remote_host: document.getElementById('r-host').value.trim(),
+            remote_username: document.getElementById('r-user').value.trim(),
+            remote_path: document.getElementById('r-path').value.trim(),
+            rsync_timeout: parseInt(document.getElementById('r-timeout').value.trim(), 10) || 0,
+            delete_after_copy: document.getElementById('r-delete').checked
         };
 
         try {
@@ -2859,7 +2701,7 @@
                 closeRetry();
                 await fetchTorrents();
             } else {
-                toast(`${redownload ? 'Re-download' : 'Retry'} failed: ${resp.statusText} [${resp.status}] - ${await resp.text()}`, 'error');
+                toast(`${redownload ? 'Re-download' : 'Retry'} failed: ${resp.statusText} [${resp.status}] — ${await resp.text()}`, 'error');
             }
         } catch (err) {
             toast(err.message || `Network error: ${err.description}`, 'error');
@@ -2884,7 +2726,6 @@
 
         document.getElementById('info-modal-title').textContent = name;
 
-        const hasTransfer = e.remote_host;
         const rows = [
             ['URL', e.url || '—'],
             ['Save Path', e.save_path || '—'],
@@ -2893,14 +2734,14 @@
             ['Remote Path', e.remote_path || '—'],
             ['Timeout', e.rsync_timeout ? `${e.rsync_timeout}s` : '—'],
             ['Delete After Copy', e.delete_after_copy ? 'Yes' : 'No'],
-            ['Files Deleted', e.files_deleted ? 'Yes' : 'No'],
+            ['Files Deleted', e.files_deleted ? 'Yes' : 'No']
         ];
 
         document.getElementById('info-modal-body').innerHTML = rows.map(([label, val]) => `
-        <div style="display:flex; gap:1rem; padding:0.3rem 0; border-bottom:1px solid var(--border);">
-            <span style="min-width:140px; color:var(--muted); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; padding-top:2px;">${label}</span>
-            <span style="word-break:break-all;">${esc(String(val))}</span>
-        </div>`).join('');
+            <div style="display:flex; gap:1rem; padding:0.3rem 0; border-bottom:1px solid var(--border);">
+                <span style="min-width:140px; color:var(--muted); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; padding-top:2px;">${label}</span>
+                <span style="word-break:break-all;">${esc(String(val))}</span>
+            </div>`).join('');
 
         pausePollingForModal();
         document.getElementById('infoModal').classList.add('open');
@@ -2935,7 +2776,7 @@
                 handleUnauth();
                 return;
             }
-            if (!resp.ok) throw new Error(`${await resp.text()}`);
+            if (!resp.ok) throw new Error(await resp.text());
             toast(`${isPaused ? 'Resumed' : 'Paused'}: ${name}`, 'success');
             await fetchTorrents();
         } catch (err) {
@@ -2945,26 +2786,24 @@
         }
     }
 
+    // ── Utilities ─────────────────────────────────────────────
     function formatTimestamp(timestamp) {
-        // epoch seconds → ms
         const date = new Date(timestamp * 1000);
         const parts = new Intl.DateTimeFormat('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hourCycle: 'h23',
-            timeZoneName: 'short',
+            weekday: 'short', month: 'short', day: '2-digit',
+            year: 'numeric', hour: '2-digit', minute: '2-digit',
+            hourCycle: 'h23', timeZoneName: 'short'
         }).formatToParts(date);
-        const g = (type) => parts.find(p => p.type === type)?.value ?? '';
-        // → "Thu Oct 15 2026 14:30 EST"
+        const g = type => parts.find(p => p.type === type)?.value ?? '';
         return `${g('weekday')} ${g('month')} ${g('day')} ${g('year')} ${g('hour')}:${g('minute')} ${g('timeZoneName')}`;
     }
 
     function esc(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
 
     function toast(msg, type = 'info') {
