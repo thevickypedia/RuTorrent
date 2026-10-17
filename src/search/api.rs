@@ -95,11 +95,11 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
         );
         let trackers: &Vec<String> = match TRACKERS.get() {
             Some(trackers) => {
-                log::info!("Found [{}] trackers in memory", trackers.len());
                 trackers
             }
             None => {
-                log::warn!("No trackers in memory; using fallback");
+                // Worse case scenario; reaching here would mean something went really wrong
+                log::error!("No trackers in memory; using fallback");
                 &search::trackers::TRACKERS
                     .iter()
                     .copied()
