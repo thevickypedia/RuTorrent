@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{squire, warning};
 use std::num::NonZeroUsize;
 use std::str::FromStr;
@@ -52,6 +54,30 @@ impl FromStr for LogOptions {
         }
     }
 }
+#[derive(Debug, Clone)]
+pub enum TorScheme {
+    Socks5,
+    Socks5h,
+}
+
+impl fmt::Display for TorScheme {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TorScheme::Socks5 => write!(f, "socks5"),
+            TorScheme::Socks5h => write!(f, "socks5h"),
+        }
+    }
+}
+impl FromStr for TorScheme {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "socks5" => Ok(TorScheme::Socks5),
+            "socks5h" => Ok(TorScheme::Socks5h),
+            _ => Err(format!("Invalid tor scheme: {}", s)),
+        }
+    }
+}
 
 /// ### Config
 /// Application configuration loaded from environment variables.
@@ -90,6 +116,7 @@ pub struct Config {
     pub telegram_timeout: u64,
 
     // Tor configuration
+    pub tor_scheme: TorScheme,
     pub tor_host: String,
     pub tor_port: u16,
     pub tor_timeout: u64,
@@ -166,6 +193,14 @@ impl Config {
             );
         }
 
+        let tor_scheme =
+            match squire::misc::get_env_var("tor_scheme", Some("socks5h")).parse::<TorScheme>() {
+                Ok(ts) => ts,
+                Err(e) => {
+                    startup_error(format!("Invalid 'tor_scheme' value: {e}").as_str());
+                    std::process::exit(1)
+                }
+            };
         let tor_host = squire::misc::get_env_var("tor_host", Some("127.0.0.1"));
         let tor_port = match squire::misc::get_env_var("tor_port", Some("9050")).parse::<u16>() {
             Ok(p) => p,
@@ -249,6 +284,7 @@ impl Config {
             telegram_bot_token,
             telegram_chat_id,
             telegram_timeout,
+            tor_scheme,
             tor_host,
             tor_port,
             tor_timeout,

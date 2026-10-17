@@ -1,6 +1,6 @@
 use actix_web::http::header::{HeaderName, HeaderValue};
 
-use crate::{api, bay, config, database, squire};
+use crate::{api, search, config, database, squire};
 
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use serde::Deserialize;
@@ -876,7 +876,7 @@ pub async fn search_torrents(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let torrents = match bay::api::search(
+    let torrents = match search::api::search(
         &payload.query,
         payload.max_pages.unwrap_or(3),
         payload.use_tor.unwrap_or(true),

@@ -12,7 +12,7 @@ mod notifier;
 mod output;
 mod squire;
 mod swagger;
-mod bay;
+mod search;
 
 use output::display;
 

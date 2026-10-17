@@ -1,4 +1,4 @@
-use crate::{api, bay, config};
+use crate::{api, search, config};
 use reqwest::Client;
 use serde_json::Value;
 
@@ -80,10 +80,10 @@ pub async fn search(
     // Mark 1: Checks if the client has requested to use tor network
     let client: Client = if use_tor {
         // Mark 2: A new connection is created and verified everytime and this is a design choice
-        match bay::tor::client(config, metadata).await {
+        match search::tor::client(config, metadata).await {
             Ok(client) => {
                 // Mark 3: If client creation is successful, verify if the client is routed through Tor network
-                match bay::tor::verify(config, metadata, Some(client.clone())).await {
+                match search::tor::verify(config, metadata, Some(client.clone())).await {
                     Ok(_) => {
                         log::info!("Connection is secure. Using Tor network.");
                     }

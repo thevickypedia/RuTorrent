@@ -6,11 +6,11 @@ pub async fn client(
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Client> {
-    let url = format!("socks5h://{}:{}", config.tor_host, config.tor_port);
+    let url = format!("{}://{}:{}", config.tor_scheme, config.tor_host, config.tor_port);
     log::debug!("Proxy url: {}", url);
     let builder = Client::builder()
         .timeout(Duration::from_secs(config.tor_timeout))
-        .user_agent(format!("thebay-rs/{}", metadata.pkg_version))
+        .user_agent(format!("apibay-rs/{}", metadata.pkg_version))
         .proxy(Proxy::all(url)?);
     Ok(builder.build()?)
 }
