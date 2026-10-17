@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+v0.6.1 (10/16/2026)
+-------------------
+- [f36c909](https://github.com/thevickypedia/RuTorrent/commit/f36c90958d015ff786d9e43d0eeaf9b4f4d99ff4) chore: Release ``v0.6.1``
+- [9999e21](https://github.com/thevickypedia/RuTorrent/commit/9999e217cb62df3be4f2e857c496826648835c1a) feat: Add search recommendations in the UI
+- [4fd241e](https://github.com/thevickypedia/RuTorrent/commit/4fd241e09f209dceb4a37aaf574c71a2fe9b1a87) feat: Add a search option in the UI
+- [656358c](https://github.com/thevickypedia/RuTorrent/commit/656358c60be38c29f070cbebef7c5304e3f7d946) chore: Update release notes for v0.6.0
+
 v0.6.0 (10/15/2026)
 -------------------
 - [8bc9cbb](https://github.com/thevickypedia/RuTorrent/commit/8bc9cbb671185a425051ccfd81d1fb64be479bad) chore: Release ``v0.6.0``
