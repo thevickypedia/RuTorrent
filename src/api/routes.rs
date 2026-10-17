@@ -3,10 +3,8 @@ use actix_web::http::header::{HeaderName, HeaderValue};
 use crate::{api, search, config, database, squire};
 
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
-use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
-use utoipa::IntoParams;
 use uuid::Uuid;
 
 /// API endpoint to get the current health status.
@@ -800,18 +798,6 @@ pub async fn pause_torrent(
     HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
 }
 
-#[derive(Debug, Deserialize, IntoParams)]
-#[into_params(style = Form, parameter_in = Query)]
-pub struct SearchQuery {
-    /// Search query.
-    query: String,
-    /// Max pages for pagination.
-    max_pages: Option<usize>,
-    /// Boolean flag to use tor proxy. Defaults to true, set it to false if proxy server is invalid/unreacbale.
-    use_tor: Option<bool>,
-    /// Checks the IP address and fails the request if TOR connection could not be verified.
-    strict: Option<bool>,
-}
 /// API endpoint to search for torrents.
 ///
 /// # Arguments
@@ -862,14 +848,14 @@ pub struct SearchQuery {
 #[utoipa::path(
     get,
     path = "/torrents",
-    params(SearchQuery),
+    params(config::settings::GetTorrents),
     responses(
         (status = 200, description = "Search for torrents", body = Vec<api::schema::BaseTorrent>)
     )
 )]
 pub async fn search_torrents(
     request: HttpRequest,
-    payload: web::Query<SearchQuery>,
+    payload: web::Query<config::settings::GetTorrents>,
     config: web::Data<config::env::Config>,
     metadata: web::Data<config::constant::MetaData>,
 ) -> impl Responder {
@@ -879,9 +865,9 @@ pub async fn search_torrents(
     log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,
-        payload.max_pages.unwrap_or(3),
-        payload.use_tor.unwrap_or(true),
-        payload.strict.unwrap_or(true),
+        payload.max_pages,
+        payload.use_tor,
+        payload.strict,
         &config,
         &metadata,
     )

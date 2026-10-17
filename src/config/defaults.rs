@@ -37,3 +37,24 @@ pub fn default_delete_after_copy() -> bool {
         .parse::<bool>()
         .unwrap_or(false)
 }
+
+/// Returns the default number of maximum pages to render during a search.
+pub fn default_max_pages() -> usize {
+    squire::misc::get_env_var("max_pages", Some("1"))
+        .parse::<usize>()
+        .unwrap_or(3)
+}
+
+/// Returns the default boolean flag to use Tor network for explore.
+pub fn default_use_tor() -> bool {
+    squire::misc::get_env_var("use_tor", Some("true"))
+        .parse::<bool>()
+        .unwrap_or(true)
+}
+
+/// Returns the default boolean flag to fail if Tor network establishment fails.
+pub fn default_strict() -> bool {
+    squire::misc::get_env_var("strict_mode", Some("true"))
+        .parse::<bool>()
+        .unwrap_or(true)
+}

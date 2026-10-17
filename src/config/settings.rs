@@ -1,8 +1,9 @@
 use crate::config::defaults;
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::Deserialize;
 use tokio::sync::RwLock;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 /// ### PendingMap
 /// Shared map for storing pending torrent metadata before resolution.
@@ -96,4 +97,18 @@ pub struct RetryOptions {
     pub rsync_timeout: u8,
     #[serde(default = "defaults::default_delete_after_copy")]
     pub delete_after_copy: bool,
+}
+
+/// ### GetTorrents
+/// Represents query params on an incoming request to explore torrents with optional specs.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(style = Form, parameter_in = Query)]
+pub struct GetTorrents {
+    pub query: String,
+    #[serde(default = "defaults::default_max_pages")]
+    pub max_pages: usize,
+    #[serde(default = "defaults::default_use_tor")]
+    pub use_tor: bool,
+    #[serde(default = "defaults::default_strict")]
+    pub strict: bool,
 }
