@@ -34,7 +34,6 @@ async fn main() -> std::io::Result<()> {
 - **QBIT_USERNAME**: Username for qbittorrent API
 - **QBIT_PASSWORD**: Password for qbittorrent API
 - **QBIT_TIMEOUT**: Timeout for qbittorrent API
-- **DATA_STORAGE**: Boolean flag to store torrent links in the database. Defaults to `true`
 - **UTC_LOGGER**: Boolean flag to set UTC timestamps in logs. Defaults to `true`
 - **LOG**: Enum value to log to a `file` or `stdout`. Defaults to `stdout`
 - **LOG_LEVEL**: Log level to set across `actix-web`, `actix-server` and `rurorrent`
@@ -46,6 +45,10 @@ async fn main() -> std::io::Result<()> {
 - **TELEGRAM_CHAT_ID**: Chat ID where telegram notifications has to be sent.
 - **TELEGRAM_BOT_TOKEN**: Telegram bot token.
 - **TELEGRAM_TIMEOUT**: Timeout for the Telegram request.
+- **TOR_SCHEME**: Protocol scheme for Tor network. Allows `socks5` and `socks5h`. Defaults to `socks5h`
+- **TOR_HOST**: Host IP address for the Tor service. Defaults to `127.0.0.1`
+- **TOR_PORT**: Port number for the Tor service. Defaults to `9050`
+- **TOR_TIMEOUT**: Maximum timeout through Tor network. Defaults to `10`s
 
 - **SAVE_PATH**: Default path to save downloaded torrents locally. Can be overridden in `PUT /torrent`
 - **REMOTE_HOST**: Remote hostname to copy via `rsync` through ssh. Can be overridden in `PUT /torrent` [OR] `POST /retry`
