@@ -1,4 +1,5 @@
-use crate::{bay, config, api};
+use crate::{api, bay, config};
+use reqwest::Client;
 use serde_json::Value;
 
 fn string_field(row: &Value, key: &str) -> Option<String> {
@@ -70,17 +71,36 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
 pub async fn search(
     query: &str,
     pages: usize,
+    use_tor: bool,
+    strict_mode: bool,
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
-    let client = match bay::tor::client(config, metadata).await {
-        Ok(client) => client,
-        Err(e) => {
-            return Err(e);
+    let client: Client = if use_tor {
+        match bay::tor::client(config, metadata).await {
+            Ok(client) => {
+                match bay::tor::verify(config, metadata, Some(client.clone())).await {
+                    Ok(_) => {
+                        log::info!("Connection is secure. Using Tor network.");
+                    }
+                    Err(e) => {
+                        if strict_mode {
+                            log::info!("Strict mode was enabled, so failing due to: {}", e);
+                            return Err(e);
+                        } else {
+                            log::warn!("Strict mode was disabled, so proceed with error: {}", e);
+                        }
+                    }
+                }
+                client
+            }
+            Err(e) => {
+                return Err(e);
+            }
         }
+    } else {
+        Client::builder().build()?
     };
-    // TODO: Fail if tor verification fails and query param is missing bypass tor
-    bay::tor::verify(config, metadata, Some(client.clone())).await;
     let mut torrents = Vec::new();
     for page in 0..pages {
         let response = client

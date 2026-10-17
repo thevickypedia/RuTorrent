@@ -807,10 +807,14 @@ pub async fn pause_torrent(
 #[derive(Deserialize, IntoParams)]
 #[into_params(style = Form, parameter_in = Query)]
 pub struct SearchQuery {
-    /// Search query
+    /// Search query.
     query: String,
-    /// Max pages for pagination
+    /// Max pages for pagination.
     max_pages: Option<usize>,
+    /// Boolean flag to use tor proxy. Defaults to true, set it to false if proxy server is invalid/unreacbale.
+    use_tor: Option<bool>,
+    /// Checks the IP address and fails the request if TOR connection could not be verified.
+    strict_mode: Option<bool>
 }
 /// API endpoint to search for torrents.
 ///
@@ -876,12 +880,20 @@ pub async fn search_torrents(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let torrents = match bay::api::search(&payload.query, payload.max_pages.unwrap_or(3), &config, &metadata).await {
+    let torrents = match bay::api::search(
+        &payload.query,
+        payload.max_pages.unwrap_or(3),
+        payload.use_tor.unwrap_or(true),
+        payload.strict_mode.unwrap_or(true),
+        &config,
+        &metadata
+    ).await {
         Ok(torrents) => torrents,
         Err(e) => {
             log::error!("Failed to search for {} - {}", payload.query, e);
             return HttpResponse::InternalServerError().json(e.to_string())
         },
     };
+    // TODO: Set response headers with number of torrents found
     HttpResponse::Ok().json(torrents)
 }
