@@ -83,12 +83,31 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
         .map(format_size)
         .or_else(|| string_field(row, "size"));
 
+    const TRACKERS: &[&str] = &[
+        "udp://tracker.coppersurfer.tk:6969/announce",
+        "udp://tracker.openbittorrent.com:6969/announce",
+        "udp://tracker.bittor.pw:1337/announce",
+        "udp://tracker.opentrackr.org:1337",
+        "udp://bt.xxx-tracker.com:2710/announce",
+        "udp://public.popcorn-tracker.org:6969/announce",
+        "udp://eddie4.nl:6969/announce",
+        "udp://tracker.torrent.eu.org:451/announce",
+        "udp://p4p.arenabg.com:1337/announce",
+        "udp://tracker.tiny-vps.com:6969/announce",
+        "udp://open.stealth.si:80/announce",
+    ];
+
     let magnet_link = string_field(row, "info_hash").map(|hash| {
-        format!(
+        let mut magnet = format!(
             "magnet:?xt=urn:btih:{}&dn={}",
             hash,
             urlencoding::encode(&title)
-        )
+        );
+        for tracker in TRACKERS {
+            magnet.push_str("&tr=");
+            magnet.push_str(&urlencoding::encode(tracker));
+        }
+        magnet
     });
 
     Some(api::schema::BaseTorrent {
