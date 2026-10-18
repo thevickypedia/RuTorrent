@@ -1,6 +1,19 @@
 Release Notes
 =============
 
+v0.7.2 (10/17/2026)
+-------------------
+- [eb186d2](https://github.com/thevickypedia/RuTorrent/commit/eb186d228af2f89ecbd9d125ff3468f519f3570c) chore: Release ``v0.7.2``
+- [fd5fd31](https://github.com/thevickypedia/RuTorrent/commit/fd5fd31d0dd884ab5562a0e9d504f1b7322a2952) docs: Update README.md
+- [3821c09](https://github.com/thevickypedia/RuTorrent/commit/3821c096d6903232ff109c9b1d709f1d6c2a18c0) perf: Reduce default worker count from available CPUs to 2
+- [28e9159](https://github.com/thevickypedia/RuTorrent/commit/28e9159e5db2ecdc16f7a007e60e950da4e5e78f) fix: Update conflicting ``default_max_pages`` option for ``GET /search``; and reduce default ``max_trackers``
+- [97e78ab](https://github.com/thevickypedia/RuTorrent/commit/97e78abc78c24573a5698ced514b5bd39be7f0ba) refactor: Remove logging when torrents are found in memory
+- [faa0433](https://github.com/thevickypedia/RuTorrent/commit/faa04337c7ac746a808f6900557d8a190251ab5a) refactor: Change explore endpoint to ``GET /search`` to avoid conflicts with Qbit
+- [3bb8474](https://github.com/thevickypedia/RuTorrent/commit/3bb84745fe9515b98743251bb93ada1682487323) chore: Update release notes for v0.7.1
+- [95069d5](https://github.com/thevickypedia/RuTorrent/commit/95069d50870ca4d24e98e5d54d338de4900be676) style: Increase overall footer size; add hyperlink to swagger and adjust title sizing
+- [b6167b7](https://github.com/thevickypedia/RuTorrent/commit/b6167b7324c3b920fc12849beabc42b381db43da) perf: Re-use trackers from search functionality as a fallback for payload resolver
+- [5535840](https://github.com/thevickypedia/RuTorrent/commit/55358402f082e818e5b85ef115c807846b776c25) refactor: Move ``GetTorrents`` payload to use ``serde_default`` instead of manual parsers
+
 v0.7.1 (10/17/2026)
 -------------------
 - [57bc9df](https://github.com/thevickypedia/RuTorrent/commit/57bc9df86db0db9154d6d3311957f0fbc491bda4) chore: Release ``v0.7.1``
