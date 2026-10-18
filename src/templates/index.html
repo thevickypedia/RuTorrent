@@ -68,6 +68,23 @@
             display: flex;
         }
 
+        /* Dashboard and Explore share one authenticated app shell and footer. */
+        #appShell {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        #appShell.active {
+            display: flex;
+        }
+
+        #dashView,
+        #exploreView {
+            flex: 1;
+            min-height: 0;
+        }
+
         /* ══════════════════════════════
            LOGIN VIEW
         ══════════════════════════════ */
@@ -199,7 +216,6 @@
         ══════════════════════════════ */
         #dashView {
             flex-direction: column;
-            min-height: 100vh;
         }
 
         header {
@@ -472,10 +488,26 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+
+        .status-bar-meta {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            min-width: 0;
+            flex-wrap: wrap;
         }
 
         .status-bar .accent {
             color: var(--accent);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .status-bar .accent:hover {
+            color: var(--accent-dim);
         }
 
         /* ── Auto refresh ── */
@@ -1128,7 +1160,6 @@
         ══════════════════════════════ */
         #exploreView {
             flex-direction: column;
-            min-height: 100vh;
         }
 
         .explore-hero {
@@ -1301,6 +1332,16 @@
             display: block;
         }
 
+        /* Keep the main expando a predictable size; long lists scroll inside it. */
+        .cat-dropdown-list {
+            min-width: 160px;
+            max-height: min(320px, calc(100vh - 120px));
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
         .cat-group-item {
             position: relative;
         }
@@ -1335,6 +1376,7 @@
             opacity: 0.5;
         }
 
+        /* Submenus are positioned beside, rather than inside, the scroll viewport. */
         .cat-sub-panel {
             position: absolute;
             top: 0;
@@ -1343,11 +1385,15 @@
             border: 1px solid var(--border-hi);
             box-shadow: 8px 8px 24px rgba(0,0,0,0.4);
             min-width: 160px;
+            max-height: min(320px, calc(100vh - 120px));
+            overflow-y: auto;
+            overflow-x: hidden;
+            overscroll-behavior: contain;
             display: none;
             z-index: 61;
         }
 
-        .cat-group-item:hover > .cat-sub-panel {
+        .cat-sub-panel.open {
             display: block;
         }
 
@@ -1382,12 +1428,21 @@
         /* Disabled (grayed-out) control */
         .explore-control-group.disabled {
             opacity: 0.35;
-            pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .explore-control-group.disabled * {
+            cursor: not-allowed;
+        }
+
+        .toggle:disabled {
+            cursor: not-allowed;
         }
 
         .explore-results-area {
             padding: 1.5rem 2rem;
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
         }
 
@@ -1615,6 +1670,10 @@
                 font-size: 0.65rem;
             }
 
+            .status-bar-meta {
+                gap: 0.75rem;
+            }
+
             .login-card {
                 padding: 2rem 1.25rem;
             }
@@ -1713,6 +1772,7 @@
     </div>
 </div>
 
+<div id="appShell">
 <!-- ══════════════════════════════
      DASHBOARD VIEW
 ══════════════════════════════ -->
@@ -1816,14 +1876,6 @@
         </table>
     </main>
 
-    <div class="status-bar">
-        <div style="display:flex; gap:2rem; align-items:center;">
-            <span class="accent" onclick="window.location.href='/swagger-ui/#/'" style="cursor: pointer;" >RuTorrent</span>
-            <span id="versionText">v—</span>
-            <span id="lastUpdated">—</span>
-        </div>
-        <span id="sessionRemaining">-</span>
-    </div>
 </div>
 
 <!-- ══════════════════════════════
@@ -1863,7 +1915,9 @@
                         <span id="catLabel">All</span>
                         <span class="cat-chevron">▼</span>
                     </button>
-                    <div class="cat-dropdown" id="catDropdown"></div>
+                    <div class="cat-dropdown" id="catDropdown">
+                        <div class="cat-dropdown-list" id="catDropdownList"></div>
+                    </div>
                 </div>
                 <!-- Hidden input carries the selected category id for the search call -->
                 <input type="hidden" id="exploreCategory" value="0">
@@ -1899,8 +1953,15 @@
         </table>
     </div>
 
-    <div class="status-bar">
-        <span class="accent" onclick="window.location.href='/swagger-ui/#/'" style="cursor: pointer;" >RuTorrent · Explore</span>
+</div>
+
+    <div class="status-bar" id="appStatusBar">
+        <div class="status-bar-meta">
+            <a class="accent" id="footerTitle" href="/swagger-ui/#/" target="_blank" rel="noopener noreferrer">RuTorrent</a>
+            <span id="versionText">v—</span>
+            <span id="lastUpdated">—</span>
+        </div>
+        <span id="sessionRemaining">-</span>
     </div>
 </div>
 
@@ -2536,6 +2597,12 @@
     function showView(id) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
+
+        const appShell = document.getElementById('appShell');
+        const isAppView = id === 'dashView' || id === 'exploreView';
+        appShell.classList.toggle('active', isAppView);
+        document.getElementById('footerTitle').textContent =
+            id === 'exploreView' ? 'RuTorrent · Explore' : 'RuTorrent';
     }
 
     // On load: if we have a stored apikey, go straight to dashboard
@@ -3284,8 +3351,10 @@
     let _selectedCatId = '0';   // '0' = all categories
 
     function buildCategoryDropdown(categoryMap) {
-        const dropdown = document.getElementById('catDropdown');
-        dropdown.innerHTML = '';
+        const list = document.getElementById('catDropdownList');
+        const picker = document.getElementById('catPicker');
+        list.replaceChildren();
+        picker.querySelectorAll(':scope > .cat-sub-panel').forEach(panel => panel.remove());
 
         // "All" option at the top
         const allItem = document.createElement('div');
@@ -3293,11 +3362,12 @@
         const allRow = document.createElement('div');
         allRow.className = 'cat-group-row' + (_selectedCatId === '0' ? ' active' : '');
         allRow.textContent = 'All';
+        allRow.addEventListener('mouseenter', hideCatSubPanels);
         allRow.addEventListener('click', () => selectCategory('0', 'All'));
         allItem.appendChild(allRow);
-        dropdown.appendChild(allItem);
+        list.appendChild(allItem);
 
-        // One row per group, sub-panel expands on hover
+        // Keep each fly-out panel outside the scroll viewport so it is never clipped.
         Object.entries(categoryMap).forEach(([groupName, subs]) => {
             const groupItem = document.createElement('div');
             groupItem.className = 'cat-group-item';
@@ -3321,11 +3391,16 @@
                 subPanel.appendChild(btn);
             });
 
+            groupRow.addEventListener('mouseenter', () => showCatSubPanel(groupRow, subPanel));
             groupItem.appendChild(groupRow);
-            groupItem.appendChild(subPanel);
-            dropdown.appendChild(groupItem);
+            list.appendChild(groupItem);
+            picker.appendChild(subPanel);
         });
+
     }
+
+    // Scrolling changes row positions, so close an open fly-out until a row is hovered again.
+    document.getElementById('catDropdownList').addEventListener('scroll', hideCatSubPanels, {passive: true});
 
     function selectCategory(id, label) {
         _selectedCatId = id;
@@ -3336,6 +3411,31 @@
         if (_categoryMap) buildCategoryDropdown(_categoryMap);
     }
 
+    function hideCatSubPanels(except = null) {
+        document.querySelectorAll('#catPicker > .cat-sub-panel').forEach(panel => {
+            if (panel !== except) panel.classList.remove('open');
+        });
+    }
+
+    function showCatSubPanel(groupRow, subPanel) {
+        hideCatSubPanels(subPanel);
+        subPanel.classList.add('open');
+
+        const picker = document.getElementById('catPicker');
+        const dropdownRect = document.getElementById('catDropdown').getBoundingClientRect();
+        const pickerRect = picker.getBoundingClientRect();
+        const rowRect = groupRow.getBoundingClientRect();
+        const panelWidth = subPanel.offsetWidth;
+        const panelHeight = subPanel.offsetHeight;
+        const openRight = dropdownRect.right + panelWidth <= window.innerWidth - 4;
+        const viewportTop = Math.max(4, Math.min(rowRect.top, window.innerHeight - panelHeight - 4));
+
+        subPanel.style.left = openRight
+            ? `${dropdownRect.right - pickerRect.left}px`
+            : `${dropdownRect.left - pickerRect.left - panelWidth}px`;
+        subPanel.style.top = `${viewportTop - pickerRect.top}px`;
+    }
+
     function openCatDropdown() {
         document.getElementById('catDropdown').classList.add('open');
         document.getElementById('catBtn').classList.add('open');
@@ -3344,6 +3444,7 @@
     function closeCatDropdown() {
         document.getElementById('catDropdown').classList.remove('open');
         document.getElementById('catBtn').classList.remove('open');
+        hideCatSubPanels();
     }
 
     document.getElementById('catBtn').addEventListener('click', e => {
@@ -3355,6 +3456,9 @@
     document.addEventListener('click', e => {
         if (!e.target.closest('#catPicker')) closeCatDropdown();
     });
+
+    document.getElementById('catPicker').addEventListener('mouseleave', () => hideCatSubPanels());
+    window.addEventListener('resize', () => hideCatSubPanels());
 
     async function fetchCategories() {
         if (_categoryMap) return;   // already loaded
@@ -3372,13 +3476,20 @@
     }
 
     // ── use_tor → strict coupling ─────────────────────────────
-    document.getElementById('exploreUseTor').addEventListener('change', function () {
-        const strictGroup = document.getElementById('strictGroup');
-        strictGroup.classList.toggle('disabled', !this.checked);
-        if (!this.checked) {
-            document.getElementById('exploreStrict').checked = false;
-        }
-    });
+    const exploreUseTor = document.getElementById('exploreUseTor');
+    const exploreStrict = document.getElementById('exploreStrict');
+    const strictGroup = document.getElementById('strictGroup');
+
+    function syncStrictControl() {
+        const strictDisabled = !exploreUseTor.checked;
+        strictGroup.classList.toggle('disabled', strictDisabled);
+        strictGroup.setAttribute('aria-disabled', String(strictDisabled));
+        exploreStrict.disabled = strictDisabled;
+        if (strictDisabled) exploreStrict.checked = false;
+    }
+
+    exploreUseTor.addEventListener('change', syncStrictControl);
+    syncStrictControl();
 
     document.getElementById('exploreBtn').addEventListener('click', () => {
         stopPolling();
@@ -3432,8 +3543,8 @@
         exploreLastQuery = query;   // ← cache it
 
         const category = document.getElementById('exploreCategory').value;
-        const useTor = document.getElementById('exploreUseTor').checked;
-        const strict = document.getElementById('exploreStrict').checked;
+        const useTor = exploreUseTor.checked;
+        const strict = useTor && exploreStrict.checked;
 
         setSearchLoading(true);
         try {
