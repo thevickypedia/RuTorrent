@@ -11,6 +11,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::routes::version,
         api::routes::get_torrents,
         api::routes::search_torrents,
+        api::routes::search_category,
         api::routes::put_torrent,
         api::routes::pause_torrent,
         api::routes::delete_torrent,

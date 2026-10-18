@@ -798,6 +798,64 @@ pub async fn pause_torrent(
     HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
 }
 
+/// API endpoint to get search category.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `nested` - Boolean flag to get the nested object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl localhost:3000/search-categories?nested=false
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "100": "Audio",
+///   "101": "Music",
+///   "102": "Audio Books",
+///   "103": "Sound Clips",
+///   ...
+/// }
+/// ```
+///
+/// #### Status
+/// * `200`: Successful.
+///
+/// # Returns
+///
+/// Returns a HashMap of categories with id and name as key-value pairs.
+#[utoipa::path(
+    get,
+    path = "/categories",
+    params(
+        ("nested" = bool, Query, description = "Boolean flag to get nested categories")
+    ),
+    responses(
+        (status = 200, description = "Static category map", body = HashMap<u16, String>)
+    )
+)]
+pub async fn search_category(
+    request: HttpRequest,
+    query: web::Query<HashMap<String, String>>,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let nested = query.get("nested").map(|v| v == "true").unwrap_or(false);
+    let categories = &search::category::categories();
+    if nested {
+        log::info!("Rendering nested categories");
+        HttpResponse::Ok().json(categories)
+    } else {
+        log::info!("Rendering flattened categories");
+        HttpResponse::Ok().json(search::category::flatten(categories))
+    }
+}
+
 /// API endpoint to search for torrents.
 ///
 /// # Arguments
@@ -838,7 +896,7 @@ pub async fn pause_torrent(
 /// ```
 ///
 /// #### Status
-/// * `200`: Successfully queued.
+/// * `200`: Successful.
 /// * `400`: Invalid request.
 /// * `500`: Server error.
 ///
@@ -850,7 +908,7 @@ pub async fn pause_torrent(
     path = "/search",
     params(config::settings::SearchTorrents),
     responses(
-        (status = 200, description = "Search for torrents", body = Vec<api::schema::BaseTorrent>)
+        (status = 200, description = "List of results as structured object", body = Vec<api::schema::BaseTorrent>)
     )
 )]
 pub async fn search_torrents(

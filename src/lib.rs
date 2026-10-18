@@ -78,6 +78,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/version", web::get().to(api::routes::version))
             .route("/torrent", web::get().to(api::routes::get_torrents))
             .route("/search", web::get().to(api::routes::search_torrents))
+            .route("/categories", web::get().to(api::routes::search_category))
             .route("/torrent", web::put().to(api::routes::put_torrent))
             .route("/torrent", web::delete().to(api::routes::delete_torrent))
             .route("/retry", web::post().to(api::routes::retry_torrent))
