@@ -45,7 +45,7 @@ fn base64_decode(value: &str) -> Result<String, Box<dyn std::error::Error>> {
 ///
 /// # Arguments
 ///
-/// - `request` - Reference to the `HttpRequest` object.
+/// * `request` - Reference to the `HttpRequest` object.
 /// * `config` - Reference to the `Config` object.
 ///
 /// #### Status

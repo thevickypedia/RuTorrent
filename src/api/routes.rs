@@ -45,7 +45,7 @@ pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Re
 ///
 /// # Arguments
 ///
-/// - `request` - Reference to the `HttpRequest` object.
+/// * `request` - Reference to the `HttpRequest` object.
 /// * `config` - Reference to the `Config` object.
 ///
 /// # Returns

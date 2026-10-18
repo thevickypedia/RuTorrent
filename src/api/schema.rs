@@ -1,6 +1,7 @@
 use std::{collections::HashMap, error::Error};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use crate::search;
 
 /// ### TorrentEntry
 /// A single torrent's state as exposed through the WebUI/API — includes the
@@ -52,8 +53,21 @@ pub struct BaseTorrent {
 }
 
 impl BaseTorrent {
+    /// Hydrate the category with a $parent > $child style.
+    ///
+    /// # Arguments
+    ///
+    /// * `category_map` - Flattened category hashmap.
     pub fn hydrate_category(&mut self, category_map: &HashMap<u16, String>) {
-        let cat = self.category.as_deref().unwrap_or_default().parse::<u16>().unwrap_or(0);
-        self.category = category_map.get(&cat).cloned();
+        let category = self.category.as_deref().unwrap_or_default();
+        if let Ok(category_id) = category.parse::<u16>() {
+            let base = search::category::base_map(&category_id);
+            let mapped = category_map.get(&category_id);
+            if let (Some(base), Some(mapped)) = (base, mapped) {
+                self.category = Some(format!("{} > {}", base, mapped));
+            } else {
+                self.category = mapped.cloned();
+            }
+        }
     }
 }

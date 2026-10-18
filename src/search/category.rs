@@ -79,6 +79,39 @@ pub fn categories() -> HashMap<String, HashMap<u16, String>> {
     map
 }
 
+/// Use the category id to map the base category name.
+///
+/// # Arguments
+///
+/// * `id` - Category id.
+///
+/// # Returns
+///
+/// Returns the parent category name as an `Option<String>` object.
+pub fn base_map(id: &u16) -> Option<String> {
+    if id < &100 {
+        return None
+    };
+    match *id / 100 {
+        1 => Some("Audio".to_string()),
+        2 => Some("Video".to_string()),
+        3 => Some("Applications".to_string()),
+        4 => Some("Games".to_string()),
+        5 => Some("Porn".to_string()),
+        6 => Some("Other".to_string()),
+        _ => None,
+    }
+}
+
+/// Flattens the categories without the base keys.
+///
+/// # Arguments
+///
+/// * `categories` - Takes the nested categories as an `HashMap<String, HashMap<u16, String>>` object.
+///
+/// # Returns
+///
+/// Returns the flattened category map as an `HashMap<u16, String>` object.
 pub fn flatten(categories: &HashMap<String, HashMap<u16, String>>) -> HashMap<u16, String> {
     categories.values().flat_map(|inner| inner.iter())
         .map(|(k, v)| (*k, v.clone()))
