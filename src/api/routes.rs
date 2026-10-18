@@ -808,7 +808,7 @@ pub async fn pause_torrent(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl localhost:3000/search?query=ubuntu&max_pages=1
+/// curl localhost:3000/search?query=ubuntu
 /// ```
 ///
 /// #### Sample Response
@@ -865,7 +865,6 @@ pub async fn search_torrents(
     log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,
-        payload.max_pages,
         payload.use_tor,
         payload.strict,
         &config,

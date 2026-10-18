@@ -64,7 +64,6 @@ async fn main() -> std::io::Result<()> {
 
 | Key           | Description                                                 | Default | Endpoint      |
 |---------------|-------------------------------------------------------------|---------|---------------|
-| `MAX_PAGES`   | Maximum number of pages to render during a search operation | `1`     | `GET /search` |
 | `USE_TOR`     | Boolean flag to use Tor network when searching for torrents | `true`  | `GET /search` |
 | `STRICT_MODE` | Boolean flag to fail if Tor proxy fails to connect          | `true`  | `GET /search` |
 
@@ -164,7 +163,7 @@ docker run -d \
 
 1. `GET /search` - Returns search results.
    ```shell
-   curl -H "apikey: ${APIKEY}" 'localhost:3000/search?query=ubuntu&max_pages=3&use_tor=true&strict=false'
+   curl -H "apikey: ${APIKEY}" 'localhost:3000/search?query=ubuntu&use_tor=true&strict=false'
    ```
 2. `GET /torrent` - Returns the download/copy status.
     ```shell

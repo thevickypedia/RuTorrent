@@ -102,7 +102,7 @@ async fn resolve_new_torrents(
             .find(|tag| pending_lock.contains_key(*tag));
 
         let item = if let Some(tag) = matched_tag {
-            log::info!("Resolved {} → {}", &torrent.name, &torrent.hash);
+            log::info!("Resolved {} → {}", torrent.name, torrent.hash);
             pending_lock.remove(tag).unwrap()
         } else {
             // Torrent exists in qBit but has no pending entry — auto-track it

@@ -105,8 +105,6 @@ pub struct RetryOptions {
 #[into_params(style = Form, parameter_in = Query)]
 pub struct SearchTorrents {
     pub query: String,
-    #[serde(default = "defaults::default_max_pages")]
-    pub max_pages: usize,
     #[serde(default = "defaults::default_use_tor")]
     pub use_tor: bool,
     #[serde(default = "defaults::default_strict")]

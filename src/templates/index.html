@@ -1713,21 +1713,6 @@
 
         <div class="explore-controls" id="exploreControls">
             <div class="explore-control-group">
-                <span>Pages</span>
-                <select id="exploreMaxPages">
-                    <option value="1" selected>1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                    <option value="5">5</option>
-                    <option value="6">6</option>
-                    <option value="7">7</option>
-                    <option value="8">8</option>
-                    <option value="9">9</option>
-                    <option value="10">10</option>
-                </select>
-            </div>
-            <div class="explore-control-group">
                 <span>Tor</span>
                 <input class="toggle" id="exploreUseTor" type="checkbox" checked>
             </div>
@@ -3187,14 +3172,13 @@
 
         exploreLastQuery = query;   // ← cache it
 
-        const maxPages = document.getElementById('exploreMaxPages').value;
         const useTor = document.getElementById('exploreUseTor').checked;
         const strict = document.getElementById('exploreStrict').checked;
 
         setSearchLoading(true);
         try {
             const resp = await fetch(
-                `/search?query=${encodeURIComponent(query)}&max_pages=${maxPages}&use_tor=${useTor}&strict=${strict}`,
+                `/search?query=${encodeURIComponent(query)}&use_tor=${useTor}&strict=${strict}`,
                 {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
             if (resp.status === 401) {

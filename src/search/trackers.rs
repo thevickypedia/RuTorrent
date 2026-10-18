@@ -99,7 +99,7 @@ pub async fn get(config: &config::env::Config) -> Vec<String> {
             Vec::new()
         });
         if !io_trackers.is_empty() {
-            log::info!("Trackers loaded from {:?}: {:?}", &filepath, trackers);
+            log::info!("Trackers loaded from {:?}: {:?}", filepath, trackers);
             trackers.extend(io_trackers);
         }
     }
