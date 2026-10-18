@@ -865,6 +865,7 @@ pub async fn search_torrents(
     log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,
+        payload.category,
         payload.use_tor,
         payload.strict,
         &config,

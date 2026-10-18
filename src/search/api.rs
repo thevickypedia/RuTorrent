@@ -146,6 +146,7 @@ pub async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<Strin
 /// # Arguments
 ///
 /// * `query` - Search query string.
+/// * `category` - Category Id for search.
 /// * `use_tor` - Whether to route requests through the Tor network.
 /// * `strict` - Whether to fail if Tor verification fails.
 /// * `config` - Application environment configuration.
@@ -156,6 +157,7 @@ pub async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<Strin
 /// Returns a `Result` containing the collected torrent results, or an error if client creation, request execution, response validation, or strict Tor verification fails.
 pub async fn search(
     query: &str,
+    category: u16,
     use_tor: bool,
     strict: bool,
     config: &config::env::Config,
@@ -193,7 +195,7 @@ pub async fn search(
     ensure_trackers(config).await;
     let response = client
         .get("https://apibay.org/q.php")
-        .query(&[("q", query), ("cat", "0")])
+        .query(&[("q", query), ("cat", &category.to_string())])
         .send()
         .await?
         .error_for_status()?;
