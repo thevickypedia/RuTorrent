@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -49,4 +49,11 @@ pub struct BaseTorrent {
     /// the `date_uploaded` field name for compatibility with provider responses.
     #[serde(rename = "date_uploaded")]
     pub date: Option<String>,
+}
+
+impl BaseTorrent {
+    pub fn hydrate_category(&mut self, category_map: &HashMap<u16, String>) {
+        let cat = self.category.as_deref().unwrap_or_default().parse::<u16>().unwrap_or(0);
+        self.category = category_map.get(&cat).cloned();
+    }
 }

@@ -203,10 +203,15 @@ pub async fn search(
     let Some(rows) = payload.as_array() else {
         return Err("Failed to get results.".into());
     };
-    let torrents: Vec<api::schema::BaseTorrent> = rows.iter().filter_map(parse_torrent).collect();
+    let mut torrents: Vec<api::schema::BaseTorrent> = rows.iter().filter_map(parse_torrent).collect();
     if torrents.is_empty() {
         return Err(format!("No results found for '{}'", query).into())
     }
     log::info!("Found {} torrents.", torrents.len());
+    let categories = search::category::categories();
+    let flattened = search::category::flatten(&categories);
+    for tor in torrents.iter_mut() {
+        tor.hydrate_category(&flattened);
+    }
     Ok(torrents)
 }
