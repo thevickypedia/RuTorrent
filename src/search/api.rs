@@ -141,6 +141,27 @@ pub async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<Strin
         .await
 }
 
+/// Returns the list of unique torrents as `Vec<BaseTorrent>` object.
+fn dedup_torrents(torrents: Vec<api::schema::BaseTorrent>) -> Vec<api::schema::BaseTorrent> {
+    let mut seen = std::collections::HashSet::new();
+    torrents
+        .into_iter()
+        .filter(|t| {
+            // Primary key: magnet_link (contains the info hash)
+            // Fallback: title+size for records that somehow lack a magnet
+            let key = match &t.magnet_link {
+                Some(m) if !m.is_empty() => m.clone(),
+                _ => format!(
+                    "{}|{}",
+                    t.title.as_deref().unwrap_or(""),
+                    t.size.as_deref().unwrap_or("")
+                ),
+            };
+            seen.insert(key)
+        })
+        .collect()
+}
+
 /// Search for torrents using the JSON API, optionally routing requests through Tor.
 ///
 /// # Arguments
@@ -194,6 +215,7 @@ pub async fn search(
     };
     ensure_trackers(config).await;
     let mut torrents = Vec::new();
+    // TODO: Redundancies are introduced here - try to find a way to get # of pages before
     for page in 0..pages {
         let response = client
             .get("https://apibay.org/q.php")
@@ -207,6 +229,12 @@ pub async fn search(
         };
         torrents.extend(rows.iter().filter_map(parse_torrent));
     }
-    log::info!("Found {} torrents.", torrents.len());
-    Ok(torrents)
+    let len_org = torrents.len();
+    log::info!("Found {} torrents.", len_org);
+    let uniq_torrents = dedup_torrents(torrents);
+    let len_uni = uniq_torrents.len();
+    if len_uni != len_org {
+        log::info!("Found {} torrents (after dedup).", len_uni);
+    }
+    Ok(uniq_torrents)
 }
