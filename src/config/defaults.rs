@@ -38,12 +38,11 @@ pub fn default_delete_after_copy() -> bool {
         .unwrap_or(false)
 }
 
-/// Returns the default search category.
-pub fn default_search_category() -> u16 {
-    squire::misc::get_env_var("search_category", Some("0"))
-        .parse::<u16>()
-        .unwrap_or(0)
-}
+/// Returns 0 as the default search category.
+pub fn default_search_category() -> u16 { 0 }
+
+/// Returns false as the default flag for hydrating categories in search response.
+pub fn default_hydrate_categories() -> bool { false }
 
 /// Returns the default boolean flag to use Tor network for explore.
 pub fn default_use_tor() -> bool {

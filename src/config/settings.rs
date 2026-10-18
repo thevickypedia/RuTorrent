@@ -107,6 +107,8 @@ pub struct SearchTorrents {
     pub query: String,
     #[serde(default = "defaults::default_search_category")]
     pub category: u16,
+    #[serde(default = "defaults::default_hydrate_categories")]
+    pub hydrate_categories: bool,
     #[serde(default = "defaults::default_use_tor")]
     pub use_tor: bool,
     #[serde(default = "defaults::default_strict")]

@@ -3539,7 +3539,7 @@
         setSearchLoading(true);
         try {
             const resp = await fetch(
-                `/search?query=${encodeURIComponent(query)}&category=${category}&use_tor=${useTor}${strictParam}`,
+                `/search?query=${encodeURIComponent(query)}&category=${category}&hydrate_categories=true&use_tor=${useTor}${strictParam}`,
                 {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
             if (resp.status === 401) {

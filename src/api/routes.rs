@@ -926,6 +926,7 @@ pub async fn search_torrents(
         payload.category,
         payload.use_tor,
         payload.strict,
+        payload.hydrate_categories,
         &config,
         &metadata,
     )

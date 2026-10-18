@@ -160,6 +160,7 @@ pub async fn search(
     category: u16,
     use_tor: bool,
     strict: bool,
+    hydrate_categories: bool,
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
@@ -208,10 +209,13 @@ pub async fn search(
         return Err(format!("No results found for '{}'", query).into())
     }
     log::info!("Found {} torrents.", torrents.len());
-    let categories = search::category::categories();
-    let flattened = search::category::flatten(&categories);
-    for tor in torrents.iter_mut() {
-        tor.hydrate_category(&flattened);
+    if hydrate_categories {
+        log::info!("Hydrating categories.");
+        let categories = search::category::categories();
+        let flattened = search::category::flatten(&categories);
+        for tor in torrents.iter_mut() {
+            tor.hydrate_category(&flattened);
+        }
     }
     Ok(torrents)
 }
