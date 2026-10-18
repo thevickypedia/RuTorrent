@@ -1246,6 +1246,145 @@
             border-color: var(--accent);
         }
 
+        /* ── Category expando ── */
+        .cat-picker {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .cat-btn {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.6rem;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+            transition: border-color 0.15s;
+            min-width: 110px;
+            justify-content: space-between;
+        }
+
+        .cat-btn:hover,
+        .cat-btn.open {
+            border-color: var(--border-hi);
+        }
+
+        .cat-btn .cat-chevron {
+            font-size: 0.55rem;
+            opacity: 0.6;
+            transition: transform 0.15s;
+        }
+
+        .cat-btn.open .cat-chevron {
+            transform: rotate(180deg);
+        }
+
+        .cat-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            z-index: 60;
+            background: var(--surface);
+            border: 1px solid var(--border-hi);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            min-width: 160px;
+            display: none;
+        }
+
+        .cat-dropdown.open {
+            display: block;
+        }
+
+        .cat-group-item {
+            position: relative;
+        }
+
+        .cat-group-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            gap: 0.5rem;
+            transition: background 0.1s;
+            user-select: none;
+        }
+
+        .cat-group-row:last-child {
+            border-bottom: 0;
+        }
+
+        .cat-group-row:hover {
+            background: var(--surface-hi);
+        }
+
+        .cat-group-row.active {
+            color: var(--accent);
+        }
+
+        .cat-group-row .cat-group-chevron {
+            font-size: 0.55rem;
+            opacity: 0.5;
+        }
+
+        .cat-sub-panel {
+            position: absolute;
+            top: 0;
+            left: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border-hi);
+            box-shadow: 8px 8px 24px rgba(0,0,0,0.4);
+            min-width: 160px;
+            display: none;
+            z-index: 61;
+        }
+
+        .cat-group-item:hover > .cat-sub-panel {
+            display: block;
+        }
+
+        .cat-sub-item {
+            display: block;
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.7rem;
+            font-family: var(--mono);
+            cursor: pointer;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            transition: background 0.1s, color 0.1s;
+        }
+
+        .cat-sub-item:last-child {
+            border-bottom: 0;
+        }
+
+        .cat-sub-item:hover {
+            background: var(--surface-hi);
+            color: var(--accent);
+        }
+
+        .cat-sub-item.selected {
+            color: var(--accent);
+        }
+
+        /* Disabled (grayed-out) control */
+        .explore-control-group.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
         .explore-results-area {
             padding: 1.5rem 2rem;
             flex: 1;
@@ -1579,7 +1718,9 @@
 ══════════════════════════════ -->
 <div class="view" id="dashView">
     <header>
-        <div class="header-logo">RuTorrent</div>
+        <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+            RuTorrent
+        </div>
         <div class="header-actions">
             <button class="btn btn-ghost" id="exploreBtn">Explore</button>
             <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
@@ -1677,7 +1818,7 @@
 
     <div class="status-bar">
         <div style="display:flex; gap:2rem; align-items:center;">
-            <a href="/swagger-ui" target="_blank" class="accent">RuTorrent</a>
+            <span class="accent" onclick="window.location.href='/swagger-ui/#/'" style="cursor: pointer;" >RuTorrent</span>
             <span id="versionText">v—</span>
             <span id="lastUpdated">—</span>
         </div>
@@ -1690,7 +1831,9 @@
 ══════════════════════════════ -->
 <div class="view" id="exploreView">
     <header>
-        <div class="header-logo">RuTorrent</div>
+        <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+            RuTorrent
+        </div>
         <div class="header-actions">
             <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
             <button class="btn btn-ghost" id="exploreLogoutBtn">Logout</button>
@@ -1713,10 +1856,23 @@
 
         <div class="explore-controls" id="exploreControls">
             <div class="explore-control-group">
+                <span>Category</span>
+                <!-- Dynamic category picker — populated by fetchCategories() -->
+                <div class="cat-picker" id="catPicker">
+                    <button class="cat-btn" id="catBtn" type="button">
+                        <span id="catLabel">All</span>
+                        <span class="cat-chevron">▼</span>
+                    </button>
+                    <div class="cat-dropdown" id="catDropdown"></div>
+                </div>
+                <!-- Hidden input carries the selected category id for the search call -->
+                <input type="hidden" id="exploreCategory" value="0">
+            </div>
+            <div class="explore-control-group">
                 <span>Tor</span>
                 <input class="toggle" id="exploreUseTor" type="checkbox" checked>
             </div>
-            <div class="explore-control-group">
+            <div class="explore-control-group" id="strictGroup">
                 <span>Strict</span>
                 <input class="toggle" id="exploreStrict" type="checkbox" checked>
             </div>
@@ -1744,7 +1900,7 @@
     </div>
 
     <div class="status-bar">
-        <span class="accent">RuTorrent · Explore</span>
+        <span class="accent" onclick="window.location.href='/swagger-ui/#/'" style="cursor: pointer;" >RuTorrent · Explore</span>
     </div>
 </div>
 
@@ -3122,9 +3278,112 @@
     let exploreSortKey = 'seeders';
     let exploreSortDir = 'desc';
 
+    // ── Category picker ───────────────────────────────────────
+    // categoryMap: { groupName: { id: label, … }, … }
+    let _categoryMap = null;
+    let _selectedCatId = '0';   // '0' = all categories
+
+    function buildCategoryDropdown(categoryMap) {
+        const dropdown = document.getElementById('catDropdown');
+        dropdown.innerHTML = '';
+
+        // "All" option at the top
+        const allItem = document.createElement('div');
+        allItem.className = 'cat-group-item';
+        const allRow = document.createElement('div');
+        allRow.className = 'cat-group-row' + (_selectedCatId === '0' ? ' active' : '');
+        allRow.textContent = 'All';
+        allRow.addEventListener('click', () => selectCategory('0', 'All'));
+        allItem.appendChild(allRow);
+        dropdown.appendChild(allItem);
+
+        // One row per group, sub-panel expands on hover
+        Object.entries(categoryMap).forEach(([groupName, subs]) => {
+            const groupItem = document.createElement('div');
+            groupItem.className = 'cat-group-item';
+
+            const groupRow = document.createElement('div');
+            groupRow.className = 'cat-group-row';
+            groupRow.innerHTML = `<span>${esc(groupName)}</span><span class="cat-group-chevron">▶</span>`;
+
+            const subPanel = document.createElement('div');
+            subPanel.className = 'cat-sub-panel';
+
+            Object.entries(subs).forEach(([id, label]) => {
+                const btn = document.createElement('button');
+                btn.className = 'cat-sub-item' + (_selectedCatId === id ? ' selected' : '');
+                btn.type = 'button';
+                btn.textContent = label;
+                btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    selectCategory(id, label);
+                });
+                subPanel.appendChild(btn);
+            });
+
+            groupItem.appendChild(groupRow);
+            groupItem.appendChild(subPanel);
+            dropdown.appendChild(groupItem);
+        });
+    }
+
+    function selectCategory(id, label) {
+        _selectedCatId = id;
+        document.getElementById('exploreCategory').value = id;
+        document.getElementById('catLabel').textContent = label;
+        closeCatDropdown();
+        // Refresh active styling
+        if (_categoryMap) buildCategoryDropdown(_categoryMap);
+    }
+
+    function openCatDropdown() {
+        document.getElementById('catDropdown').classList.add('open');
+        document.getElementById('catBtn').classList.add('open');
+    }
+
+    function closeCatDropdown() {
+        document.getElementById('catDropdown').classList.remove('open');
+        document.getElementById('catBtn').classList.remove('open');
+    }
+
+    document.getElementById('catBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = document.getElementById('catDropdown').classList.contains('open');
+        isOpen ? closeCatDropdown() : openCatDropdown();
+    });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#catPicker')) closeCatDropdown();
+    });
+
+    async function fetchCategories() {
+        if (_categoryMap) return;   // already loaded
+        try {
+            const resp = await fetch('/categories?nested=true', {
+                headers: authHeaders(),
+                signal: AbortSignal.timeout(timeout)
+            });
+            if (!resp.ok) return;   // silently skip — picker stays showing "All"
+            _categoryMap = await resp.json();
+            buildCategoryDropdown(_categoryMap);
+        } catch {
+            // Non-fatal — user can still search with "All"
+        }
+    }
+
+    // ── use_tor → strict coupling ─────────────────────────────
+    document.getElementById('exploreUseTor').addEventListener('change', function () {
+        const strictGroup = document.getElementById('strictGroup');
+        strictGroup.classList.toggle('disabled', !this.checked);
+        if (!this.checked) {
+            document.getElementById('exploreStrict').checked = false;
+        }
+    });
+
     document.getElementById('exploreBtn').addEventListener('click', () => {
         stopPolling();
         showView('exploreView');
+        fetchCategories();
     });
 
     document.getElementById('exploreHomeBtn').addEventListener('click', () => {
@@ -3172,13 +3431,14 @@
 
         exploreLastQuery = query;   // ← cache it
 
+        const category = document.getElementById('exploreCategory').value;
         const useTor = document.getElementById('exploreUseTor').checked;
         const strict = document.getElementById('exploreStrict').checked;
 
         setSearchLoading(true);
         try {
             const resp = await fetch(
-                `/search?query=${encodeURIComponent(query)}&use_tor=${useTor}&strict=${strict}`,
+                `/search?query=${encodeURIComponent(query)}&category=${category}&use_tor=${useTor}&strict=${strict}`,
                 {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
             if (resp.status === 401) {
