@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 // TODO: Change PUT and POST endpoints using query parameters
+//       Query params should be optional in Swagger
+//       Remove less useful endpoints from Swagger
 
 /// API endpoint to get the current health status.
 ///
@@ -1062,6 +1064,9 @@ pub async fn get_vpn(
 #[utoipa::path(
     post,
     path = "/vpn",
+    params(
+        ("disconnect" = bool, Query, description = "Boolean flag to disconnect; payload body is ignored when set to true.")
+    ),
     request_body = config::settings::ConnectVPN,
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
@@ -1069,17 +1074,26 @@ pub async fn get_vpn(
 )]
 pub async fn connect_vpn(
     request: HttpRequest,
+    query: web::Query<HashMap<String, String>>,
     payload: web::Json<config::settings::ConnectVPN>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    if !payload.node.is_empty() {
-        if let Some(response) = vpn::connect::connect_by_node(&payload.node).await {
-            return HttpResponse::Ok().json(response);
+    if query.get("disconnect").map(|v| v == "true").unwrap_or(false) {
+        log::warn!("Received disconnect request");
+        return if let Some(response) = vpn::connect::disconnect().await {
+            HttpResponse::Ok().json(response)
         } else {
-            return HttpResponse::InternalServerError().into();
+            HttpResponse::InternalServerError().into()
+        }
+    }
+    if !payload.node.is_empty() {
+        return if let Some(response) = vpn::connect::connect_by_node(&payload.node).await {
+            HttpResponse::Ok().json(response)
+        } else {
+            HttpResponse::InternalServerError().into()
         }
     }
     let blacklist: Option<Vec<String>> = if payload.blacklist.is_empty() {

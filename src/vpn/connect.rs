@@ -6,7 +6,17 @@ use tokio::time::{sleep, Duration};
 const GETTER: &str = "mullvad status --json";
 const SETTER: &str = "mullvad relay set location";
 const CONNECTOR: &str = "mullvad connect";
+const DISCONNECTOR: &str = "mullvad disconnect";
 
+/// Runs CLI commands.
+///
+/// # Arguments
+///
+/// * `command` - Reference to the command string.
+///
+/// # Returns
+///
+/// Returns the `io::Result<String> ` object.
 fn run_command(command: &str) -> io::Result<String> {
     let output = Command::new("sh")
         .arg("-c")
@@ -22,12 +32,43 @@ fn run_command(command: &str) -> io::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Disconnect VPN.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
+pub async fn disconnect() -> Option<vpn::models::MullvadResponse> {
+    match run_command(DISCONNECTOR) {
+        Ok(_) => {
+            log::info!("Disconnected vpn");
+        }
+        Err(e) => {
+            log::error!("Failed to disconnect VPN - {}", e);
+            return None;
+        }
+    }
+    // TODO: Await for state; func to take args for state as string
+    get_current()
+}
+
+/// Get current VPN status.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub fn get_current() -> Option<vpn::models::MullvadResponse> {
     let current = run_command(GETTER).ok()?;
     let response: vpn::models::MullvadResponse = serde_json::from_str(&current).ok()?;
     Some(response)
 }
 
+/// Waits for the connection to get to 'connected' state.
+///
+/// Makes 5 attempts with 3s intervals between each attempt.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn await_connection() -> Option<vpn::models::MullvadResponse> {
     // TODO: When connecting to a bad node, the server can be left in an un-reachable state
     //       Check for a way to set with a timer in mullvad or do it manually in rutorrent
@@ -68,6 +109,11 @@ pub async fn await_connection() -> Option<vpn::models::MullvadResponse> {
     None
 }
 
+/// Connect to a VPN relay by node.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadResponse> {
     match run_command(&format!("{} {}", SETTER, node)) {
         Ok(_) => {
@@ -90,6 +136,16 @@ pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadRespon
     await_connection().await
 }
 
+/// Picks a random relay and establishes VPN connection.
+///
+/// # Arguments
+///
+/// * `whitelist` - An array of city [OR] country codes to whitelist.
+/// * `blacklist` - An array of city [OR] country codes to blacklist.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn shuffler(
     whitelist: Option<Vec<String>>,
     blacklist: Option<Vec<String>>,

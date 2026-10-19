@@ -712,6 +712,61 @@
             margin-bottom: 1.75rem;
         }
 
+        .modal-header-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Unlabeled, non-persistent mode switch: on = connect, off = disconnect. */
+        .vpn-mode-toggle {
+            appearance: none;
+            width: 32px;
+            height: 18px;
+            padding: 0;
+            border: 0;
+            border-radius: 9px;
+            background: var(--border);
+            cursor: pointer;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .vpn-mode-toggle::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--muted);
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .vpn-mode-toggle[aria-checked="true"] {
+            background: rgba(232, 255, 71, 0.2);
+        }
+
+        .vpn-mode-toggle[aria-checked="true"]::after {
+            transform: translateX(14px);
+            background: var(--accent);
+        }
+
+        .vpn-mode-toggle[aria-checked="false"] {
+            background: rgba(255, 79, 79, 0.16);
+        }
+
+        .vpn-mode-toggle[aria-checked="false"]::after {
+            background: var(--error);
+        }
+
+        .vpn-mode-toggle:focus-visible {
+            outline: 1px solid var(--accent);
+            outline-offset: 3px;
+        }
+
         .modal-title {
             font-family: var(--display);
             font-size: 1rem;
@@ -880,6 +935,7 @@
         }
 
         #vpnFormContent[hidden],
+        #vpnFormFields[hidden],
         #vpnResultContent[hidden] {
             display: none !important;
         }
@@ -888,6 +944,10 @@
             color: var(--ok);
             font-size: 0.78rem;
             margin-bottom: 1.25rem;
+        }
+
+        .vpn-result-message.disconnected {
+            color: var(--error);
         }
 
         .vpn-result-grid {
@@ -2095,28 +2155,34 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vpnModalTitle">
         <div class="modal-header">
             <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
-            <button class="modal-close" id="closeVpnModal" type="button" aria-label="Close VPN dialog">✕</button>
+            <div class="modal-header-controls">
+                <button class="vpn-mode-toggle" id="vpnModeToggle" type="button" role="switch"
+                        aria-checked="true" aria-label="VPN mode: Connect" title="Switch to disconnect mode"></button>
+                <button class="modal-close" id="closeVpnModal" type="button" aria-label="Close VPN dialog">✕</button>
+            </div>
         </div>
 
         <div id="vpnFormContent">
-            <p style="color: #fff; font-size: 0.78rem; margin: 0 0 1.25rem;">Click <a
-                    href="https://api.mullvad.net/www/relays/all/" target="_blank" rel="noopener noreferrer"
-                    style="color: inherit;">here</a> to see the full list of available relays.</p>
-            <div class="form-grid">
-                <div class="field full">
-                    <label for="vpnHostname">Hostname</label>
-                    <input id="vpnHostname" type="text" placeholder="e.g. es-mad-wg-203" autocomplete="off">
-                    <div class="field-hint">[Optional] Hostname of the Mullvad relay you’re connecting to.</div>
-                </div>
-                <div class="field full">
-                    <label for="vpnWhitelist">Whitelist</label>
-                    <input id="vpnWhitelist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
-                    <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
-                </div>
-                <div class="field full">
-                    <label for="vpnBlacklist">Blacklist</label>
-                    <input id="vpnBlacklist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
-                    <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
+            <div id="vpnFormFields">
+                <p style="color: #fff; font-size: 0.78rem; margin: 0 0 1.25rem;">Click <a
+                        href="https://api.mullvad.net/www/relays/all/" target="_blank" rel="noopener noreferrer"
+                        style="color: inherit;">here</a> to see the full list of available relays.</p>
+                <div class="form-grid">
+                    <div class="field full">
+                        <label for="vpnHostname">Hostname</label>
+                        <input id="vpnHostname" type="text" placeholder="e.g. es-mad-wg-203" autocomplete="off">
+                        <div class="field-hint">[Optional] Hostname of the Mullvad relay you’re connecting to.</div>
+                    </div>
+                    <div class="field full">
+                        <label for="vpnWhitelist">Whitelist</label>
+                        <input id="vpnWhitelist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                        <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
+                    </div>
+                    <div class="field full">
+                        <label for="vpnBlacklist">Blacklist</label>
+                        <input id="vpnBlacklist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                        <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
+                    </div>
                 </div>
             </div>
             <div class="error-msg" id="vpnError" role="alert"></div>
@@ -2127,10 +2193,10 @@
         </div>
 
         <div id="vpnResultContent" hidden>
-            <p class="vpn-result-message">VPN connection established.</p>
+            <p class="vpn-result-message" id="vpnResultMessage">VPN connection established.</p>
             <dl class="vpn-result-grid">
-                <dt>Hostname</dt>
-                <dd id="vpnResultHostname">—</dd>
+                <dt id="vpnResultPrimaryLabel">Hostname</dt>
+                <dd id="vpnResultPrimaryValue">—</dd>
                 <dt>City</dt>
                 <dd id="vpnResultCity">—</dd>
                 <dt>Country</dt>
@@ -2896,12 +2962,31 @@
         }
     }
 
+    let vpnDisconnectMode = false;
+
+    function updateVpnMode(disconnect) {
+        vpnDisconnectMode = Boolean(disconnect);
+        const toggle = document.getElementById('vpnModeToggle');
+        const fields = document.getElementById('vpnFormFields');
+        const submit = document.getElementById('submitVpn');
+
+        toggle.setAttribute('aria-checked', String(!vpnDisconnectMode));
+        toggle.setAttribute('aria-label', `VPN mode: ${vpnDisconnectMode ? 'Disconnect' : 'Connect'}`);
+        toggle.title = vpnDisconnectMode ? 'Switch to connect mode' : 'Switch to disconnect mode';
+        fields.hidden = vpnDisconnectMode;
+        submit.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
+    }
+
     function resetVpnModalView() {
+        updateVpnMode(false);
         document.getElementById('vpnFormContent').hidden = false;
         document.getElementById('vpnResultContent').hidden = true;
         const error = document.getElementById('vpnError');
         error.textContent = '';
         error.classList.remove('visible');
+        const resultMessage = document.getElementById('vpnResultMessage');
+        resultMessage.textContent = 'VPN connection established.';
+        resultMessage.classList.remove('disconnected');
     }
 
     function openVpnModal() {
@@ -2924,6 +3009,13 @@
     document.querySelectorAll('.vpn-open-btn').forEach(button => {
         button.addEventListener('click', openVpnModal);
     });
+    // TODO: If current state is disconnected then toggle should be grayed out
+    document.getElementById('vpnModeToggle').addEventListener('click', () => {
+        updateVpnMode(!vpnDisconnectMode);
+        const error = document.getElementById('vpnError');
+        error.textContent = '';
+        error.classList.remove('visible');
+    });
     document.getElementById('closeVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('cancelVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('doneVpnModal').addEventListener('click', closeVpnModal);
@@ -2932,8 +3024,9 @@
     });
 
     document.getElementById('submitVpn').addEventListener('click', async () => {
-        const connectButton = document.getElementById('submitVpn');
+        const submitButton = document.getElementById('submitVpn');
         const error = document.getElementById('vpnError');
+        const disconnecting = vpnDisconnectMode;
         const payload = {
             blacklist: document.getElementById('vpnBlacklist').value.trim(),
             node: document.getElementById('vpnHostname').value.trim(),
@@ -2942,15 +3035,15 @@
 
         error.textContent = '';
         error.classList.remove('visible');
-        connectButton.disabled = true;
-        connectButton.textContent = 'Connecting…';
-        setSearchLoading(true, 'Connecting to VPN…');
+        submitButton.disabled = true;
+        submitButton.textContent = disconnecting ? 'Disconnecting…' : 'Connecting…';
+        setSearchLoading(true, disconnecting ? 'Disconnecting VPN…' : 'Connecting to VPN…');
 
         try {
-            const resp = await fetch('/vpn', {
+            const resp = await fetch(disconnecting ? '/vpn?disconnect=true' : '/vpn', {
                 method: 'POST',
                 headers: authHeaders(),
-                body: JSON.stringify(payload),
+                body: JSON.stringify(disconnecting ? {} : payload),
                 // VPN connection changes can take longer than ordinary API calls.
                 signal: AbortSignal.timeout(120000)
             });
@@ -2965,26 +3058,47 @@
             }
 
             const data = await resp.json();
-            if (String(data?.state || '').toLowerCase() !== 'connected') {
+            if (!disconnecting && String(data?.state || '').toLowerCase() !== 'connected') {
                 throw new Error(data?.message || 'The VPN server did not report a connected state.');
             }
 
             const location = getVpnLocation(data);
-            document.getElementById('vpnResultHostname').textContent = location.hostname || payload.node || '—';
+            const resultMessage = document.getElementById('vpnResultMessage');
+            const primaryLabel = document.getElementById('vpnResultPrimaryLabel');
+            const primaryValue = document.getElementById('vpnResultPrimaryValue');
+            const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4 ?? location.ip ?? data?.ip;
+
+            if (disconnecting) {
+                resultMessage.textContent = 'VPN was disconnected.';
+                resultMessage.classList.add('disconnected');
+                primaryLabel.textContent = 'IP';
+                primaryValue.textContent = ip === null || ip === undefined || String(ip).trim() === '' ? '—' : String(ip);
+            } else {
+                resultMessage.textContent = 'VPN connection established.';
+                resultMessage.classList.remove('disconnected');
+                primaryLabel.textContent = 'Hostname';
+                primaryValue.textContent = location.hostname || payload.node || '—';
+            }
+
             document.getElementById('vpnResultCity').textContent = location.city || '—';
             document.getElementById('vpnResultCountry').textContent = location.country || '—';
             document.getElementById('vpnFormContent').hidden = true;
             document.getElementById('vpnResultContent').hidden = false;
             setVpnStatus(data);
-            toast(`VPN connected: ${location.hostname || payload.node || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
+
+            if (disconnecting) {
+                toast(`VPN disconnected: ${ip || 'IP unavailable'}`, 'success');
+            } else {
+                toast(`VPN connected: ${location.hostname || payload.node || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
+            }
         } catch (err) {
-            error.textContent = err.message || 'Failed to connect to the VPN.';
+            error.textContent = err.message || (disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.');
             error.classList.add('visible');
-            toast(err.message || 'Failed to connect to the VPN.', 'error');
+            toast(err.message || (disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.'), 'error');
         } finally {
             setSearchLoading(false);
-            connectButton.disabled = false;
-            connectButton.textContent = 'Connect';
+            submitButton.disabled = false;
+            submitButton.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
         }
     });
 
