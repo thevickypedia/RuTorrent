@@ -767,6 +767,15 @@
             outline-offset: 3px;
         }
 
+        .vpn-mode-toggle:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .vpn-mode-toggle[hidden] {
+            display: none !important;
+        }
+
         .modal-title {
             font-family: var(--display);
             font-size: 1rem;
@@ -2921,8 +2930,14 @@
         return data?.details?.location || data?.location || {};
     }
 
+    // Shared from the same status payload that drives the header display; no extra request is needed.
+    let vpnCurrentConnected = false;
+
     function setVpnStatus(data) {
         const connected = String(data?.state || '').toLowerCase() === 'connected';
+        vpnCurrentConnected = connected;
+        const modeToggle = document.getElementById('vpnModeToggle');
+        if (modeToggle) modeToggle.disabled = !vpnCurrentConnected;
         const location = getVpnLocation(data);
         const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4;
         const place = [location.city, location.region || location.region_name || location.state, location.country]
@@ -2973,12 +2988,14 @@
         toggle.setAttribute('aria-checked', String(!vpnDisconnectMode));
         toggle.setAttribute('aria-label', `VPN mode: ${vpnDisconnectMode ? 'Disconnect' : 'Connect'}`);
         toggle.title = vpnDisconnectMode ? 'Switch to connect mode' : 'Switch to disconnect mode';
+        toggle.disabled = !vpnCurrentConnected;
         fields.hidden = vpnDisconnectMode;
         submit.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
     }
 
     function resetVpnModalView() {
         updateVpnMode(false);
+        document.getElementById('vpnModeToggle').hidden = false;
         document.getElementById('vpnFormContent').hidden = false;
         document.getElementById('vpnResultContent').hidden = true;
         const error = document.getElementById('vpnError');
@@ -3009,7 +3026,6 @@
     document.querySelectorAll('.vpn-open-btn').forEach(button => {
         button.addEventListener('click', openVpnModal);
     });
-    // TODO: If current state is disconnected then toggle should be grayed out
     document.getElementById('vpnModeToggle').addEventListener('click', () => {
         updateVpnMode(!vpnDisconnectMode);
         const error = document.getElementById('vpnError');
@@ -3084,6 +3100,7 @@
             document.getElementById('vpnResultCountry').textContent = location.country || '—';
             document.getElementById('vpnFormContent').hidden = true;
             document.getElementById('vpnResultContent').hidden = false;
+            document.getElementById('vpnModeToggle').hidden = true;
             setVpnStatus(data);
 
             if (disconnecting) {
