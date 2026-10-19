@@ -1045,6 +1045,12 @@ pub async fn get_vpn(
 
 /// API endpoint to connect to a vpn relay using mullvad cli.
 ///
+/// - `node` input takes the higest priority
+///
+/// - Supports both city and country codes for whitelist and blacklist.
+///
+/// - Check [https://api.mullvad.net/www/relays/all/](https://api.mullvad.net/www/relays/all/) to get the list of all relays.
+/// 
 /// # Arguments
 ///
 /// * `request` - Reference to the `HttpRequest` object.
