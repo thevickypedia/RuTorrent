@@ -949,6 +949,31 @@ pub async fn search_torrents(
     response
 }
 
+#[utoipa::path(
+    get,
+    path = "/ip",
+    responses(
+        (status = 200, description = "List of results as structured object", body = vpn::ip::IpLocation)
+    )
+)]
+pub async fn get_connection(
+    request: HttpRequest,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let Some(ip) = vpn::ip::public_ip_address().await else {
+        log::error!("Failed to get the public IP address");
+        return HttpResponse::InternalServerError().into();
+    };
+    if let Some(ip_loc) = vpn::ip::ip_location(&ip).await {
+        HttpResponse::Ok().json(ip_loc)
+    } else {
+        HttpResponse::InternalServerError().into()
+    }
+}
+
 /// API endpoint to get the current vpn relay using mullvad cli.
 ///
 /// # Arguments
