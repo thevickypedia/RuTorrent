@@ -1,3 +1,4 @@
+use crate::vpn;
 use crate::{api, config};
 use actix_web::HttpResponse;
 use utoipa::Modify;
@@ -9,6 +10,7 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         api::routes::status,
         api::routes::version,
+        api::routes::connect_vpn,
         api::routes::get_torrents,
         api::routes::search_torrents,
         api::routes::search_category,
@@ -17,7 +19,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::routes::delete_torrent,
         api::routes::retry_torrent
     ),
-    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry, api::schema::BaseTorrent)),
+    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry, api::schema::BaseTorrent, vpn::models::MullvadResponse)),
     security(
         ("apikey" = [])
     ),

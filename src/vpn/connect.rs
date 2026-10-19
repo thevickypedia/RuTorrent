@@ -3,9 +3,9 @@ use std::io;
 use crate::vpn;
 use tokio::time::{sleep, Duration};
 
-const GETTER: &'static str = "mullvad status --json";
-const SETTER: &'static str = "mullvad relay set location";
-const CONNECTOR: &'static str = "mullvad connect";
+const GETTER: &str = "mullvad status --json";
+const SETTER: &str = "mullvad relay set location";
+const CONNECTOR: &str = "mullvad connect";
 
 fn run_command(command: &str) -> io::Result<String> {
     let output = Command::new("sh")
@@ -40,41 +40,7 @@ pub fn get_current() -> Option<vpn::models::MullvadConnection> {
     })
 }
 
-pub async fn shuffler() -> Option<vpn::models::MullvadResponse> {
-    if let Some(current) = get_current() {
-        log::info!("Currently connected to {}, {} - {}", current.city, current.country, current.ipv4);
-    } else {
-        log::error!("Failed to get current connection status");
-    }
-    let Ok(relays) = vpn::relay::generate_relay_map().await else {
-        log::info!("Failed to generate relay map");
-        return None;
-    };
-    log::info!("Generated a relay map with {} countries", relays.len());
-    let Some(relay) = vpn::relay::select_relay(relays, None, None).await else {
-        log::info!("Failed to select a relay");
-        return None;
-    } ;
-    log::info!("Selected the relay {} at {}, {}", relay.hostname, relay.city_name, relay.country_name);
-    match run_command(&format!("{} {}", SETTER, relay.hostname)) {
-        Ok(_) => {
-            log::info!("Relay set to {}", relay.hostname);
-        },
-        Err(e) => {
-            log::error!("Failed to set to {} - {}", relay.hostname, e);
-            return None;
-        }
-    }
-    match run_command(CONNECTOR) {
-        Ok(_) => {
-            log::info!("Connected to {}", relay.hostname);
-        }
-        Err(e) => {
-            log::error!("Failed to connect to {} - {}", relay.hostname, e);
-            return None;
-        }
-    }
-
+pub async fn await_connection() -> Option<vpn::models::MullvadResponse> {
     // TODO: When connecting to a bad node, the server can be left in an un-reachable state
     //       Check for a way to set with a timer in mullvad or do it manually in rutorrent
     for attempt in 0..5 {
@@ -111,7 +77,67 @@ pub async fn shuffler() -> Option<vpn::models::MullvadResponse> {
         log::info!("Sleeping for 3s");
         sleep(Duration::from_secs(3)).await;
     }
-
-    log::error!("Connection validation timed out after 5 attempts");
     None
+}
+
+pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadResponse> {
+    match run_command(&format!("{} {}", SETTER, node)) {
+        Ok(_) => {
+            log::info!("Relay set to {}", node);
+        },
+        Err(e) => {
+            log::error!("Failed to set to {} - {}", node, e);
+            return None;
+        }
+    }
+    match run_command(CONNECTOR) {
+        Ok(_) => {
+            log::info!("Connected to {}", node);
+        }
+        Err(e) => {
+            log::error!("Failed to connect to {} - {}", node, e);
+            return None;
+        }
+    }
+    await_connection().await
+}
+
+pub async fn shuffler(
+    whitelist: Option<Vec<String>>,
+    blacklist: Option<Vec<String>>,
+) -> Option<vpn::models::MullvadResponse> {
+    if let Some(current) = get_current() {
+        log::info!("Currently connected to {}, {} - {} [{}]", current.city, current.country, current.hostname, current.ipv4);
+    } else {
+        log::error!("Failed to get current connection status");
+    }
+    let Ok(relays) = vpn::relay::generate_relay_map().await else {
+        log::info!("Failed to generate relay map");
+        return None;
+    };
+    log::info!("Generated a relay map with {} countries", relays.len());
+    let Some(relay) = vpn::relay::select_relay(relays, whitelist, blacklist).await else {
+        log::info!("Failed to select a relay");
+        return None;
+    } ;
+    log::info!("Selected the relay {} in {}, {}", relay.hostname, relay.city_name, relay.country_name);
+    match run_command(&format!("{} {}", SETTER, relay.hostname)) {
+        Ok(_) => {
+            log::info!("Relay set to {}", relay.hostname);
+        },
+        Err(e) => {
+            log::error!("Failed to set to {} - {}", relay.hostname, e);
+            return None;
+        }
+    }
+    match run_command(CONNECTOR) {
+        Ok(_) => {
+            log::info!("Connected to {}", relay.hostname);
+        }
+        Err(e) => {
+            log::error!("Failed to connect to {} - {}", relay.hostname, e);
+            return None;
+        }
+    }
+    await_connection().await
 }

@@ -1,11 +1,13 @@
 use actix_web::http::header::{HeaderName, HeaderValue};
 
-use crate::{api, search, config, database, squire};
+use crate::{api, config, database, search, squire, vpn};
 
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
+
+// TODO: Change PUT and POST endpoints using query parameters
 
 /// API endpoint to get the current health status.
 ///
@@ -945,4 +947,89 @@ pub async fn search_torrents(
         HeaderValue::from(length),
     );
     response
+}
+
+/// API endpoint to connect to a vpn relay using mullvad cli.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `payload` - Reference to the `ConnectVPN` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl localhost:3000/vpn
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "state": "connected",
+///   "details": {
+///     "location": {
+///       "city": "Madrid",
+///       "country": "Spain",
+///       "ipv4": null,
+///       "hostname": "es-mad-wg-203"
+///     }
+///   }
+/// }
+/// ```
+///
+/// #### Status
+/// * `200`: Successful.
+/// * `500`: Server error.
+///
+/// # Returns
+///
+/// Returns the `vpn::models::MullvadResponse` object.
+#[utoipa::path(
+    post,
+    path = "/vpn",
+    request_body = config::settings::ConnectVPN,
+    responses(
+        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
+    )
+)]
+pub async fn connect_vpn(
+    request: HttpRequest,
+    payload: web::Json<config::settings::ConnectVPN>,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    if !payload.node.is_empty() {
+        if let Some(response) = vpn::connect::connect_by_node(&payload.node).await {
+            return HttpResponse::Ok().json(response);
+        } else {
+            return HttpResponse::InternalServerError().into();
+        }
+    }
+    let blacklist: Option<Vec<String>> = if payload.blacklist.is_empty() {
+        None
+    } else {
+        Some(
+            payload.blacklist
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        )
+    };
+    let whitelist: Option<Vec<String>> = if payload.whitelist.is_empty() {
+        None
+    } else {
+        Some(
+            payload.whitelist
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        )
+    };
+    if let Some(response) = vpn::connect::shuffler(whitelist, blacklist).await {
+        HttpResponse::Ok().json(response)
+    } else {
+        HttpResponse::InternalServerError().into()
+    }
 }

@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use serde;
+use utoipa::ToSchema;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -18,18 +19,18 @@ pub struct MullvadConnection {
     pub ipv4: String,
 }
 
-#[derive(Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct MullvadResponse {
     pub state: String,
     pub details: Option<Details>,
 }
 
-#[derive(Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Details {
     pub location: Location,
 }
 
-#[derive(Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Location {
     pub city: String,
     pub country: String,

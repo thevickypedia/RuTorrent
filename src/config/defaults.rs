@@ -57,3 +57,12 @@ pub fn default_strict() -> bool {
         .parse::<bool>()
         .unwrap_or(true)
 }
+
+/// Returns an empty string for comma separated whilelist.
+pub fn default_vpn_whitelist() -> String { String::new() }
+
+/// Returns an empty string for comma separated blacklist.
+pub fn default_vpn_blacklist() -> String { String::new() }
+
+/// Returns an empty string for vpn node.
+pub fn default_vpn_node() -> String { String::new() }

@@ -114,3 +114,15 @@ pub struct SearchTorrents {
     #[serde(default = "defaults::default_strict")]
     pub strict: bool,
 }
+
+/// ### ConnectVPN
+/// Represents query params on an incoming request to rotate vpn connection with optional specs.
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ConnectVPN {
+    #[serde(default = "defaults::default_vpn_whitelist")]
+    pub whitelist: String,
+    #[serde(default = "defaults::default_vpn_blacklist")]
+    pub blacklist: String,
+    #[serde(default = "defaults::default_vpn_node")]
+    pub node: String
+}
