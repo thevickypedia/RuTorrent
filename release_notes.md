@@ -1,6 +1,21 @@
 Release Notes
 =============
 
+v0.7.3 (10/18/2026)
+-------------------
+- [dfd639a](https://github.com/thevickypedia/RuTorrent/commit/dfd639a64fa191531c48f85b4898d73db22eafc8) chore: Release ``v0.7.3``
+- [faf1ee2](https://github.com/thevickypedia/RuTorrent/commit/faf1ee2cbe4631dd501eafe506733fe6745d9526) feat: Put ``hydrate_categories`` behind a boolean flag
+- [a6567fa](https://github.com/thevickypedia/RuTorrent/commit/a6567fa46ba19483891628f6a575ecfed4f92b45) perf: Update hydration for the category
+- [4ee872b](https://github.com/thevickypedia/RuTorrent/commit/4ee872bf6857f135c4cdd3542df64128beb9c80e) feat: Add category name instead of Id in the response schema for search
+- [9539e6d](https://github.com/thevickypedia/RuTorrent/commit/9539e6d7719e8a852335bef5847ffd6e6669c71e) style: Hide ``strict`` button when ``use_tor`` is disabled
+- [93af6f2](https://github.com/thevickypedia/RuTorrent/commit/93af6f26af6285112e2ca8c080d30e05bf2fb692) feat: Keep footer consistent across main and explore pages; make drop downs for category scrollable
+- [2d69940](https://github.com/thevickypedia/RuTorrent/commit/2d69940361ba29410ef56ee611b9d1bbafc4d181) feat: Add nested category drop-down option in the UI
+- [9c27ebb](https://github.com/thevickypedia/RuTorrent/commit/9c27ebb743b88c4318a7587776632f9b4dcb7aac) feat: Add an endpoint to get search categories
+- [4746331](https://github.com/thevickypedia/RuTorrent/commit/4746331fa1c9419220a5a9d2bfe272bed88248c0) feat: Include an option for clients to pass the category id
+- [fab39ae](https://github.com/thevickypedia/RuTorrent/commit/fab39ae66c3a21569a9f68003f8f32e5c2bbf9eb) fix: Remove pagination that was resulting in duplicates
+- [8d4a10d](https://github.com/thevickypedia/RuTorrent/commit/8d4a10d942f497b432fe493a51a3fc4bcd123ccb) fix: Remove duplicate torrents during multipage searches
+- [0657c96](https://github.com/thevickypedia/RuTorrent/commit/0657c96676c5553d4c4bde6b8c315f5f33c1bedc) chore: Update release notes for v0.7.2
+
 v0.7.2 (10/17/2026)
 -------------------
 - [eb186d2](https://github.com/thevickypedia/RuTorrent/commit/eb186d228af2f89ecbd9d125ff3468f519f3570c) chore: Release ``v0.7.2``
