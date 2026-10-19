@@ -22,22 +22,10 @@ fn run_command(command: &str) -> io::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-pub fn get_current() -> Option<vpn::models::MullvadConnection> {
+pub fn get_current() -> Option<vpn::models::MullvadResponse> {
     let current = run_command(GETTER).ok()?;
     let response: vpn::models::MullvadResponse = serde_json::from_str(&current).ok()?;
-
-    if response.state != "connected" {
-        return None;
-    }
-
-    let location = response.details?.location;
-
-    Some(vpn::models::MullvadConnection {
-        hostname: location.hostname,
-        city: location.city,
-        country: location.country,
-        ipv4: location.ipv4?,
-    })
+    Some(response)
 }
 
 pub async fn await_connection() -> Option<vpn::models::MullvadResponse> {
@@ -107,7 +95,19 @@ pub async fn shuffler(
     blacklist: Option<Vec<String>>,
 ) -> Option<vpn::models::MullvadResponse> {
     if let Some(current) = get_current() {
-        log::info!("Currently connected to {}, {} - {} [{}]", current.city, current.country, current.hostname, current.ipv4);
+        if current.state == "connected" {
+            match current.details.as_ref() {
+                Some(details) => {
+                    let location = &details.location;
+                    log::info!("Currently connected to {}, {} - {} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
+                },
+                None => {
+                    log::warn!("Response is connected but details is None");
+                }
+            };
+        } else {
+            log::info!("Currently not connected to a relay")
+        }
     } else {
         log::error!("Failed to get current connection status");
     }

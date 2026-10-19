@@ -949,6 +949,75 @@ pub async fn search_torrents(
     response
 }
 
+/// API endpoint to get the current vpn relay using mullvad cli.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl localhost:3000/vpn
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "state": "connected",
+///   "details": {
+///     "location": {
+///       "city": "Madrid",
+///       "country": "Spain",
+///       "ipv4": null,
+///       "hostname": "es-mad-wg-203"
+///     }
+///   }
+/// }
+/// ```
+///
+/// #### Status
+/// * `200`: Successful.
+/// * `500`: Server error.
+///
+/// # Returns
+///
+/// Returns the `vpn::models::MullvadResponse` object.
+#[utoipa::path(
+    get,
+    path = "/vpn",
+    responses(
+        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
+    )
+)]
+pub async fn get_vpn(
+    request: HttpRequest,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    if let Some(response) = vpn::connect::get_current() {
+        if response.state == "connected" {
+            match response.details.as_ref() {
+                Some(details) => {
+                    let location = &details.location;
+                    log::info!("Currently connected to {}, {} - {} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
+                },
+                None => {
+                    log::warn!("Response is connected but details is None");
+                }
+            };
+        } else {
+            log::info!("Currently not connected to a relay")
+        }
+        HttpResponse::Ok().json(response)
+    } else {
+        log::error!("Failed to get current connection status");
+        HttpResponse::InternalServerError().into()
+    }
+}
+
 /// API endpoint to connect to a vpn relay using mullvad cli.
 ///
 /// # Arguments
@@ -959,7 +1028,7 @@ pub async fn search_torrents(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl localhost:3000/vpn
+/// curl -X POST localhost:3000/vpn
 /// ```
 ///
 /// #### Sample Response

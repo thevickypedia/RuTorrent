@@ -11,14 +11,6 @@ pub struct RelayConnector {
 
 pub type RelayMap = HashMap<String, HashMap<String, Vec<RelayConnector>>>;
 
-#[derive(Debug)]
-pub struct MullvadConnection {
-    pub hostname: String,
-    pub city: String,
-    pub country: String,
-    pub ipv4: String,
-}
-
 #[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct MullvadResponse {
     pub state: String,
