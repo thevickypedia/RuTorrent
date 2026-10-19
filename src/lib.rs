@@ -14,6 +14,7 @@ mod output;
 mod squire;
 mod swagger;
 mod search;
+mod vpn;
 
 use output::display;
 
@@ -78,6 +79,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/version", web::get().to(api::routes::version))
             .route("/torrent", web::get().to(api::routes::get_torrents))
             .route("/search", web::get().to(api::routes::search_torrents))
+            // .route("/toggle-vpn", web::get().to(api::routes::switch_vpn))
             .route("/categories", web::get().to(api::routes::search_category))
             .route("/torrent", web::put().to(api::routes::put_torrent))
             .route("/torrent", web::delete().to(api::routes::delete_torrent))
