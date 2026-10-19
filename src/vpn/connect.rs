@@ -53,7 +53,7 @@ pub async fn await_connection() -> Option<vpn::models::MullvadResponse> {
                         }
                     };
                     let location = &details.location;
-                    log::info!("Connection validated to {}", location.hostname);
+                    log::info!("Connection validated to {:?}", location.hostname);
                     return Some(response);
                 }
             }
@@ -99,7 +99,7 @@ pub async fn shuffler(
             match current.details.as_ref() {
                 Some(details) => {
                     let location = &details.location;
-                    log::info!("Currently connected to {}, {} - {} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
+                    log::info!("Currently connected to {}, {} - {:?} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
                 },
                 None => {
                     log::warn!("Response is connected but details is None");

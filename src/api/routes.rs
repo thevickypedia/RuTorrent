@@ -1002,7 +1002,7 @@ pub async fn get_vpn(
             match response.details.as_ref() {
                 Some(details) => {
                     let location = &details.location;
-                    log::info!("Currently connected to {}, {} - {} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
+                    log::info!("Currently connected to {}, {} - {:?} [{:?}]", location.city, location.country, location.hostname, location.ipv4);
                 },
                 None => {
                     log::warn!("Response is connected but details is None");

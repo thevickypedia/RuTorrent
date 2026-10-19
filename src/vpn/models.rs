@@ -27,5 +27,5 @@ pub struct Location {
     pub city: String,
     pub country: String,
     pub ipv4: Option<String>,
-    pub hostname: String,
+    pub hostname: Option<String>,
 }

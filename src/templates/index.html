@@ -1407,7 +1407,7 @@
             z-index: 60;
             background: var(--surface);
             border: 1px solid var(--border-hi);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
             min-width: 160px;
             display: none;
         }
@@ -1467,7 +1467,7 @@
             left: 100%;
             background: var(--surface);
             border: 1px solid var(--border-hi);
-            box-shadow: 8px 8px 24px rgba(0,0,0,0.4);
+            box-shadow: 8px 8px 24px rgba(0, 0, 0, 0.4);
             min-width: 160px;
             max-height: min(320px, calc(100vh - 120px));
             overflow-y: auto;
@@ -1878,207 +1878,209 @@
 </div>
 
 <div id="appShell">
-<!-- ══════════════════════════════
-     DASHBOARD VIEW
-══════════════════════════════ -->
-<div class="view" id="dashView">
-    <header>
-        <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-            RuTorrent
-        </div>
-        <div class="header-connection-tools">
-            <div class="vpn-connection-status" role="status" aria-live="polite">
-                <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
-                <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
-                <span class="vpn-connection-text">NOT CONNECTED</span>
+    <!-- ══════════════════════════════
+         DASHBOARD VIEW
+    ══════════════════════════════ -->
+    <div class="view" id="dashView">
+        <header>
+            <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+                RuTorrent
             </div>
-            <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
-        </div>
-        <div class="header-actions">
-            <button class="btn btn-ghost" id="exploreBtn">Explore</button>
-            <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
-            <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
-            <button class="btn btn-ghost" id="logoutBtn">Logout</button>
-        </div>
-    </header>
+            <div class="header-connection-tools">
+                <div class="vpn-connection-status" role="status" aria-live="polite">
+                    <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
+                    <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                    <span class="vpn-connection-text">NOT CONNECTED</span>
+                </div>
+                <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-ghost" id="exploreBtn">Explore</button>
+                <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
+                <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
+                <button class="btn btn-ghost" id="logoutBtn">Logout</button>
+            </div>
+        </header>
 
-    <main>
-        <div class="toolbar">
-            <div class="section-title">
-                Active Torrents
-                <span id="torrentCount">(0)</span>
+        <main>
+            <div class="toolbar">
+                <div class="section-title">
+                    Active Torrents
+                    <span id="torrentCount">(0)</span>
+                </div>
+
+                <div class="search-wrap">
+                    <form id="searchForm" class="search-bar" autocomplete="off">
+                        <span class="search-icon" aria-hidden="true">⌕</span>
+                        <input
+                                id="torrentSearch"
+                                type="text"
+                                placeholder="Search… (e.g. status: transferred)"
+                                aria-label="Search torrents"
+                                aria-autocomplete="list"
+                                aria-controls="searchSuggestions"
+                                aria-expanded="false"
+                                spellcheck="false"
+                        >
+                        <button
+                                type="button"
+                                id="searchInfoBtn"
+                                class="search-info-btn"
+                                aria-label="Show search syntax"
+                                title="Search syntax"
+                        >i
+                        </button>
+                        <button
+                                type="button"
+                                id="clearSearchBtn"
+                                class="search-clear-btn"
+                                aria-label="Clear search"
+                        >×
+                        </button>
+                    </form>
+                    <div
+                            id="searchSuggestions"
+                            class="search-suggestions"
+                            role="listbox"
+                            aria-label="Search filter suggestions"
+                            hidden
+                    ></div>
+                </div>
+
+                <div class="refresh-controls">
+                    <span class="refresh-dot"></span>
+                    <span>auto-refresh</span>
+                    <select class="refresh-select" id="refreshInterval">
+                        <option value="5000">5s</option>
+                        <option value="10000">10s</option>
+                        <option value="30000">30s</option>
+                        <option value="60000">60s</option>
+                        <option value="300000">5m</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="search-wrap">
-                <form id="searchForm" class="search-bar" autocomplete="off">
-                    <span class="search-icon" aria-hidden="true">⌕</span>
+            <table class="torrent-table">
+                <thead>
+                <tr>
+                    <th style="width:44px;">
+                        <input id="selectAll" type="checkbox">
+                    </th>
+                    <th class="sortable" id="sortName">
+                        Name
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" id="sortStatus">
+                        Status
+                        <span class="sort-indicator"></span>
+                    </th>
+                    <th class="sortable" id="sortAdded">
+                        Added
+                        <span class="sort-indicator"></span>
+                    </th>
+                </tr>
+                </thead>
+                <tbody id="torrentBody">
+                <tr>
+                    <!-- colspan=4 matches the four columns: checkbox, Name, Status, Added -->
+                    <td class="empty-state" colspan="4">Loading…</td>
+                </tr>
+                </tbody>
+            </table>
+        </main>
+
+    </div>
+
+    <!-- ══════════════════════════════
+         EXPLORE VIEW
+    ══════════════════════════════ -->
+    <div class="view" id="exploreView">
+        <header>
+            <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+                RuTorrent
+            </div>
+            <div class="header-connection-tools">
+                <div class="vpn-connection-status" role="status" aria-live="polite">
+                    <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
+                    <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                    <span class="vpn-connection-text">NOT CONNECTED</span>
+                </div>
+                <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
+                <button class="btn btn-ghost" id="exploreLogoutBtn">Logout</button>
+            </div>
+        </header>
+
+        <div class="explore-hero" id="exploreHero">
+            <div class="explore-search-wrap">
+                <div class="explore-search-bar">
                     <input
-                            id="torrentSearch"
+                            id="exploreTorrentSearch"
                             type="text"
-                            placeholder="Search… (e.g. status: transferred)"
+                            placeholder="Explore…"
                             aria-label="Search torrents"
-                            aria-autocomplete="list"
-                            aria-controls="searchSuggestions"
-                            aria-expanded="false"
                             spellcheck="false"
                     >
-                    <button
-                            type="button"
-                            id="searchInfoBtn"
-                            class="search-info-btn"
-                            aria-label="Show search syntax"
-                            title="Search syntax"
-                    >i
+                    <button class="explore-search-btn" id="exploreSearchBtn" aria-label="Search" title="Search">⌕
                     </button>
-                    <button
-                            type="button"
-                            id="clearSearchBtn"
-                            class="search-clear-btn"
-                            aria-label="Clear search"
-                    >×
-                    </button>
-                </form>
-                <div
-                        id="searchSuggestions"
-                        class="search-suggestions"
-                        role="listbox"
-                        aria-label="Search filter suggestions"
-                        hidden
-                ></div>
-            </div>
-
-            <div class="refresh-controls">
-                <span class="refresh-dot"></span>
-                <span>auto-refresh</span>
-                <select class="refresh-select" id="refreshInterval">
-                    <option value="5000">5s</option>
-                    <option value="10000">10s</option>
-                    <option value="30000">30s</option>
-                    <option value="60000">60s</option>
-                    <option value="300000">5m</option>
-                </select>
-            </div>
-        </div>
-
-        <table class="torrent-table">
-            <thead>
-            <tr>
-                <th style="width:44px;">
-                    <input id="selectAll" type="checkbox">
-                </th>
-                <th class="sortable" id="sortName">
-                    Name
-                    <span class="sort-indicator"></span>
-                </th>
-                <th class="sortable" id="sortStatus">
-                    Status
-                    <span class="sort-indicator"></span>
-                </th>
-                <th class="sortable" id="sortAdded">
-                    Added
-                    <span class="sort-indicator"></span>
-                </th>
-            </tr>
-            </thead>
-            <tbody id="torrentBody">
-            <tr>
-                <!-- colspan=4 matches the four columns: checkbox, Name, Status, Added -->
-                <td class="empty-state" colspan="4">Loading…</td>
-            </tr>
-            </tbody>
-        </table>
-    </main>
-
-</div>
-
-<!-- ══════════════════════════════
-     EXPLORE VIEW
-══════════════════════════════ -->
-<div class="view" id="exploreView">
-    <header>
-        <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-            RuTorrent
-        </div>
-        <div class="header-connection-tools">
-            <div class="vpn-connection-status" role="status" aria-live="polite">
-                <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
-                <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
-                <span class="vpn-connection-text">NOT CONNECTED</span>
-            </div>
-            <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
-        </div>
-        <div class="header-actions">
-            <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
-            <button class="btn btn-ghost" id="exploreLogoutBtn">Logout</button>
-        </div>
-    </header>
-
-    <div class="explore-hero" id="exploreHero">
-        <div class="explore-search-wrap">
-            <div class="explore-search-bar">
-                <input
-                        id="exploreTorrentSearch"
-                        type="text"
-                        placeholder="Explore…"
-                        aria-label="Search torrents"
-                        spellcheck="false"
-                >
-                <button class="explore-search-btn" id="exploreSearchBtn" aria-label="Search" title="Search">⌕</button>
-            </div>
-        </div>
-
-        <div class="explore-controls" id="exploreControls">
-            <div class="explore-control-group">
-                <span>Category</span>
-                <!-- Dynamic category picker — populated by fetchCategories() -->
-                <div class="cat-picker" id="catPicker">
-                    <button class="cat-btn" id="catBtn" type="button">
-                        <span id="catLabel">All</span>
-                        <span class="cat-chevron">▼</span>
-                    </button>
-                    <div class="cat-dropdown" id="catDropdown">
-                        <div class="cat-dropdown-list" id="catDropdownList"></div>
-                    </div>
                 </div>
-                <!-- Hidden input carries the selected category id for the search call -->
-                <input type="hidden" id="exploreCategory" value="0">
             </div>
-            <div class="explore-control-group">
-                <span>Tor</span>
-                <input class="toggle" id="exploreUseTor" type="checkbox" checked>
-            </div>
-            <div class="explore-control-group" id="strictGroup">
-                <span>Strict</span>
-                <input class="toggle" id="exploreStrict" type="checkbox" checked>
+
+            <div class="explore-controls" id="exploreControls">
+                <div class="explore-control-group">
+                    <span>Category</span>
+                    <!-- Dynamic category picker — populated by fetchCategories() -->
+                    <div class="cat-picker" id="catPicker">
+                        <button class="cat-btn" id="catBtn" type="button">
+                            <span id="catLabel">All</span>
+                            <span class="cat-chevron">▼</span>
+                        </button>
+                        <div class="cat-dropdown" id="catDropdown">
+                            <div class="cat-dropdown-list" id="catDropdownList"></div>
+                        </div>
+                    </div>
+                    <!-- Hidden input carries the selected category id for the search call -->
+                    <input type="hidden" id="exploreCategory" value="0">
+                </div>
+                <div class="explore-control-group">
+                    <span>Tor</span>
+                    <input class="toggle" id="exploreUseTor" type="checkbox" checked>
+                </div>
+                <div class="explore-control-group" id="strictGroup">
+                    <span>Strict</span>
+                    <input class="toggle" id="exploreStrict" type="checkbox" checked>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="explore-results-area" id="exploreResultsArea" hidden>
-        <div class="explore-results-header" id="exploreResultsHeader"></div>
-        <table class="torrent-table" id="exploreTable">
-            <thead>
-            <tr>
-                <th class="sortable" id="expSortCategory">Category<span class="sort-indicator"></span></th>
-                <th class="sortable" id="expSortName">Name<span class="sort-indicator"></span></th>
-                <th class="sortable" id="expSortDate">Uploaded<span class="sort-indicator"></span></th>
-                <th>Link</th>
-                <th class="sortable" id="expSortSize">Size<span class="sort-indicator"></span></th>
-                <th class="sortable" id="expSortSeeders">SE<span class="sort-indicator"></span></th>
-                <th class="sortable" id="expSortLeechers">LE<span class="sort-indicator"></span></th>
-                <th class="sortable" id="expSortUploader">ULed by<span class="sort-indicator"></span></th>
-            </tr>
-            </thead>
-            <tbody id="exploreBody">
-            </tbody>
-        </table>
-    </div>
+        <div class="explore-results-area" id="exploreResultsArea" hidden>
+            <div class="explore-results-header" id="exploreResultsHeader"></div>
+            <table class="torrent-table" id="exploreTable">
+                <thead>
+                <tr>
+                    <th class="sortable" id="expSortCategory">Category<span class="sort-indicator"></span></th>
+                    <th class="sortable" id="expSortName">Name<span class="sort-indicator"></span></th>
+                    <th class="sortable" id="expSortDate">Uploaded<span class="sort-indicator"></span></th>
+                    <th>Link</th>
+                    <th class="sortable" id="expSortSize">Size<span class="sort-indicator"></span></th>
+                    <th class="sortable" id="expSortSeeders">SE<span class="sort-indicator"></span></th>
+                    <th class="sortable" id="expSortLeechers">LE<span class="sort-indicator"></span></th>
+                    <th class="sortable" id="expSortUploader">ULed by<span class="sort-indicator"></span></th>
+                </tr>
+                </thead>
+                <tbody id="exploreBody">
+                </tbody>
+            </table>
+        </div>
 
-</div>
+    </div>
 
     <div class="status-bar" id="appStatusBar">
         <div class="status-bar-meta">
-            <a class="accent" id="footerTitle" href="/swagger-ui/#/" target="_blank" rel="noopener noreferrer">RuTorrent</a>
+            <a class="accent" id="footerTitle" href="/swagger-ui/#/" target="_blank"
+               rel="noopener noreferrer">RuTorrent</a>
             <span id="versionText">v—</span>
             <span id="lastUpdated">—</span>
         </div>
@@ -2097,7 +2099,9 @@
         </div>
 
         <div id="vpnFormContent">
-            <p style="color: #fff; font-size: 0.78rem; margin: 0 0 1.25rem;">Click <a href="https://api.mullvad.net/www/relays/all/" target="_blank" rel="noopener noreferrer" style="color: inherit;">here</a> to see the full list of available relays.</p>
+            <p style="color: #fff; font-size: 0.78rem; margin: 0 0 1.25rem;">Click <a
+                    href="https://api.mullvad.net/www/relays/all/" target="_blank" rel="noopener noreferrer"
+                    style="color: inherit;">here</a> to see the full list of available relays.</p>
             <div class="form-grid">
                 <div class="field full">
                     <label for="vpnHostname">Hostname</label>
@@ -2853,7 +2857,7 @@
 
     function setVpnStatus(data) {
         const connected = String(data?.state || '').toLowerCase() === 'connected';
-        const location = connected ? getVpnLocation(data) : {};
+        const location = getVpnLocation(data);
         const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4;
         const place = [location.city, location.region || location.region_name || location.state, location.country]
             .filter(value => value !== null && value !== undefined && String(value).trim())
@@ -2867,8 +2871,9 @@
             globe.hidden = !connected;
             pulse.hidden = false;
             pulse.classList.toggle('vpn-status-disconnected', !connected);
-            text.textContent = connected
-                ? `Connected with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} to ${place || 'location unavailable'}`
+            text.textContent = data ? connected
+                    ? `Connected with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} to ${place || 'location unavailable'}`
+                    : `Exposed with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} at ${place || 'location unavailable'}`
                 : 'NOT CONNECTED';
             status.title = connected ? text.textContent : 'NOT CONNECTED';
         });
