@@ -2,7 +2,7 @@ use serde;
 use utoipa::ToSchema;
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelayConnector {
     pub hostname: String,
     pub city_name: String,
