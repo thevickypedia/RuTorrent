@@ -54,27 +54,33 @@ pub async fn generate_relay_map() -> Result<vpn::models::RelayMap, Box<dyn Error
     Ok(relay_map)
 }
 
-pub async fn select_relay(relay_map: vpn::models::RelayMap, whilelist: Option<Vec<String>>, blacklist: Option<Vec<String>>) -> Option<vpn::models::RelayConnector> {
+pub async fn select_relay(relay_map: vpn::models::RelayMap, whitelist: Option<Vec<String>>, blacklist: Option<Vec<String>>) -> Option<vpn::models::RelayConnector> {
+    log::debug!("whitelist: {:?}", whitelist);
+    log::debug!("blacklist: {:?}", blacklist);
     let mut initial_relays: Vec<vpn::models::RelayConnector> = Vec::new();
     let blacklisted = blacklist.unwrap_or_default();
-    let whitelisted = whilelist.unwrap_or_default();
-    for (country_code, country_data) in relay_map {        
-        if blacklisted.contains(&country_code) {continue;}
+    let whitelisted = whitelist.unwrap_or_default();
+    for (country_code, country_data) in &relay_map {        
+        if blacklisted.contains(&country_code) {continue}
         for (city_code, city_data) in country_data {
-            if blacklisted.contains(&city_code) {continue;}
-            initial_relays.extend(city_data);
+            if blacklisted.contains(&city_code) {continue}
+            initial_relays.extend(city_data.to_owned());
         }
     }
+    log::info!("Initial relays: {}", initial_relays.len());
     let mut final_relays: Vec<vpn::models::RelayConnector> = Vec::new();
     if whitelisted.is_empty() {
         final_relays.extend(initial_relays);
     } else {
-        for considered in initial_relays {
-            if whitelisted.contains(&considered.city_name) || whitelisted.contains(&considered.country_name) {
-                final_relays.push(considered);
+        for (country_code, country_data) in &relay_map {        
+            for (city_code, city_data) in country_data {
+                if whitelisted.contains(&country_code) || whitelisted.contains(&city_code) {
+                    final_relays.extend(city_data.to_owned())
+                }
             }
         }
     }
+    log::info!("Final relays: {}", final_relays.len());
     let mut rng = rand::rng();
     final_relays.choose(&mut rng).cloned()
 }
