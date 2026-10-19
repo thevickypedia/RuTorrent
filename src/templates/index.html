@@ -272,8 +272,14 @@
             flex-shrink: 0;
         }
 
-        .vpn-globe[hidden],
-        .vpn-status-pulse[hidden] {
+        /* Same 6px size as the connected pulse, but red and steady when disconnected. */
+        .vpn-status-pulse.vpn-status-disconnected {
+            background: var(--error);
+            animation: none;
+            opacity: 1;
+        }
+
+        .vpn-globe[hidden] {
             display: none !important;
         }
 
@@ -2089,23 +2095,25 @@
             <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
             <button class="modal-close" id="closeVpnModal" type="button" aria-label="Close VPN dialog">✕</button>
         </div>
+        <!-- TODO: Currently displayed even in the result page (use a different class and show only BEFORE connection) -->
+        <p class="vpn-result-message">Click <a href="https://api.mullvad.net/www/relays/all/" target="_blank">here</a> to see the full list of available relays.</p>
 
         <div id="vpnFormContent">
             <div class="form-grid">
                 <div class="field full">
                     <label for="vpnHostname">Hostname</label>
                     <input id="vpnHostname" type="text" placeholder="e.g. es-mad-wg-203" autocomplete="off">
-                    <div class="field-hint">Hostname of the Mullvad server you’re connecting to.</div>
+                    <div class="field-hint">[Optional] Hostname of the Mullvad relay you’re connecting to.</div>
                 </div>
                 <div class="field full">
                     <label for="vpnWhitelist">Whitelist</label>
                     <input id="vpnWhitelist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
-                    <div class="field-hint">Optional comma-separated city or country codes.</div>
+                    <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
                 </div>
                 <div class="field full">
                     <label for="vpnBlacklist">Blacklist</label>
                     <input id="vpnBlacklist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
-                    <div class="field-hint">Optional comma-separated city or country codes.</div>
+                    <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
                 </div>
             </div>
             <div class="error-msg" id="vpnError" role="alert"></div>
@@ -2858,7 +2866,8 @@
             const pulse = status.querySelector('.vpn-status-pulse');
             const text = status.querySelector('.vpn-connection-text');
             globe.hidden = !connected;
-            pulse.hidden = !connected;
+            pulse.hidden = false;
+            pulse.classList.toggle('vpn-status-disconnected', !connected);
             text.textContent = connected
                 ? `Connected with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} to ${place || 'location unavailable'}`
                 : 'NOT CONNECTED';
