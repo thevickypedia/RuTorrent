@@ -74,7 +74,6 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_conn.clone()))
             .app_data(web::Data::new(metadata.clone()))
-            .route("/ip", web::get().to(api::routes::get_connection))
             .route("/vpn", web::get().to(api::routes::get_vpn))
             .route("/vpn", web::post().to(api::routes::connect_vpn))
             .route("/status", web::get().to(api::routes::status))
