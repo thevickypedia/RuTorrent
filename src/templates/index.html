@@ -235,6 +235,53 @@
             letter-spacing: -0.02em;
         }
 
+        .header-connection-tools {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0 1rem;
+        }
+
+        .vpn-connection-status {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 0.45rem;
+            color: var(--muted);
+            font-size: 0.7rem;
+            line-height: 1.5;
+        }
+
+        .vpn-globe {
+            flex-shrink: 0;
+            font-size: 0.95rem;
+        }
+
+        .vpn-connection-text {
+            min-width: 0;
+            max-width: min(38vw, 560px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .vpn-status-pulse {
+            flex-shrink: 0;
+        }
+
+        .vpn-globe[hidden],
+        .vpn-status-pulse[hidden] {
+            display: none !important;
+        }
+
+        .vpn-open-btn {
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
         .header-actions {
             display: flex;
             gap: 0.75rem;
@@ -824,6 +871,37 @@
             margin-top: 1.75rem;
             padding-top: 1.25rem;
             border-top: 1px solid var(--border);
+        }
+
+        #vpnFormContent[hidden],
+        #vpnResultContent[hidden] {
+            display: none !important;
+        }
+
+        .vpn-result-message {
+            color: var(--ok);
+            font-size: 0.78rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .vpn-result-grid {
+            display: grid;
+            grid-template-columns: 7rem minmax(0, 1fr);
+            gap: 0.7rem 1rem;
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .vpn-result-grid dt {
+            color: var(--muted);
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .vpn-result-grid dd {
+            color: var(--text);
+            overflow-wrap: anywhere;
         }
 
         /* ══════════════════════════════
@@ -1528,6 +1606,31 @@
                 gap: 1rem;
             }
 
+            .header-connection-tools {
+                width: 100%;
+                flex: none;
+                justify-content: space-between;
+                gap: 0.65rem;
+                padding: 0;
+            }
+
+            .vpn-connection-status {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .vpn-connection-text {
+                max-width: none;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+            .vpn-open-btn {
+                width: auto;
+                min-height: 40px;
+                padding: 0.55rem 0.85rem;
+            }
+
             .header-actions {
                 width: 100%;
                 display: grid;
@@ -1543,6 +1646,11 @@
                 width: 100%;
                 min-height: 44px;
                 font-size: 0.78rem;
+            }
+
+            .vpn-open-btn {
+                width: auto;
+                min-height: 40px;
             }
 
             main {
@@ -1772,6 +1880,14 @@
         <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
             RuTorrent
         </div>
+        <div class="header-connection-tools">
+            <div class="vpn-connection-status" role="status" aria-live="polite">
+                <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
+                <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                <span class="vpn-connection-text">NOT CONNECTED</span>
+            </div>
+            <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
+        </div>
         <div class="header-actions">
             <button class="btn btn-ghost" id="exploreBtn">Explore</button>
             <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
@@ -1877,6 +1993,14 @@
         <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
             RuTorrent
         </div>
+        <div class="header-connection-tools">
+            <div class="vpn-connection-status" role="status" aria-live="polite">
+                <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
+                <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                <span class="vpn-connection-text">NOT CONNECTED</span>
+            </div>
+            <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
+        </div>
         <div class="header-actions">
             <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
             <button class="btn btn-ghost" id="exploreLogoutBtn">Logout</button>
@@ -1953,6 +2077,58 @@
             <span id="lastUpdated">—</span>
         </div>
         <span id="sessionRemaining">-</span>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     VPN CONNECTION MODAL
+══════════════════════════════ -->
+<div class="modal-backdrop" id="vpnModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vpnModalTitle">
+        <div class="modal-header">
+            <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
+            <button class="modal-close" id="closeVpnModal" type="button" aria-label="Close VPN dialog">✕</button>
+        </div>
+
+        <div id="vpnFormContent">
+            <div class="form-grid">
+                <div class="field full">
+                    <label for="vpnHostname">Hostname</label>
+                    <input id="vpnHostname" type="text" placeholder="e.g. es-mad-wg-203" autocomplete="off">
+                    <div class="field-hint">Hostname of the Mullvad server you’re connecting to.</div>
+                </div>
+                <div class="field full">
+                    <label for="vpnWhitelist">Whitelist</label>
+                    <input id="vpnWhitelist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                    <div class="field-hint">Optional comma-separated city or country codes.</div>
+                </div>
+                <div class="field full">
+                    <label for="vpnBlacklist">Blacklist</label>
+                    <input id="vpnBlacklist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                    <div class="field-hint">Optional comma-separated city or country codes.</div>
+                </div>
+            </div>
+            <div class="error-msg" id="vpnError" role="alert"></div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="cancelVpnModal" type="button">Cancel</button>
+                <button class="btn btn-primary" id="submitVpn" type="button">Connect</button>
+            </div>
+        </div>
+
+        <div id="vpnResultContent" hidden>
+            <p class="vpn-result-message">VPN connection established.</p>
+            <dl class="vpn-result-grid">
+                <dt>Hostname</dt>
+                <dd id="vpnResultHostname">—</dd>
+                <dt>City</dt>
+                <dd id="vpnResultCity">—</dd>
+                <dt>Country</dt>
+                <dd id="vpnResultCountry">—</dd>
+            </dl>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="doneVpnModal" type="button">Done</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -2527,8 +2703,11 @@
     }
 
     // ── Search — apply ────────────────────────────────────────
-    function setSearchLoading(visible) {
+    function setSearchLoading(visible, message = 'Filtering torrents…') {
         const overlay = document.getElementById('searchLoading');
+        const label = overlay.querySelector('.search-loading-label');
+        if (visible) label.textContent = message;
+        else label.textContent = 'Filtering torrents…';
         overlay.classList.toggle('visible', visible);
         overlay.setAttribute('aria-hidden', String(!visible));
     }
@@ -2660,6 +2839,142 @@
         return {'Content-Type': 'application/json', 'apikey': apikey};
     }
 
+    // ── VPN connection status and controls ────────────────────
+    function getVpnLocation(data) {
+        return data?.details?.location || data?.location || {};
+    }
+
+    function setVpnStatus(data) {
+        const connected = String(data?.state || '').toLowerCase() === 'connected';
+        const location = connected ? getVpnLocation(data) : {};
+        const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4;
+        const place = [location.city, location.region || location.region_name || location.state, location.country]
+            .filter(value => value !== null && value !== undefined && String(value).trim())
+            .map(value => String(value).trim())
+            .join(', ');
+
+        document.querySelectorAll('.vpn-connection-status').forEach(status => {
+            const globe = status.querySelector('.vpn-globe');
+            const pulse = status.querySelector('.vpn-status-pulse');
+            const text = status.querySelector('.vpn-connection-text');
+            globe.hidden = !connected;
+            pulse.hidden = !connected;
+            text.textContent = connected
+                ? `Connected with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} to ${place || 'location unavailable'}`
+                : 'NOT CONNECTED';
+            status.title = connected ? text.textContent : 'NOT CONNECTED';
+        });
+    }
+
+    async function fetchVpnStatus() {
+        try {
+            const resp = await fetch('/vpn', {
+                method: 'GET',
+                headers: authHeaders(),
+                signal: AbortSignal.timeout(5000)
+            });
+            if (!resp.ok) throw new Error(`VPN status request failed: ${resp.status}`);
+            const data = await resp.json();
+            setVpnStatus(data);
+        } catch (err) {
+            // Status failures are intentionally quiet; the header only shows NOT CONNECTED.
+            setVpnStatus(null);
+            console.debug('Unable to fetch VPN status:', err);
+        }
+    }
+
+    function resetVpnModalView() {
+        document.getElementById('vpnFormContent').hidden = false;
+        document.getElementById('vpnResultContent').hidden = true;
+        const error = document.getElementById('vpnError');
+        error.textContent = '';
+        error.classList.remove('visible');
+    }
+
+    function openVpnModal() {
+        resetVpnModalView();
+        pausePollingForModal();
+        document.getElementById('vpnModal').classList.add('open');
+        document.getElementById('vpnHostname').focus();
+    }
+
+    function closeVpnModal() {
+        document.getElementById('vpnModal').classList.remove('open');
+        // Explore intentionally pauses dashboard polling, so only resume it on Home.
+        if (document.getElementById('dashView').classList.contains('active')) {
+            resumePollingAfterModal();
+        } else {
+            stopPolling();
+        }
+    }
+
+    document.querySelectorAll('.vpn-open-btn').forEach(button => {
+        button.addEventListener('click', openVpnModal);
+    });
+    document.getElementById('closeVpnModal').addEventListener('click', closeVpnModal);
+    document.getElementById('cancelVpnModal').addEventListener('click', closeVpnModal);
+    document.getElementById('doneVpnModal').addEventListener('click', closeVpnModal);
+    document.getElementById('vpnModal').addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeVpnModal();
+    });
+
+    document.getElementById('submitVpn').addEventListener('click', async () => {
+        const connectButton = document.getElementById('submitVpn');
+        const error = document.getElementById('vpnError');
+        const payload = {
+            blacklist: document.getElementById('vpnBlacklist').value.trim(),
+            node: document.getElementById('vpnHostname').value.trim(),
+            whitelist: document.getElementById('vpnWhitelist').value.trim()
+        };
+
+        error.textContent = '';
+        error.classList.remove('visible');
+        connectButton.disabled = true;
+        connectButton.textContent = 'Connecting…';
+        setSearchLoading(true, 'Connecting to VPN…');
+
+        try {
+            const resp = await fetch('/vpn', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify(payload),
+                // VPN connection changes can take longer than ordinary API calls.
+                signal: AbortSignal.timeout(120000)
+            });
+            if (resp.status === 401) {
+                closeVpnModal();
+                handleUnauth();
+                return;
+            }
+            if (!resp.ok) {
+                const details = await resp.text();
+                throw new Error(details || `${resp.statusText} [${resp.status}]`);
+            }
+
+            const data = await resp.json();
+            if (String(data?.state || '').toLowerCase() !== 'connected') {
+                throw new Error(data?.message || 'The VPN server did not report a connected state.');
+            }
+
+            const location = getVpnLocation(data);
+            document.getElementById('vpnResultHostname').textContent = location.hostname || payload.node || '—';
+            document.getElementById('vpnResultCity').textContent = location.city || '—';
+            document.getElementById('vpnResultCountry').textContent = location.country || '—';
+            document.getElementById('vpnFormContent').hidden = true;
+            document.getElementById('vpnResultContent').hidden = false;
+            setVpnStatus(data);
+            toast(`VPN connected: ${location.hostname || payload.node || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
+        } catch (err) {
+            error.textContent = err.message || 'Failed to connect to the VPN.';
+            error.classList.add('visible');
+            toast(err.message || 'Failed to connect to the VPN.', 'error');
+        } finally {
+            setSearchLoading(false);
+            connectButton.disabled = false;
+            connectButton.textContent = 'Connect';
+        }
+    });
+
     function stopPolling() {
         pollPaused = true;
         if (pollTimer) {
@@ -2712,6 +3027,7 @@
 
     function startDashboard() {
         fetchVersion();
+        fetchVpnStatus();
         updateSortUI();
         fetchTorrents();
         startPolling();
