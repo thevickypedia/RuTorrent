@@ -73,8 +73,6 @@ pub fn get_current() -> Option<vpn::models::MullvadResponse> {
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadResponse> {
-    // TODO: When connecting to a bad node, the server can be left in an un-reachable state
-    //       Check for a way to set with a timer in mullvad or do it manually in rutorrent
     for attempt in 0..5 {
         log::debug!("Sleeping for 3s");
         sleep(Duration::from_secs(3)).await;
@@ -152,20 +150,7 @@ pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadRespon
 /// # Returns
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
-pub async fn shuffler(
-    whitelist: Option<Vec<String>>,
-    blacklist: Option<Vec<String>>,
-) -> Option<vpn::models::MullvadResponse> {
-    let Ok(relay_map) = vpn::relay::generate_relay_map().await else {
-        log::info!("Failed to generate relay map");
-        return None;
-    };
-    log::debug!("Generated a relay map with {} countries", relay_map.len());
-    let Some(relay) = vpn::relay::select_relay(relay_map, whitelist, blacklist).await else {
-        log::info!("Failed to select a relay");
-        return None;
-    } ;
-    log::info!("Selected the relay {} in {}, {}", relay.hostname, relay.city_name, relay.country_name);
+pub async fn change_relay(relay: &vpn::models::RelayConnector) -> Option<vpn::models::MullvadResponse> {
     match run_command(&format!("{} {}", SETTER, relay.hostname)) {
         Ok(_) => {
             log::debug!("Relay set to {}", relay.hostname);
@@ -185,4 +170,62 @@ pub async fn shuffler(
         }
     }
     await_connection("connected").await
+}
+
+pub async fn shuffler(
+    whitelist: Option<Vec<String>>,
+    blacklist: Option<Vec<String>>,
+) -> Option<vpn::models::MullvadResponse> {
+    let Ok(relays) = vpn::relay::list_active_relays().await else {
+        log::error!("Failed to list active relays");
+        return None;
+    };
+    let Ok(relay_map) = vpn::relay::generate_relay_map(&relays).await else {
+        log::error!("Failed to generate relay map");
+        return None;
+    };
+    log::debug!("Generated a relay map with {} countries", relay_map.len());
+
+    let filtered_relays = vpn::relay::filter_relays(relay_map, whitelist, blacklist).await;
+    let Some(relay) = vpn::relay::select_relay(&filtered_relays).await else {
+        log::info!("Failed to select a relay");
+        return None;
+    };
+    log::info!("Selected the relay {} in {}, {}", relay.hostname, relay.city_name, relay.country_name);
+    let mut seen: Vec<String> = Vec::new();
+    // MARK 1: Change the relay and await 'connected' status
+    let mut connected = change_relay(&relay).await;
+    for idx in 0..10 {
+        // MARK 2: If any of 10 attempts is successful, then return the 'MullvadResponse' object
+        if connected.is_some() {
+            return connected;
+        } else {
+            // MARK 3: For the last attempt, try disconnect, and re-connect
+            if idx == 4 {
+                disconnect().await;
+                sleep(Duration::from_secs(5)).await;
+            }
+            // MARK 4: Create a subset of relays that haven't been attempted yet
+            let mut subset: Vec<vpn::models::RelayConnector> = Vec::new();
+            for r in filtered_relays.iter() {
+                if !seen.contains(&r.hostname) {
+                    subset.push(r.clone());
+                }
+            }
+            // MARK 5: Select a relay at random from the subset or fallback to the
+            let alt_relay = match vpn::relay::select_relay(&subset).await {
+                Some(ar) => ar,
+                None => {
+                    log::info!("Failed to select a relay");
+                    filtered_relays[0].clone()
+                }
+            };
+            connected = change_relay(&alt_relay).await;
+            seen.push(alt_relay.hostname);
+        }
+    }
+    log::error!("Exhausted connection attempts, disconnecting vpn...");
+    disconnect().await;
+    // TODO: Notify user
+    None
 }
