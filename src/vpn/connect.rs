@@ -1,6 +1,6 @@
 use std::process::Command;
 use std::io;
-use crate::vpn;
+use crate::{config, notifier, vpn};
 use tokio::time::{sleep, Duration};
 
 const GETTER: &str = "mullvad status --json";
@@ -212,6 +212,7 @@ pub async fn target_connector(
 pub async fn shuffler(
     whitelist: Option<Vec<String>>,
     blacklist: Option<Vec<String>>,
+    config: &config::env::Config,
 ) -> Option<vpn::models::MullvadResponse> {
     if let (Some(whitelist), Some(blacklist)) = (whitelist, blacklist) {
         if let Some(connected) = target_connector(&whitelist, &blacklist).await {
@@ -245,6 +246,11 @@ pub async fn shuffler(
         }
         Err(e) => {
             log::error!("Failed to reconnect - {}", e);
+            notifier::notify(
+                "RuTorrent: VPN ERROR".to_string(),
+                "Failed to connect to mullvad VPN after several attempts for recovery.".to_string(),
+                config.to_owned()
+            );
             None
         }
     }

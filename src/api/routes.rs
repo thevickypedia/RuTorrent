@@ -1103,7 +1103,7 @@ pub async fn connect_vpn(
                 .collect()
         )
     };
-    if let Some(response) = vpn::connect::shuffler(whitelist, blacklist).await {
+    if let Some(response) = vpn::connect::shuffler(whitelist, blacklist, &config).await {
         HttpResponse::Ok().json(response)
     } else {
         HttpResponse::InternalServerError().into()
