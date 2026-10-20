@@ -239,13 +239,21 @@ pub async fn shuffler(
             log::error!("Failed to reset mullvad relay preferences - {}", e);
         }
     }
-    match run_command(RECONNECT) {
+    let connected = get_current().is_some_and(|connect| connect.state == "connected");
+    let (cmd, log_st) = if connected {
+        log::info!("Existing connection found; resetting.");
+        (RECONNECT, "reset")
+    } else {
+        log::info!("No existing connection found; establishing.");
+        (CONNECTOR, "connect")
+    };
+    match run_command(cmd) {
         Ok(_) => {
-            log::debug!("mullvad connection has been reset");
+            log::debug!("mullvad connection has been {}", log_st);
             await_connection("connected").await
         }
         Err(e) => {
-            log::error!("Failed to reconnect - {}", e);
+            log::error!("Failed to {} - {}", log_st, e);
             notifier::notify(
                 "RuTorrent: VPN ERROR".to_string(),
                 "Failed to connect to mullvad VPN after several attempts for recovery.".to_string(),
