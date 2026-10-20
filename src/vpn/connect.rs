@@ -7,6 +7,8 @@ const GETTER: &str = "mullvad status --json";
 const SETTER: &str = "mullvad relay set location";
 const CONNECTOR: &str = "mullvad connect";
 const DISCONNECTOR: &str = "mullvad disconnect";
+const RESET: &str = "mullvad relay set location any";
+const RECONNECT: &str = "mullvad reconnect";
 
 /// Runs CLI commands.
 ///
@@ -73,8 +75,6 @@ pub fn get_current() -> Option<vpn::models::MullvadResponse> {
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadResponse> {
-    // TODO: When connecting to a bad node, the server can be left in an un-reachable state
-    //       Check for a way to set with a timer in mullvad or do it manually in rutorrent
     for attempt in 0..5 {
         log::debug!("Sleeping for 3s");
         sleep(Duration::from_secs(3)).await;
@@ -142,6 +142,25 @@ pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadRespon
     await_connection("connected").await
 }
 
+async fn set_and_connect(selection: &String) {
+    match run_command(&format!("{} {}", SETTER, selection)) {
+        Ok(_) => {
+            log::debug!("Relay set to {}", selection);
+        },
+        Err(e) => {
+            log::error!("Failed to set to {} - {}", selection, e);
+        }
+    }
+    match run_command(CONNECTOR) {
+        Ok(_) => {
+            log::debug!("Connected to {}", selection);
+        }
+        Err(e) => {
+            log::error!("Failed to connect to {} - {}", selection, e);
+        }
+    }
+}
+
 /// Picks a random relay and establishes VPN connection.
 ///
 /// # Arguments
@@ -152,9 +171,9 @@ pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadRespon
 /// # Returns
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
-pub async fn shuffler(
-    whitelist: Option<Vec<String>>,
-    blacklist: Option<Vec<String>>,
+pub async fn target_connector(
+    whitelist: &Vec<String>,
+    blacklist: &Vec<String>,
 ) -> Option<vpn::models::MullvadResponse> {
     let Ok(relay_map) = vpn::relay::generate_relay_map().await else {
         log::info!("Failed to generate relay map");
@@ -166,23 +185,67 @@ pub async fn shuffler(
         return None;
     } ;
     log::info!("Selected the relay {} in {}, {}", relay.hostname, relay.city_name, relay.country_name);
-    match run_command(&format!("{} {}", SETTER, relay.hostname)) {
+    set_and_connect(&relay.hostname).await;
+    await_connection("connected").await
+}
+
+/// Chooses targeted connection if whitelist and blacklist are provided.
+/// Otherwise, resets the relay preference (letting `RelaySelector`) pick one.
+///
+/// `RelaySelector` uses a weighted roulette algorithm to pick the relay,
+/// meaning more popular servers have a higher probability of selection
+///
+/// # Warnings
+///
+/// 1. Attempts to select and connect to a hostname using the provided whitelist and blacklist.
+/// 2. If the connection fails and a whitelist is provided, attempts to connect to each whitelisted region until successful or all options are exhausted.
+/// 3. If all attempts fail, resets the relay preferences and reconnects using the default relay selection.
+///
+/// # Arguments
+///
+/// * `whitelist` - Optional array of city [OR] country codes to whitelist.
+/// * `blacklist` - Optional array of city [OR] country codes to blacklist.
+///
+/// # Returns
+///
+/// Returns the `Option<vpn::models::MullvadResponse>` object.
+pub async fn shuffler(
+    whitelist: Option<Vec<String>>,
+    blacklist: Option<Vec<String>>,
+) -> Option<vpn::models::MullvadResponse> {
+    if let (Some(whitelist), Some(blacklist)) = (whitelist, blacklist) {
+        if let Some(connected) = target_connector(&whitelist, &blacklist).await {
+            return Some(connected);
+        } else {
+            if !whitelist.is_empty() {
+                log::warn!("Failed to connect to the chosen relay. Trying to connect to whitelisted regions.");
+                for selection in whitelist {
+                    log::debug!("Selected region: {}", selection);
+                    set_and_connect(&selection).await;
+                    if let Some(connected_bak) = await_connection("connected").await {
+                        return Some(connected_bak);
+                    }
+                }
+            }
+            log::warn!("Failed to connect to preferred location. Resetting preferences..")
+        }
+    }
+    match run_command(RESET) {
         Ok(_) => {
-            log::debug!("Relay set to {}", relay.hostname);
+            log::debug!("mullvad relay preferences have been reset");
         },
         Err(e) => {
-            log::error!("Failed to set to {} - {}", relay.hostname, e);
-            return None;
+            log::error!("Failed to reset mullvad relay preferences - {}", e);
         }
     }
-    match run_command(CONNECTOR) {
+    match run_command(RECONNECT) {
         Ok(_) => {
-            log::debug!("Connected to {}", relay.hostname);
+            log::debug!("mullvad connection has been reset");
+            await_connection("connected").await
         }
         Err(e) => {
-            log::error!("Failed to connect to {} - {}", relay.hostname, e);
-            return None;
+            log::error!("Failed to reconnect - {}", e);
+            None
         }
     }
-    await_connection("connected").await
 }

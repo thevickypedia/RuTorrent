@@ -78,8 +78,8 @@ pub async fn current_relay() -> String {
 ///
 /// # Filtering Rules
 ///
-/// * If `blacklist` is provided, exclude relays whose country or city code is blacklisted.
-/// * If `whitelist` is provided, consider only relays whose country or city code is whitelisted.
+/// * If `blacklist` is provided, exclude relays whose country or city code is blacklist.
+/// * If `whitelist` is provided, consider only relays whose country or city code is whitelist.
 /// * Exclude the currently connected relay, if any.
 ///
 /// # Arguments
@@ -95,29 +95,27 @@ pub async fn current_relay() -> String {
 /// * `None` - If no eligible relays are available.
 pub async fn select_relay(
     relay_map: vpn::models::RelayMap,
-    whitelist: Option<Vec<String>>,
-    blacklist: Option<Vec<String>>,
+    whitelist: &Vec<String>,
+    blacklist: &Vec<String>,
 ) -> Option<vpn::models::RelayConnector> {
     log::debug!("whitelist: {:?}", whitelist);
     log::debug!("blacklist: {:?}", blacklist);
-    let whitelisted = whitelist.unwrap_or_default();
-    let blacklisted = blacklist.unwrap_or_default();
     let connected_relay = current_relay().await;
     let mut relays = Vec::new();
     for (country_code, country_data) in relay_map {
         // Skip all relays within a country if the 'country_code' is blacklisted
-        if blacklisted.contains(&country_code) {
+        if blacklist.contains(&country_code) {
             continue;
         }
         for (city_code, city_data) in country_data {
             // Skip all relays within a city if the 'city_code' is blacklisted
-            if blacklisted.contains(&city_code) {
+            if blacklist.contains(&city_code) {
                 continue;
             }
             // Skip if whitelisted array exists, but does not contain the 'city_code' or 'country_code'
-            if !whitelisted.is_empty()
-                && !whitelisted.contains(&city_code)
-                && !whitelisted.contains(&country_code)
+            if !whitelist.is_empty()
+                && !whitelist.contains(&city_code)
+                && !whitelist.contains(&country_code)
             {
                 continue;
             }
