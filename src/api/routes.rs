@@ -339,7 +339,7 @@ pub async fn put_torrent(
     path = "/torrent",
     params(
         ("name" = String, Query, description = "Torrent name"),
-        ("delete-files" = bool, Query, description = "Delete files")
+        ("delete-files" = Option<bool>, Query, description = "Delete files")
     ),
     responses(
         (status = 200, description = "Deleted", body = String)
@@ -741,7 +741,7 @@ async fn redownload_torrent(
     path = "/torrent/pause",
     params(
         ("name" = String, Query, description = "Torrent name"),
-        ("pause" = bool, Query, description = "true to pause, false to resume")
+        ("pause" = Option<bool>, Query, description = "true to pause, false to resume")
     ),
     responses(
         (status = 200, description = "Ok", body = String),
@@ -835,7 +835,7 @@ pub async fn pause_torrent(
     get,
     path = "/categories",
     params(
-        ("nested" = bool, Query, description = "Boolean flag to get nested categories")
+        ("nested" = Option<bool>, Query, description = "Boolean flag to get nested categories")
     ),
     responses(
         (status = 200, description = "Static category map", body = HashMap<u16, String>)
@@ -1052,9 +1052,9 @@ pub async fn get_vpn(
     post,
     path = "/vpn",
     params(
-        ("disconnect" = bool, Query, description = "Boolean flag to disconnect; payload body is ignored when set to true.")
+        ("disconnect" = Option<bool>, Query, description = "Boolean flag to disconnect; payload body is ignored when set to true.")
     ),
-    request_body = config::settings::ConnectVPN,
+    request_body = Option<config::settings::ConnectVPN>,
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
     )

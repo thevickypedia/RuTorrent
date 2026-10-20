@@ -106,12 +106,16 @@ pub struct RetryOptions {
 pub struct SearchTorrents {
     pub query: String,
     #[serde(default = "defaults::default_search_category")]
+    #[param(required = false)]
     pub category: u16,
     #[serde(default = "defaults::default_hydrate_categories")]
+    #[param(required = false)]
     pub hydrate_categories: bool,
     #[serde(default = "defaults::default_use_tor")]
+    #[param(required = false)]
     pub use_tor: bool,
     #[serde(default = "defaults::default_strict")]
+    #[param(required = false)]
     pub strict: bool,
 }
 
