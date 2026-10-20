@@ -141,40 +141,6 @@ async fn resolve_new_torrents(
     }
 }
 
-/// Function to notify about an event.
-///
-/// # Arguments
-///
-/// * `title` - Subject of the notification.
-/// * `body` - Body of the notification.
-/// * `config` - Reference to the `Config` object.
-///
-/// # Notes
-///
-/// Sends notifications through `NTFY` and `Telegram` based on the availability of env vars.
-fn notifier(title: String, body: String, config: config::env::Config) {
-    let title_clone = title.clone();
-    let body_clone = body.clone();
-    let config_clone = config.clone();
-    if !config.ntfy_url.is_empty() && !config.ntfy_topic.is_empty() {
-        log::info!("Sending NTFY notification to {}: {}", title_clone, body);
-        tokio::spawn(async move {
-            let _ = notifier::ntfy::send(&config, &title, &body).await;
-        });
-    }
-    if !config_clone.telegram_bot_token.is_empty() && !config_clone.telegram_chat_id.is_empty() {
-        log::info!(
-            "Sending Telegram notification to {}: {}",
-            title_clone,
-            body_clone
-        );
-        tokio::spawn(async move {
-            let message = format!("*{}*\n\n{}", title_clone, body_clone);
-            let _ = notifier::telegram::send(&config_clone, &message).await;
-        });
-    }
-}
-
 /// Spawns a background worker that monitors torrents and triggers rsync transfers upon completion.
 ///
 /// # Arguments
@@ -311,7 +277,7 @@ pub fn spawn_worker(
                 // once here, then fold it into `Failed`, which is terminal
                 // — so this transition can never be observed twice
                 if matches!(entry.status, config::settings::Status::CopyError) {
-                    notifier(
+                    notifier::notify(
                         "RuTorrent: Copy Failed".to_string(),
                         format!("Transfer failed for {} — use /retry to resume", entry.name),
                         config.clone(),
@@ -331,7 +297,7 @@ pub fn spawn_worker(
                     if let Ok(conn) = db_connection.lock() {
                         database::db::upsert(&conn, &torrent.hash, &entry);
                     }
-                    notifier(
+                    notifier::notify(
                         "RuTorrent: Download Error".to_string(),
                         format!("Download errored for {}", entry.name),
                         config.clone(),
@@ -369,7 +335,7 @@ pub fn spawn_worker(
                                 )
                                 .await;
                             });
-                            notifier(
+                            notifier::notify(
                                 "RuTorrent: Download Complete".to_string(),
                                 format!("{} has been downloaded", entry.name),
                                 config.clone(),
@@ -380,7 +346,7 @@ pub fn spawn_worker(
                             if let Ok(conn) = db_connection.lock() {
                                 database::db::upsert(&conn, &torrent.hash, &entry);
                             }
-                            notifier(
+                            notifier::notify(
                                 "RuTorrent: Download Complete".to_string(),
                                 format!("{} has been downloaded", entry.name),
                                 config.clone(),
@@ -397,7 +363,7 @@ pub fn spawn_worker(
                 if matches!(entry.status, config::settings::Status::Completed) {
                     let name_clone = entry.name.clone();
                     let put_item_clone = entry.put_item.clone();
-                    notifier(
+                    notifier::notify(
                         "RuTorrent: Transfer Complete".to_string(),
                         format!(
                             "{} has been transferred to {}",
@@ -424,7 +390,7 @@ pub fn spawn_worker(
                             {
                                 log::error!("Failed to delete files: {}", err);
                                 files_deleted = false;
-                                notifier(
+                                notifier::notify(
                                     "RuTorrent: Delete Failed".to_string(),
                                     format!("Failed to delete torrent: {}", name_clone),
                                     config.clone(),
