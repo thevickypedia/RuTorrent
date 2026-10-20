@@ -10,7 +10,7 @@ use std::error::Error;
 /// # Returns
 ///
 /// Returns the `Vec<Value>` object.
-pub async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
+async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
     let url = "https://api.mullvad.net/www/relays/all/";
 
     let data: Vec<Value> = reqwest::get(url).await?.error_for_status()?.json().await?;
@@ -26,7 +26,8 @@ pub async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 /// # Returns
 ///
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
-pub async fn generate_relay_map(relays: &Vec<Value>) -> Result<vpn::models::RelayMap, Box<dyn Error>> {
+pub async fn generate_relay_map() -> Result<vpn::models::RelayMap, Box<dyn Error>> {
+    let relays = list_active_relays().await?;
     let mut relay_map: vpn::models::RelayMap = HashMap::new();
 
     for relay in relays.iter() {
@@ -73,7 +74,7 @@ pub async fn current_relay() -> String {
     hostname
 }
 
-/// Filters the rule map from based on specific filtering rules.
+/// Selects a random relay from the relay map after applying the specified filters.
 ///
 /// # Filtering Rules
 ///
@@ -90,12 +91,13 @@ pub async fn current_relay() -> String {
 ///
 /// # Returns
 ///
-/// Returns the vector for `RelayConnector` objects.
-pub async fn filter_relays(
+/// * `Some(RelayConnector)` - A randomly selected relay that satisfies all filters.
+/// * `None` - If no eligible relays are available.
+pub async fn select_relay(
     relay_map: vpn::models::RelayMap,
     whitelist: Option<Vec<String>>,
     blacklist: Option<Vec<String>>,
-) -> Vec<vpn::models::RelayConnector> {
+) -> Option<vpn::models::RelayConnector> {
     log::debug!("whitelist: {:?}", whitelist);
     log::debug!("blacklist: {:?}", blacklist);
     let whitelisted = whitelist.unwrap_or_default();
@@ -129,20 +131,6 @@ pub async fn filter_relays(
             }
         }
     }
-    relays
-}
-
-/// Selects a random relay from the relay map after applying the specified filters.
-///
-/// # Arguments
-///
-/// * `relays` - A vector of `RelayConnector` objects.
-///
-/// # Returns
-///
-/// * `Some(RelayConnector)` - A randomly selected relay that satisfies all filters.
-/// * `None` - If no eligible relays are available.
-pub async fn select_relay(relays: &Vec<vpn::models::RelayConnector>) -> Option<vpn::models::RelayConnector> {
     let mut rng = rand::rng();
     relays.choose(&mut rng).cloned()
 }
