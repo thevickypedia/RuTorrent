@@ -1,6 +1,35 @@
 Release Notes
 =============
 
+v0.8.0 (10/20/2026)
+-------------------
+- [1ff0892](https://github.com/thevickypedia/RuTorrent/commit/1ff08929c67263fee711db8650fb3bf902d0cf8b) chore: Release ``v0.8.0``
+- [21b71e2](https://github.com/thevickypedia/RuTorrent/commit/21b71e28bee0a85c60f33d773b6b3b37ecf6314d) docs: Update README.md and add TODOs for v0.9
+- [b868cc9](https://github.com/thevickypedia/RuTorrent/commit/b868cc90f8e314eb91c4c9b14627f91512b6cf66) fix: Move notification block out of await mechanism for vpn reconnect
+- [805b3ce](https://github.com/thevickypedia/RuTorrent/commit/805b3ceeab1d294f0f47c25522949713b49f6a5c) fix: Fix an edge case where ``reconnect`` will fail if there isn't an existing connection with mullvad vpn
+- [b00f5e6](https://github.com/thevickypedia/RuTorrent/commit/b00f5e6dd613dec913990272d952e95f05183ff8) refactor: Set optional query params as optional in swagger
+- [0c5c166](https://github.com/thevickypedia/RuTorrent/commit/0c5c1661764db186c6ce445bf924a6d3db7460d7) feat: Notify user after exhausting all attempts to restore VPN connection
+- [f0ed7cb](https://github.com/thevickypedia/RuTorrent/commit/f0ed7cbe1e49ab9ab68d6a30a3a0e28e80930e41) refactor: Move notifier to it's mod
+- [7790015](https://github.com/thevickypedia/RuTorrent/commit/779001523ccc3c4e0858fb2156a225836a3e25c8) perf: Create a simplified fallback mechanism when relays stall during connection
+- [9673841](https://github.com/thevickypedia/RuTorrent/commit/96738411a14fdf3eaa71d884be83fe0650091c17) revert: Rollback complex logic to reset relays
+- [bb41bf1](https://github.com/thevickypedia/RuTorrent/commit/bb41bf17263b381bf6d34ee3cd719bbd8edc1d69) perf: Create a fallback mechanism for relays stalling to connect
+- [878e0ca](https://github.com/thevickypedia/RuTorrent/commit/878e0ca693b96f871f3c13c8514a0c27dd18e8ed) fix: Fix a bug in whitelisting, and skip currently connected relay when shuffling VPN relays
+- [e7fafb5](https://github.com/thevickypedia/RuTorrent/commit/e7fafb5c97c8e27f75fabe5a36aa7f1603c751f5) perf: Await connection for ``disconnected`` state as well
+- [8893909](https://github.com/thevickypedia/RuTorrent/commit/8893909876164659246659e2616f2ea9872fc195) style: Grayout toggle button when state is disconnected; hide the toggle button in details view
+- [1a13ef9](https://github.com/thevickypedia/RuTorrent/commit/1a13ef92620a29a349c01e76a752dce9ba33b6ee) feat: Include an option to disconnect VPN
+- [3eef5ad](https://github.com/thevickypedia/RuTorrent/commit/3eef5ad4a84c0b908d3f1c16686c4a7b626b78ae) feat: Include IP and location information even when vpn ``state`` is ``disconnected``
+- [45d4e7d](https://github.com/thevickypedia/RuTorrent/commit/45d4e7d996af6ebd14e914ee87ca59513a161deb) style: Move link to mullvad into ``vpnFormContent``
+- [5f94c1b](https://github.com/thevickypedia/RuTorrent/commit/5f94c1b2acdc99fe5faf8eb52f76d7fda0f960f2) style: Add an indicator when NOT CONNECTED
+- [14bbed1](https://github.com/thevickypedia/RuTorrent/commit/14bbed1ccc6dd6620c0aa3ea83c1d212a1168dcd) feat: Get and update VPN connections through the UI
+- [080236a](https://github.com/thevickypedia/RuTorrent/commit/080236ae24fff59eba2a24f51dd71b87c127283f) refactor: Remove ``GET /ip`` endpoint and related code
+- [d618c87](https://github.com/thevickypedia/RuTorrent/commit/d618c87cb45d9874bca65035e6d9a8c6b3b0e3ce) perf: Avoid double loop for whitelist and blacklist
+- [6f6dc0c](https://github.com/thevickypedia/RuTorrent/commit/6f6dc0c81b621cbd93a3f4fe4a74a0992ac93f50) fix: Fix condition logic making final relays empty when whitelist is provided
+- [f82165d](https://github.com/thevickypedia/RuTorrent/commit/f82165db8bd2dca3449225b38d13d355c1ec7f39) feat: Create a new endpoint to get IP info
+- [e6332da](https://github.com/thevickypedia/RuTorrent/commit/e6332da46618bb29e19db4438632c812968d2dbd) feat: Add a ``GET /vpn`` endpoint to get the current relay information
+- [5c73627](https://github.com/thevickypedia/RuTorrent/commit/5c73627983dd9c0e2025340c6bcbbcf6dfa8c15f) feat: Add an API endpoint to connect to vpn via mullvad cli
+- [f282acb](https://github.com/thevickypedia/RuTorrent/commit/f282acba93df006bde46a0863a371eb1dd31f19e) feat: Add base functionality for vpn relay toggle
+- [53f74ab](https://github.com/thevickypedia/RuTorrent/commit/53f74abf6c0a393460ee4890700f89fe7ef607bc) chore: Update release notes for v0.7.3
+
 v0.7.3 (10/18/2026)
 -------------------
 - [dfd639a](https://github.com/thevickypedia/RuTorrent/commit/dfd639a64fa191531c48f85b4898d73db22eafc8) chore: Release ``v0.7.3``
