@@ -190,7 +190,7 @@ pub async fn target_connector(
 }
 
 /// Chooses targeted connection if whitelist and blacklist are provided.
-/// Otherwise, resets the relay preference (letting `RelaySelector`) pick one.
+/// Otherwise, resets the relay preference and lets mullvad's `RelaySelector` pick one.
 ///
 /// `RelaySelector` uses a weighted roulette algorithm to pick the relay,
 /// meaning more popular servers have a higher probability of selection
@@ -242,24 +242,26 @@ pub async fn shuffler(
     let connected = get_current().is_some_and(|connect| connect.state == "connected");
     let (cmd, log_st) = if connected {
         log::info!("Existing connection found; resetting.");
-        (RECONNECT, "reset")
+        (RECONNECT, "reconnect")
     } else {
         log::info!("No existing connection found; establishing.");
         (CONNECTOR, "connect")
     };
     match run_command(cmd) {
         Ok(_) => {
-            log::debug!("mullvad connection has been {}", log_st);
-            await_connection("connected").await
+            log::debug!("vpn has been {}ed", log_st);
+            if let Some(connected_bak) = await_connection("connected").await {
+                return Some(connected_bak);
+            }
         }
         Err(e) => {
             log::error!("Failed to {} - {}", log_st, e);
-            notifier::notify(
-                "RuTorrent: VPN ERROR".to_string(),
-                "Failed to connect to mullvad VPN after several attempts for recovery.".to_string(),
-                config.to_owned()
-            );
-            None
         }
     }
+    notifier::notify(
+        "RuTorrent: VPN ERROR".to_string(),
+        "Failed to connect to mullvad VPN even after a relay reset.".to_string(),
+        config.to_owned()
+    );
+    None
 }
