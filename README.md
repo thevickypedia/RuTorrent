@@ -199,8 +199,21 @@ docker run -d \
     ```
 4. `DELETE /torrent` - Deletes a torrent.
     ```shell
-   curl -X DELETE -H "apikey: ${APIKEY}" "http://localhost:3000/torrent?name=Big+Buck+Bunny"
+   curl -X DELETE -H "apikey: ${APIKEY}" "localhost:3000/torrent?name=Big+Buck+Bunny"
     ```
+
+### VPN (Mullvad CLI)
+
+1. `GET /vpn` - Get VPN state (cli: `mullvad status --json`)
+   ```shell
+   curl -H "apikey: ${APIKEY}" localhost:3000/vpn
+   ```
+2. `POST /vpn` - Disconnect/Connect/Reconnect/Change VPN relay
+   ```shell
+   curl --url "localhost:3000/vpn?disconnect=false" \
+     -H "apikey: ${APIKEY}" \
+     --data-raw '{"blacklist":"us,il,cl,cz","node":"","whitelist":"ch,se,ie,it,tyo"}'
+   ```
 
 ### Standalone UI
 

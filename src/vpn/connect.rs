@@ -180,6 +180,8 @@ pub async fn target_connector(
         return None;
     };
     log::debug!("Generated a relay map with {} countries", relay_map.len());
+    // TODO: v0.9 - avoid selecting relay - instead choose only the city/country
+    //  Reason: Whitelisting/Blacklisting is only supported for city/country so no need to be more particular than that
     let Some(relay) = vpn::relay::select_relay(relay_map, whitelist, blacklist).await else {
         log::info!("Failed to select a relay");
         return None;

@@ -11,6 +11,9 @@ use std::error::Error;
 ///
 /// Returns the `Vec<Value>` object.
 async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
+    // TODO: Once targeted selection is removed, there is no need to call this endpoint
+    //  Hard code all the countries and cities - check if whitelist/blacklist matches that
+    //  Reason: Just connect to city/country since fallback reset will remove relay preference anyway
     let url = "https://api.mullvad.net/www/relays/all/";
 
     let data: Vec<Value> = reqwest::get(url).await?.error_for_status()?.json().await?;
@@ -27,6 +30,8 @@ async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 ///
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
 pub async fn generate_relay_map() -> Result<vpn::models::RelayMap, Box<dyn Error>> {
+    // TODO: v0.9 - remove relay map
+    //  Reason: See list_active_relays
     let relays = list_active_relays().await?;
     let mut relay_map: vpn::models::RelayMap = HashMap::new();
 
