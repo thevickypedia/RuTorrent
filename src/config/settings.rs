@@ -75,6 +75,14 @@ pub struct PutItem {
     pub delete_after_copy: bool,
 }
 
+/// ### PutResponse
+/// Represents the outgoing response for adding a new torrent.
+#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PutResponse {
+    pub name: String,
+    pub state: String,
+}
+
 /// ### RetryOptions
 /// Represents an incoming request to retry a failed copy, or trigger a fresh
 /// re-download followed by a fresh rsync transfer.

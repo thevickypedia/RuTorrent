@@ -7,10 +7,6 @@ use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-// TODO: Change PUT and POST endpoints using query parameters
-//       Query params should be optional in Swagger
-//       Remove less useful endpoints from Swagger
-
 /// API endpoint to get the current health status.
 ///
 /// # Returns
@@ -211,7 +207,7 @@ pub async fn get_torrents(
     path = "/torrent",
     request_body = Vec<config::settings::PutItem>,
     responses(
-        (status = 200, description = "Queued", body = String)
+        (status = 200, description = "A vector of PutResponse object with each torrent's name and state", body = Vec<config::settings::PutResponse>)
     )
 )]
 pub async fn put_torrent(
@@ -221,6 +217,7 @@ pub async fn put_torrent(
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<Vec<config::settings::PutItem>>,
 ) -> impl Responder {
+    // TODO: UPDATE THE UI
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
@@ -237,7 +234,7 @@ pub async fn put_torrent(
         .map(|i| i.hash.to_uppercase())
         .collect();
 
-    let mut response: Vec<HashMap<String, String>> = Vec::new();
+    let mut response: Vec<config::settings::PutResponse> = Vec::new();
     for mut item in api::squire::resolve_payload(&body.into_inner(), &config).await {
         let tag = Uuid::new_v4().to_string();
         let url = item.url.to_string();
@@ -246,10 +243,7 @@ pub async fn put_torrent(
         let trackers = item.trackers.as_ref().unwrap().to_vec();
 
         if hashes.contains(&hash) {
-            response.push(HashMap::from([(
-                name,
-                "Conflict - Duplicate request".to_string(),
-            )]));
+            response.push(config::settings::PutResponse { name, state: "Conflict - Duplicate request".to_string() });
             continue;
         }
 
@@ -278,7 +272,7 @@ pub async fn put_torrent(
             squire::qb::handle_response(resp, squire::qb::ResponseContext::AddTorrent).await
         {
             log::error!("{:?}", e.status().to_string());
-            response.push(HashMap::from([(name, e.status().to_string())]));
+            response.push(config::settings::PutResponse { name, state: e.status().to_string() });
             continue;
         }
 
@@ -299,10 +293,10 @@ pub async fn put_torrent(
         } else {
             log::error!("Failed to update database for pending");
         }
-        response.push(HashMap::from([(
+        response.push(config::settings::PutResponse {
             name,
-            format!("OK! Saving to: {}", item.save_path),
-        )]));
+            state: format!("OK! Saving to: {}", item.save_path),
+        });
     }
 
     HttpResponse::Ok().json(response)
@@ -838,7 +832,8 @@ pub async fn pause_torrent(
         ("nested" = Option<bool>, Query, description = "Boolean flag to get nested categories")
     ),
     responses(
-        (status = 200, description = "Static category map", body = HashMap<u16, String>)
+        (status = 200, description = "Static category map", body = HashMap<u16, String>),
+        (status = 200, description = "Nested category map", body = HashMap<String, HashMap<u16, String>>)
     )
 )]
 pub async fn search_category(

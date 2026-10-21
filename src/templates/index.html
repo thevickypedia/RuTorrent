@@ -3516,7 +3516,9 @@
             if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
 
             const data = await resp.json();
-            const [name, status] = Object.entries(data[0])[0];
+            // Only one torrent request is submitted at a time, so it is safe to use index 0
+            const name = data[0].name
+            const status = data[0].state
             if (status.startsWith('OK')) {
                 toast(`Queued: ${name}`, 'success');
                 closeAdd();
@@ -4208,7 +4210,9 @@
             if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
 
             const data = await resp.json();
-            const [name, status] = Object.entries(data[0])[0];
+            // Only one torrent request is submitted at a time, so it is safe to use index 0
+            const name = data[0].name
+            const status = data[0].state
             if (status.startsWith('OK')) {
                 toast(`Queued: ${name}`, 'success');
                 closeExploreDownload();

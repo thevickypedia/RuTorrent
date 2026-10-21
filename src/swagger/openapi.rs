@@ -20,7 +20,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::routes::delete_torrent,
         api::routes::retry_torrent
     ),
-    components(schemas(config::settings::PutItem, config::settings::RetryOptions, api::schema::TorrentEntry, api::schema::BaseTorrent, vpn::models::MullvadResponse)),
+    components(schemas(config::settings::PutItem, config::settings::PutResponse, config::settings::RetryOptions, api::schema::TorrentEntry, api::schema::BaseTorrent, vpn::models::MullvadResponse)),
     security(
         ("apikey" = [])
     ),
