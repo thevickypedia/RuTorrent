@@ -1,15 +1,14 @@
 use serde;
 use utoipa::ToSchema;
-use std::collections::HashMap;
+use serde::Deserialize;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RelayConnector {
-    pub hostname: String,
-    pub city_name: String,
-    pub country_name: String,
+#[derive(Clone, Debug, Deserialize)]
+pub struct RelayLocation {
+    pub city: String,
+    pub country: String,
+    pub city_code: String,
+    pub country_code: String,
 }
-
-pub type RelayMap = HashMap<String, HashMap<String, Vec<RelayConnector>>>;
 
 #[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct MullvadResponse {

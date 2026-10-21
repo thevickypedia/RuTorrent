@@ -2,7 +2,6 @@ use crate::vpn;
 use rand::prelude::*;
 use reqwest;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::error::Error;
 
 /// Get the list of active relays.
@@ -11,9 +10,6 @@ use std::error::Error;
 ///
 /// Returns the `Vec<Value>` object.
 async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
-    // TODO: Once targeted selection is removed, there is no need to call this endpoint
-    //  Hard code all the countries and cities - check if whitelist/blacklist matches that
-    //  Reason: Just connect to city/country since fallback reset will remove relay preference anyway
     let url = "https://api.mullvad.net/www/relays/all/";
 
     let data: Vec<Value> = reqwest::get(url).await?.error_for_status()?.json().await?;
@@ -29,54 +25,28 @@ async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 /// # Returns
 ///
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
-pub async fn generate_relay_map() -> Result<vpn::models::RelayMap, Box<dyn Error>> {
-    // TODO: v0.9 - remove relay map
-    //  Reason: See list_active_relays
-    let relays = list_active_relays().await?;
-    let mut relay_map: vpn::models::RelayMap = HashMap::new();
-
-    for relay in relays.iter() {
-        let Some(hostname) = relay["hostname"].as_str() else {
-            log::warn!("Relay found without a hostname, skipping...");
-            log::error!("{}", relay);
-            continue;
-        };
-
+pub async fn generate_relay_map() -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
+    // TODO: Pass 'config.mullvad_relay_cache' instead of None
+    if let Some(relays_cached) = vpn::cache::load_relay_locations(None) {
+        log::debug!("Relays generated from cache: {}", relays_cached.len());
+        return Ok(relays_cached)
+    }
+    log::info!("Failed to get relays from cache, requesting mullvad API.");
+    let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
+    for relay in list_active_relays().await?.iter() {
         let country_name = relay["country_name"].as_str().unwrap_or("");
         let country_code = relay["country_code"].as_str().unwrap_or("");
         let city_name = relay["city_name"].as_str().unwrap_or("");
         let city_code = relay["city_code"].as_str().unwrap_or("");
-
-        let relay_connector = vpn::models::RelayConnector {
-            hostname: hostname.to_string(),
-            city_name: city_name.to_string(),
-            country_name: country_name.to_string(),
+        let relay_connector = vpn::models::RelayLocation {
+            city: city_name.to_string(),
+            country: country_name.to_string(),
+            city_code: city_code.to_string(),
+            country_code: country_code.to_string(),
         };
-
-        relay_map
-            .entry(country_code.to_string())
-            .or_default()
-            .entry(city_code.to_string())
-            .or_default()
-            .push(relay_connector);
+        relays.push(relay_connector);
     }
-
-    Ok(relay_map)
-}
-
-/// Get the currently connected relay.
-pub async fn current_relay() -> String {
-    let Some(current) = vpn::connect::get_current() else {
-        return "".to_string();
-    };
-    let Some(details) = current.details else {
-        return "".to_string();
-    };
-    let Some(hostname) = details.location.hostname else {
-        return "".to_string();
-    };
-    log::info!("Current relay: {}", hostname);
-    hostname
+    Ok(relays)
 }
 
 /// Selects a random relay from the relay map after applying the specified filters.
@@ -99,40 +69,30 @@ pub async fn current_relay() -> String {
 /// * `Some(RelayConnector)` - A randomly selected relay that satisfies all filters.
 /// * `None` - If no eligible relays are available.
 pub async fn select_relay(
-    relay_map: vpn::models::RelayMap,
+    relay_map: Vec<vpn::models::RelayLocation>,
     whitelist: &Vec<String>,
     blacklist: &Vec<String>,
-) -> Option<vpn::models::RelayConnector> {
+) -> Option<vpn::models::RelayLocation> {
     log::debug!("whitelist: {:?}", whitelist);
     log::debug!("blacklist: {:?}", blacklist);
-    let connected_relay = current_relay().await;
-    let mut relays = Vec::new();
-    for (country_code, country_data) in relay_map {
+    let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
+    for relay_location in relay_map {
         // Skip all relays within a country if the 'country_code' is blacklisted
-        if blacklist.contains(&country_code) {
+        if blacklist.contains(&relay_location.country_code) {
             continue;
         }
-        for (city_code, city_data) in country_data {
-            // Skip all relays within a city if the 'city_code' is blacklisted
-            if blacklist.contains(&city_code) {
-                continue;
-            }
-            // Skip if whitelisted array exists, but does not contain the 'city_code' or 'country_code'
-            if !whitelist.is_empty()
-                && !whitelist.contains(&city_code)
-                && !whitelist.contains(&country_code)
-            {
-                continue;
-            }
-            for relay in city_data {
-                // DO NOT connect to the same relay again
-                if relay.hostname == connected_relay {
-                    log::info!("Skipping the relay: {}", relay.hostname);
-                } else {
-                    relays.push(relay);
-                }
-            }
+        // Skip all relays within a city if the 'city_code' is blacklisted
+        if blacklist.contains(&relay_location.city_code) {
+            continue;
         }
+        // Skip if whitelisted array exists, but does not contain the 'city_code' or 'country_code'
+        if !whitelist.is_empty()
+            && !whitelist.contains(&relay_location.city_code)
+            && !whitelist.contains(&relay_location.country_code)
+        {
+            continue;
+        }
+        relays.push(relay_location);
     }
     let mut rng = rand::rng();
     relays.choose(&mut rng).cloned()
