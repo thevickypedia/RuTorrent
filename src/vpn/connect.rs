@@ -1,5 +1,6 @@
 use crate::{config, notifier, vpn};
 use std::io;
+use std::path::PathBuf;
 use std::process::Command;
 use tokio::time::{Duration, sleep};
 
@@ -75,7 +76,7 @@ pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadRespons
     for attempt in 0..5 {
         log::debug!("Sleeping for 3s");
         sleep(Duration::from_secs(3)).await;
-        log::info!("Checking connection (attempt {})", attempt + 1);
+        log::debug!("Checking connection (attempt {})", attempt + 1);
         match run_command(GETTER) {
             Ok(current) => {
                 // MARK: Avoid parsing as struct for transient state as the "details" node is "nothing"
@@ -99,7 +100,7 @@ pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadRespons
                         }
                     };
                     let location = &details.location;
-                    log::debug!("Connection validated to {:?}", location.hostname);
+                    log::info!("Connection validated to {:?}", location.hostname);
                     return Some(response);
                 }
             }
@@ -118,25 +119,10 @@ pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadRespons
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
 pub async fn connect_by_hostname(hostname: &String) -> Option<vpn::models::MullvadResponse> {
-    match run_command(&format!("{} {}", SETTER, hostname)) {
-        Ok(_) => {
-            log::info!("Relay set to {}", hostname);
-        },
-        Err(e) => {
-            log::error!("Failed to set to {} - {}", hostname, e);
-            return None;
-        }
+    if set_and_connect(hostname).await {
+        return await_connection("connected").await;
     }
-    match run_command(CONNECTOR) {
-        Ok(_) => {
-            log::info!("Connected to {}", hostname);
-        }
-        Err(e) => {
-            log::error!("Failed to connect to {} - {}", hostname, e);
-            return None;
-        }
-    }
-    await_connection("connected").await
+    None
 }
 
 /// Sets a relay selection and attempst to connect to it.
@@ -183,12 +169,12 @@ async fn set_and_connect(selection: &String) -> bool {
 pub async fn target_connector(
     whitelist: &Vec<String>,
     blacklist: &Vec<String>,
+    cache: Option<PathBuf>,
 ) -> Option<vpn::models::MullvadResponse> {
-    let Ok(relay_map) = vpn::relay::generate_relay_map().await else {
+    let Ok(relay_map) = vpn::relay::generate_relay_map(cache).await else {
         log::info!("Failed to generate relay map");
         return None;
     };
-    log::debug!("Generated a relay map with {} countries", relay_map.len());
     let Some(relay) = vpn::relay::select_relay(relay_map, whitelist, blacklist).await else {
         log::info!("Failed to select a relay");
         return None;
@@ -230,7 +216,7 @@ pub async fn shuffler(
     let whitelisted = whitelist.unwrap_or_default();
     let blacklisted = blacklist.unwrap_or_default();
     if !whitelisted.is_empty() || !blacklisted.is_empty() {
-        if let Some(connected) = target_connector(&whitelisted, &blacklisted).await {
+        if let Some(connected) = target_connector(&whitelisted, &blacklisted, config.mullvad_relay_cache.to_owned()).await {
             return Some(connected);
         } else {
             if !whitelisted.is_empty() {

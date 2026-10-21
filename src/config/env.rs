@@ -137,6 +137,9 @@ pub struct Config {
     // Trackers
     pub trackers_file: Option<PathBuf>,
     pub max_trackers: usize,
+
+    // Mullvad relay cache
+    pub mullvad_relay_cache: Option<PathBuf>,
 }
 
 impl Config {
@@ -301,6 +304,19 @@ impl Config {
             }
         };
 
+        let mullvad_cache_env = squire::misc::get_env_var("mullvad_relay_cache", None);
+        let mullvad_relay_cache = if !mullvad_cache_env.is_empty() {
+            if !mullvad_cache_env.ends_with("relays.json") {
+                startup_error("'mullvad_relay_cache' must be a path to 'relays.json'");
+                std::process::exit(1)
+            }
+            Some(PathBuf::from(mullvad_cache_env))
+        } else {
+            std::env::var("MULLVAD_CACHE_DIR")
+                .ok()
+                .map(|dir| PathBuf::from(dir).join("relays.json"))
+        };
+
         Self {
             host,
             port,
@@ -329,6 +345,7 @@ impl Config {
             tor_timeout,
             trackers_file,
             max_trackers,
+            mullvad_relay_cache
         }
     }
 }

@@ -3,6 +3,7 @@ use rand::prelude::*;
 use reqwest;
 use serde_json::Value;
 use std::error::Error;
+use std::path::PathBuf;
 
 /// Get the list of active relays.
 ///
@@ -25,9 +26,8 @@ async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 /// # Returns
 ///
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
-pub async fn generate_relay_map() -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
-    // TODO: Pass 'config.mullvad_relay_cache' instead of None
-    if let Some(relays_cached) = vpn::cache::load_relay_locations(None) {
+pub async fn generate_relay_map(cache: Option<PathBuf>) -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
+    if let Some(relays_cached) = vpn::cache::load_relay_locations(cache) {
         log::debug!("Relays generated from cache: {}", relays_cached.len());
         return Ok(relays_cached)
     }
