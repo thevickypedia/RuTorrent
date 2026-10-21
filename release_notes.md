@@ -1,6 +1,14 @@
 Release Notes
 =============
 
+v0.9.0 (10/20/2026)
+-------------------
+- [8f38404](https://github.com/thevickypedia/RuTorrent/commit/8f38404007b9623a1cb3fb14ecd53d2b4d177108) chore: Release ``v0.9.0``
+- [4f09631](https://github.com/thevickypedia/RuTorrent/commit/4f096315f118e4a6bfabf6638f1a3164e9b2436d) fix: Avoid requiring both ``whitelist`` and ``blacklist`` for preferences to be considered
+- [5c546fd](https://github.com/thevickypedia/RuTorrent/commit/5c546fdb551640790c3286e6aa614cafdf65886d) refactor: Make response for ``PUT /torrent`` follow a proper schema instead of a generic ``HashMap``
+- [2af148e](https://github.com/thevickypedia/RuTorrent/commit/2af148e02e542412decbf3d8805ab3b359137429) ci: Run release notes on macOS runners; update checkout actions version
+- [0526a7f](https://github.com/thevickypedia/RuTorrent/commit/0526a7f752a77d4c047f47b0ea29e3559d451a2c) chore: Update release notes for v0.8.0
+
 v0.8.0 (10/20/2026)
 -------------------
 - [1ff0892](https://github.com/thevickypedia/RuTorrent/commit/1ff08929c67263fee711db8650fb3bf902d0cf8b) chore: Release ``v0.8.0``
