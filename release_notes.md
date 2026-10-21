@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+v0.9.1 (10/21/2026)
+-------------------
+- [8e5d19d](https://github.com/thevickypedia/RuTorrent/commit/8e5d19d0567417bf27ff2c5542d79c6c53cfb298) chore: Release ``v0.9.1``
+- [4e70901](https://github.com/thevickypedia/RuTorrent/commit/4e709018d3b15c6e5a766e0ee415f5c5324e94a2) chore: Bump dependencies
+- [5178e28](https://github.com/thevickypedia/RuTorrent/commit/5178e286221bc38f42a375cd33d2f5b56c7f3ae8) feat: Support custom filepath to ``relays.json`` using ``mullvad_relay_cache`` env var
+- [e2a876f](https://github.com/thevickypedia/RuTorrent/commit/e2a876f0a0f8da4a6590fb39f10e453b89827270) refactor: Change ``node`` references to ``hostname``
+- [a07eea1](https://github.com/thevickypedia/RuTorrent/commit/a07eea141c3dcb8adfd35e8a574c8844aacf7196) feat: Change vpn mechanism from a relay based to location based selection
+- [7152692](https://github.com/thevickypedia/RuTorrent/commit/7152692512f6f3045d21445404258e4a70ae8712) chore: Update release notes for v0.9.0
+
 v0.9.0 (10/20/2026)
 -------------------
 - [8f38404](https://github.com/thevickypedia/RuTorrent/commit/8f38404007b9623a1cb3fb14ecd53d2b4d177108) chore: Release ``v0.9.0``
