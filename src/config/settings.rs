@@ -135,6 +135,6 @@ pub struct ConnectVPN {
     pub whitelist: String,
     #[serde(default = "defaults::default_vpn_blacklist")]
     pub blacklist: String,
-    #[serde(default = "defaults::default_vpn_node")]
-    pub node: String
+    #[serde(default = "defaults::default_vpn_hostname")]
+    pub hostname: String
 }

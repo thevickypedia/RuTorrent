@@ -117,22 +117,22 @@ pub async fn await_connection(state: &str) -> Option<vpn::models::MullvadRespons
 /// # Returns
 ///
 /// Returns the `Option<vpn::models::MullvadResponse>` object.
-pub async fn connect_by_node(node: &String) -> Option<vpn::models::MullvadResponse> {
-    match run_command(&format!("{} {}", SETTER, node)) {
+pub async fn connect_by_hostname(hostname: &String) -> Option<vpn::models::MullvadResponse> {
+    match run_command(&format!("{} {}", SETTER, hostname)) {
         Ok(_) => {
-            log::info!("Relay set to {}", node);
+            log::info!("Relay set to {}", hostname);
         },
         Err(e) => {
-            log::error!("Failed to set to {} - {}", node, e);
+            log::error!("Failed to set to {} - {}", hostname, e);
             return None;
         }
     }
     match run_command(CONNECTOR) {
         Ok(_) => {
-            log::info!("Connected to {}", node);
+            log::info!("Connected to {}", hostname);
         }
         Err(e) => {
-            log::error!("Failed to connect to {} - {}", node, e);
+            log::error!("Failed to connect to {} - {}", hostname, e);
             return None;
         }
     }

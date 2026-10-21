@@ -65,4 +65,4 @@ pub fn default_vpn_whitelist() -> String { String::new() }
 pub fn default_vpn_blacklist() -> String { String::new() }
 
 /// Returns an empty string for vpn node.
-pub fn default_vpn_node() -> String { String::new() }
+pub fn default_vpn_hostname() -> String { String::new() }

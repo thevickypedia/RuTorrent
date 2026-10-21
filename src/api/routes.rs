@@ -1070,10 +1070,8 @@ pub async fn connect_vpn(
             HttpResponse::InternalServerError().into()
         }
     }
-    // TODO: v0.9 - change 'node' to hostname
-    //  Reason: Call it what it is
-    if !payload.node.is_empty() {
-        return if let Some(response) = vpn::connect::connect_by_node(&payload.node).await {
+    if !payload.hostname.is_empty() {
+        return if let Some(response) = vpn::connect::connect_by_hostname(&payload.hostname).await {
             HttpResponse::Ok().json(response)
         } else {
             HttpResponse::InternalServerError().into()

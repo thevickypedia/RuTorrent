@@ -3045,7 +3045,7 @@
         const disconnecting = vpnDisconnectMode;
         const payload = {
             blacklist: document.getElementById('vpnBlacklist').value.trim(),
-            node: document.getElementById('vpnHostname').value.trim(),
+            hostname: document.getElementById('vpnHostname').value.trim(),
             whitelist: document.getElementById('vpnWhitelist').value.trim()
         };
 
@@ -3093,7 +3093,7 @@
                 resultMessage.textContent = 'VPN connection established.';
                 resultMessage.classList.remove('disconnected');
                 primaryLabel.textContent = 'Hostname';
-                primaryValue.textContent = location.hostname || payload.node || '—';
+                primaryValue.textContent = location.hostname || payload.hostname || '—';
             }
 
             document.getElementById('vpnResultCity').textContent = location.city || '—';
@@ -3106,7 +3106,7 @@
             if (disconnecting) {
                 toast(`VPN disconnected: ${ip || 'IP unavailable'}`, 'success');
             } else {
-                toast(`VPN connected: ${location.hostname || payload.node || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
+                toast(`VPN connected: ${location.hostname || payload.hostname || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
             }
         } catch (err) {
             error.textContent = err.message || (disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.');
