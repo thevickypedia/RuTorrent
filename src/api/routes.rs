@@ -217,7 +217,6 @@ pub async fn put_torrent(
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<Vec<config::settings::PutItem>>,
 ) -> impl Responder {
-    // TODO: UPDATE THE UI
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }

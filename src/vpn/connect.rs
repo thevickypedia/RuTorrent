@@ -216,13 +216,15 @@ pub async fn shuffler(
     blacklist: Option<Vec<String>>,
     config: &config::env::Config,
 ) -> Option<vpn::models::MullvadResponse> {
-    if let (Some(whitelist), Some(blacklist)) = (whitelist, blacklist) {
-        if let Some(connected) = target_connector(&whitelist, &blacklist).await {
+    let whitelisted = whitelist.unwrap_or_default();
+    let blacklisted = blacklist.unwrap_or_default();
+    if !whitelisted.is_empty() || !blacklisted.is_empty() {
+        if let Some(connected) = target_connector(&whitelisted, &blacklisted).await {
             return Some(connected);
         } else {
-            if !whitelist.is_empty() {
+            if !whitelisted.is_empty() {
                 log::warn!("Failed to connect to the chosen relay. Trying to connect to whitelisted regions.");
-                for selection in whitelist {
+                for selection in whitelisted {
                     log::debug!("Selected region: {}", selection);
                     set_and_connect(&selection).await;
                     if let Some(connected_bak) = await_connection("connected").await {
