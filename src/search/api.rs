@@ -171,14 +171,17 @@ pub async fn search(
         match search::tor::client(config, metadata).await {
             Ok(client) => {
                 // Mark 3: If client creation is successful, verify if client is routed through Tor network
-                match search::tor::verify(config, metadata, Some(client.clone())).await {
+                match search::tor::verify(client.clone()).await {
                     Ok(_) => {}
                     Err(e) => {
                         // Mark 4: If Tor verification has failed, and strict mode is enabled fail the request;
                         // Otherwise, log a warning and continue
                         if strict {
                             log::info!("Strict mode was enabled, so failing due to: {}", e);
-                            return Err(e);
+                            return Err(api::schema::HttpError::boxed(
+                                503,
+                                format!("Tor verification failed: {e}"),
+                            ));
                         } else {
                             log::warn!("Strict mode was disabled, so proceed with error: {}", e);
                         }
@@ -202,11 +205,18 @@ pub async fn search(
         .error_for_status()?;
     let payload: Value = response.json().await?;
     let Some(rows) = payload.as_array() else {
-        return Err("Failed to get results.".into());
+        return Err(api::schema::HttpError::boxed(
+            502,
+            "apibay returned an unexpected payload",
+        ));
     };
-    let mut torrents: Vec<api::schema::BaseTorrent> = rows.iter().filter_map(parse_torrent).collect();
+    let mut torrents: Vec<api::schema::BaseTorrent> =
+        rows.iter().filter_map(parse_torrent).collect();
     if torrents.is_empty() {
-        return Err(format!("No results found for '{}'", query).into())
+        return Err(api::schema::HttpError::boxed(
+            404,
+            format!("No results found for '{}'", query),
+        ));
     }
     log::info!("Found {} torrents.", torrents.len());
     if hydrate_categories {

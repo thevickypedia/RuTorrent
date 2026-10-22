@@ -1,5 +1,5 @@
-use std::{fs::File, io::BufReader, path::PathBuf};
 use crate::vpn::models::RelayLocation;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 /// Get default cache location allocated based on the operating system.
 ///

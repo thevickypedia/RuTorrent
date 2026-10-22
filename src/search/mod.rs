@@ -1,4 +1,4 @@
 pub mod api;
+pub mod category;
 mod tor;
 mod trackers;
-pub mod category;

@@ -62,7 +62,6 @@ pub enum TorScheme {
 }
 
 impl fmt::Display for TorScheme {
-
     /// Formats the display trait for `TorScheme` value.
     ///
     /// Returns a lowercased value for the enum.
@@ -180,8 +179,7 @@ impl Config {
         }
 
         let max_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
-        let default_workers =
-            squire::misc::get_env_var("workers", Some("1"));
+        let default_workers = squire::misc::get_env_var("workers", Some("1"));
         let workers = match default_workers.parse::<usize>() {
             Ok(n) if n > 0 && n < max_workers => n,
             Ok(_) => {
@@ -345,7 +343,7 @@ impl Config {
             tor_timeout,
             trackers_file,
             max_trackers,
-            mullvad_relay_cache
+            mullvad_relay_cache,
         }
     }
 }

@@ -1956,9 +1956,9 @@
                 RuTorrent
             </div>
             <div class="header-connection-tools">
-                <div class="vpn-connection-status" role="status" aria-live="polite">
-                    <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
-                    <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                <div aria-live="polite" class="vpn-connection-status" role="status">
+                    <span aria-hidden="true" class="vpn-globe" hidden>🌐</span>
+                    <span aria-hidden="true" class="refresh-dot vpn-status-pulse" hidden></span>
                     <span class="vpn-connection-text">NOT CONNECTED</span>
                 </div>
                 <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
@@ -1979,40 +1979,40 @@
                 </div>
 
                 <div class="search-wrap">
-                    <form id="searchForm" class="search-bar" autocomplete="off">
-                        <span class="search-icon" aria-hidden="true">⌕</span>
+                    <form autocomplete="off" class="search-bar" id="searchForm">
+                        <span aria-hidden="true" class="search-icon">⌕</span>
                         <input
-                                id="torrentSearch"
-                                type="text"
-                                placeholder="Search… (e.g. status: transferred)"
-                                aria-label="Search torrents"
                                 aria-autocomplete="list"
                                 aria-controls="searchSuggestions"
                                 aria-expanded="false"
+                                aria-label="Search torrents"
+                                id="torrentSearch"
+                                placeholder="Search… (e.g. status: transferred)"
                                 spellcheck="false"
+                                type="text"
                         >
                         <button
-                                type="button"
-                                id="searchInfoBtn"
-                                class="search-info-btn"
                                 aria-label="Show search syntax"
+                                class="search-info-btn"
+                                id="searchInfoBtn"
                                 title="Search syntax"
+                                type="button"
                         >i
                         </button>
                         <button
-                                type="button"
-                                id="clearSearchBtn"
-                                class="search-clear-btn"
                                 aria-label="Clear search"
+                                class="search-clear-btn"
+                                id="clearSearchBtn"
+                                type="button"
                         >×
                         </button>
                     </form>
                     <div
-                            id="searchSuggestions"
-                            class="search-suggestions"
-                            role="listbox"
                             aria-label="Search filter suggestions"
+                            class="search-suggestions"
                             hidden
+                            id="searchSuggestions"
+                            role="listbox"
                     ></div>
                 </div>
 
@@ -2069,9 +2069,9 @@
                 RuTorrent
             </div>
             <div class="header-connection-tools">
-                <div class="vpn-connection-status" role="status" aria-live="polite">
-                    <span class="vpn-globe" aria-hidden="true" hidden>🌐</span>
-                    <span class="refresh-dot vpn-status-pulse" aria-hidden="true" hidden></span>
+                <div aria-live="polite" class="vpn-connection-status" role="status">
+                    <span aria-hidden="true" class="vpn-globe" hidden>🌐</span>
+                    <span aria-hidden="true" class="refresh-dot vpn-status-pulse" hidden></span>
                     <span class="vpn-connection-text">NOT CONNECTED</span>
                 </div>
                 <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
@@ -2086,13 +2086,13 @@
             <div class="explore-search-wrap">
                 <div class="explore-search-bar">
                     <input
-                            id="exploreTorrentSearch"
-                            type="text"
-                            placeholder="Explore…"
                             aria-label="Search torrents"
+                            id="exploreTorrentSearch"
+                            placeholder="Explore…"
                             spellcheck="false"
+                            type="text"
                     >
-                    <button class="explore-search-btn" id="exploreSearchBtn" aria-label="Search" title="Search">⌕
+                    <button aria-label="Search" class="explore-search-btn" id="exploreSearchBtn" title="Search">⌕
                     </button>
                 </div>
             </div>
@@ -2111,20 +2111,20 @@
                         </div>
                     </div>
                     <!-- Hidden input carries the selected category id for the search call -->
-                    <input type="hidden" id="exploreCategory" value="0">
+                    <input id="exploreCategory" type="hidden" value="0">
                 </div>
                 <div class="explore-control-group">
                     <span>Tor</span>
-                    <input class="toggle" id="exploreUseTor" type="checkbox" checked>
+                    <input checked class="toggle" id="exploreUseTor" type="checkbox">
                 </div>
                 <div class="explore-control-group" id="strictGroup">
                     <span>Strict</span>
-                    <input class="toggle" id="exploreStrict" type="checkbox" checked>
+                    <input checked class="toggle" id="exploreStrict" type="checkbox">
                 </div>
             </div>
         </div>
 
-        <div class="explore-results-area" id="exploreResultsArea" hidden>
+        <div class="explore-results-area" hidden id="exploreResultsArea">
             <div class="explore-results-header" id="exploreResultsHeader"></div>
             <table class="torrent-table" id="exploreTable">
                 <thead>
@@ -2148,8 +2148,8 @@
 
     <div class="status-bar" id="appStatusBar">
         <div class="status-bar-meta">
-            <a class="accent" id="footerTitle" href="/swagger-ui/#/" target="_blank"
-               rel="noopener noreferrer">RuTorrent</a>
+            <a class="accent" href="/swagger-ui/#/" id="footerTitle" rel="noopener noreferrer"
+               target="_blank">RuTorrent</a>
             <span id="versionText">v—</span>
             <span id="lastUpdated">—</span>
         </div>
@@ -2161,35 +2161,37 @@
      VPN CONNECTION MODAL
 ══════════════════════════════ -->
 <div class="modal-backdrop" id="vpnModal">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vpnModalTitle">
+    <div aria-labelledby="vpnModalTitle" aria-modal="true" class="modal" role="dialog">
         <div class="modal-header">
             <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
             <div class="modal-header-controls">
-                <button class="vpn-mode-toggle" id="vpnModeToggle" type="button" role="switch"
-                        aria-checked="true" aria-label="VPN mode: Connect" title="Switch to disconnect mode"></button>
-                <button class="modal-close" id="closeVpnModal" type="button" aria-label="Close VPN dialog">✕</button>
+                <button aria-checked="true" aria-label="VPN mode: Connect" class="vpn-mode-toggle" id="vpnModeToggle"
+                        role="switch" title="Switch to disconnect mode" type="button"></button>
+                <button aria-label="Close VPN dialog" class="modal-close" id="closeVpnModal" type="button">✕</button>
             </div>
         </div>
 
         <div id="vpnFormContent">
             <div id="vpnFormFields">
                 <p style="color: #fff; font-size: 0.78rem; margin: 0 0 1.25rem;">Click <a
-                        href="https://api.mullvad.net/www/relays/all/" target="_blank" rel="noopener noreferrer"
-                        style="color: inherit;">here</a> to see the full list of available relays.</p>
+                        href="https://api.mullvad.net/www/relays/all/" rel="noopener noreferrer" style="color: inherit;"
+                        target="_blank">here</a> to see the full list of available relays.</p>
                 <div class="form-grid">
                     <div class="field full">
                         <label for="vpnHostname">Hostname</label>
-                        <input id="vpnHostname" type="text" placeholder="e.g. es-mad-wg-203" autocomplete="off">
+                        <input autocomplete="off" id="vpnHostname" placeholder="e.g. es-mad-wg-203" type="text">
                         <div class="field-hint">[Optional] Hostname of the Mullvad relay you’re connecting to.</div>
                     </div>
                     <div class="field full">
                         <label for="vpnWhitelist">Whitelist</label>
-                        <input id="vpnWhitelist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                        <input autocomplete="off" id="vpnWhitelist" placeholder="e.g. city or country codes"
+                               type="text">
                         <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
                     </div>
                     <div class="field full">
                         <label for="vpnBlacklist">Blacklist</label>
-                        <input id="vpnBlacklist" type="text" placeholder="e.g. city or country codes" autocomplete="off">
+                        <input autocomplete="off" id="vpnBlacklist" placeholder="e.g. city or country codes"
+                               type="text">
                         <div class="field-hint">[Optional] Comma-separated city or country codes.</div>
                     </div>
                 </div>
@@ -2201,7 +2203,7 @@
             </div>
         </div>
 
-        <div id="vpnResultContent" hidden>
+        <div hidden id="vpnResultContent">
             <p class="vpn-result-message" id="vpnResultMessage">VPN connection established.</p>
             <dl class="vpn-result-grid">
                 <dt id="vpnResultPrimaryLabel">Hostname</dt>
@@ -2339,8 +2341,8 @@
         <div class="form-grid">
             <div class="field full">
                 <label for="ed-url">Magnet URL</label>
-                <input id="ed-url" readonly type="text"
-                       style="opacity:0.5; cursor:default; border-color:var(--border);">
+                <input id="ed-url" readonly style="opacity:0.5; cursor:default; border-color:var(--border);"
+                       type="text">
             </div>
             <div class="field">
                 <label for="ed-host">Remote Host</label>
@@ -2504,8 +2506,8 @@
 </div>
 
 <!-- Search progress overlay -->
-<div class="search-loading" id="searchLoading"
-     role="status" aria-live="polite" aria-hidden="true">
+<div aria-hidden="true" aria-live="polite"
+     class="search-loading" id="searchLoading" role="status">
     <div class="search-spinner"></div>
     <div class="search-loading-label">Filtering torrents…</div>
 </div>

@@ -1,7 +1,7 @@
 use crate::config::defaults;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::Deserialize;
 use tokio::sync::RwLock;
 use utoipa::{IntoParams, ToSchema};
 
@@ -136,5 +136,5 @@ pub struct ConnectVPN {
     #[serde(default = "defaults::default_vpn_blacklist")]
     pub blacklist: String,
     #[serde(default = "defaults::default_vpn_hostname")]
-    pub hostname: String
+    pub hostname: String,
 }

@@ -1,7 +1,7 @@
-use std::{collections::HashMap, error::Error};
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use crate::search;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, error::Error};
+use utoipa::ToSchema;
 
 /// ### TorrentEntry
 /// A single torrent's state as exposed through the WebUI/API — includes the
@@ -69,5 +69,25 @@ impl BaseTorrent {
                 self.category = mapped.cloned();
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct HttpError {
+    pub status: u16,
+    pub message: String,
+}
+impl std::fmt::Display for HttpError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+impl std::error::Error for HttpError {}
+impl HttpError {
+    pub fn boxed(status: u16, msg: impl Into<String>) -> Box<dyn Error + Send + Sync> {
+        Box::new(Self {
+            status,
+            message: msg.into(),
+        })
     }
 }

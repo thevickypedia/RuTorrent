@@ -1,5 +1,6 @@
-use crate::{api, config, search, squire};
+use crate::{api, config, search, squire, vpn};
 
+use actix_web::HttpResponse;
 use reqwest::Client;
 use serde_json::Value;
 use url::Url;
@@ -112,24 +113,26 @@ fn resolve_status(local: &config::settings::RsyncTrack, live_progress: Option<f6
 pub async fn get_existing(
     client: &Client,
     config: &config::env::Config,
-) -> Vec<squire::qb::Tracker> {
-    let resp: Value = match client
-        .get(format!("{}/api/v2/torrents/info", config.qbit_url))
+) -> Result<Vec<squire::qb::Tracker>, actix_web::HttpResponse> {
+    let url = format!("{}/api/v2/torrents/info", config.qbit_url);
+    let resp = client
+        .get(&url)
         .send()
         .await
-    {
-        Ok(r) => r.json().await.unwrap_or(Value::Null),
-        Err(_) => Value::Null,
-    };
-
-    let mut vec: Vec<squire::qb::Tracker> = Vec::new();
-
-    if let Some(arr) = resp.as_array() {
-        for t in arr {
-            vec.push(squire::qb::parse_tracker(t));
-        }
-    }
-    vec
+        .and_then(|r| r.error_for_status())
+        .map_err(|e| {
+            log::error!("qBit torrents/info failed: {}", e);
+            actix_web::HttpResponse::ServiceUnavailable()
+                .body(format!("Failed to reach qBittorrent: {e}"))
+        })?;
+    let value: Value = resp.json().await.map_err(|e| {
+        actix_web::HttpResponse::BadGateway()
+            .body(format!("Invalid response from qBittorrent: {e}"))
+    })?;
+    let arr = value.as_array().ok_or_else(|| {
+        actix_web::HttpResponse::BadGateway().body("Unexpected response from qBittorrent")
+    })?;
+    Ok(arr.iter().map(squire::qb::parse_tracker).collect())
 }
 
 /// Extends the payload for `PutItem` with resolved `name`, `hash` and `trackers`
@@ -145,14 +148,18 @@ pub async fn get_existing(
 pub async fn resolve_payload(
     body: &[config::settings::PutItem],
     config: &config::env::Config,
-) -> Vec<config::settings::PutItem> {
-    let mut ret: Vec<config::settings::PutItem> = Vec::new();
+) -> Vec<Result<config::settings::PutItem, config::settings::PutResponse>> {
+    let mut ret: Vec<Result<config::settings::PutItem, config::settings::PutResponse>> = Vec::new();
     for item in body.iter() {
         let mut url = match Url::parse(&item.url) {
             Ok(url) => url,
             Err(e) => {
                 log::error!("Invalid URL '{}': {}", item.url, e);
                 // skip this entry only, keep processing the rest of the batch
+                ret.push(Err(config::settings::PutResponse {
+                    name: item.url.clone(),
+                    state: format!("Invalid URL: {e}"),
+                }));
                 continue;
             }
         };
@@ -173,6 +180,13 @@ pub async fn resolve_payload(
                 trackers.push(value);
             }
         }
+        if url.scheme() != "magnet" || hash.is_empty() {
+            ret.push(Err(config::settings::PutResponse {
+                name: item.url.clone(),
+                state: "Invalid magnet link: expected magnet:?xt=urn:btih:<hash>".into(),
+            }));
+            continue;
+        }
         if trackers.is_empty() {
             let ident = if name.is_empty() {
                 &item.url.to_string()
@@ -190,7 +204,7 @@ pub async fn resolve_payload(
                 pairs.append_pair("tr", tracker);
             }
         }
-        ret.push(config::settings::PutItem {
+        ret.push(Ok(config::settings::PutItem {
             url: url.to_string(),
             name: Some(name),
             hash: Some(hash),
@@ -201,7 +215,35 @@ pub async fn resolve_payload(
             remote_path: item.remote_path.to_string(),
             rsync_timeout: item.rsync_timeout.to_owned(),
             delete_after_copy: item.delete_after_copy,
-        });
+        }));
     }
     ret
+}
+
+pub fn vpn_response(
+    result: Result<vpn::models::MullvadResponse, vpn::models::VpnError>,
+) -> HttpResponse {
+    use vpn::models::VpnError::*;
+    match result {
+        Ok(r) => HttpResponse::Ok().json(r),
+        Err(e) => {
+            log::error!("VPN request failed: {}", e);
+            match e {
+                Invalid(m) => HttpResponse::BadRequest().body(m),
+                Unavailable(m) => HttpResponse::ServiceUnavailable().body(m),
+                Failed(m) => HttpResponse::BadGateway().body(m),
+                Timeout(m) => HttpResponse::GatewayTimeout().body(m),
+            }
+        }
+    }
+}
+
+/// Lowercased, trimmed, empty entries (e.g. trailing comma) dropped.
+pub fn split_codes(raw: &str) -> Option<Vec<String>> {
+    let v: Vec<String> = raw
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    (!v.is_empty()).then_some(v)
 }

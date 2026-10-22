@@ -90,7 +90,7 @@ pub fn categories() -> HashMap<String, HashMap<u16, String>> {
 /// Returns the parent category name as an `Option<String>` object.
 pub fn base_map(id: &u16) -> Option<String> {
     if id < &100 {
-        return None
+        return None;
     };
     match *id / 100 {
         1 => Some("Audio".to_string()),
@@ -113,7 +113,9 @@ pub fn base_map(id: &u16) -> Option<String> {
 ///
 /// Returns the flattened category map as an `HashMap<u16, String>` object.
 pub fn flatten(categories: &HashMap<String, HashMap<u16, String>>) -> HashMap<u16, String> {
-    categories.values().flat_map(|inner| inner.iter())
+    categories
+        .values()
+        .flat_map(|inner| inner.iter())
         .map(|(k, v)| (*k, v.clone()))
         .collect()
 }

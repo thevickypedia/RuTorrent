@@ -11,9 +11,9 @@ mod config;
 mod database;
 mod notifier;
 mod output;
+mod search;
 mod squire;
 mod swagger;
-mod search;
 mod vpn;
 
 use output::display;

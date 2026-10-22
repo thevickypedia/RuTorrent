@@ -2,6 +2,7 @@ use crate::vpn;
 use rand::prelude::*;
 use reqwest;
 use serde_json::Value;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -26,10 +27,12 @@ async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 /// # Returns
 ///
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
-pub async fn generate_relay_map(cache: Option<PathBuf>) -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
+pub async fn generate_relay_map(
+    cache: Option<PathBuf>,
+) -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
     if let Some(relays_cached) = vpn::cache::load_relay_locations(cache) {
         log::debug!("Relays generated from cache: {}", relays_cached.len());
-        return Ok(relays_cached)
+        return Ok(relays_cached);
     }
     log::info!("Failed to get relays from cache, requesting mullvad API.");
     let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
@@ -70,11 +73,9 @@ pub async fn generate_relay_map(cache: Option<PathBuf>) -> Result<Vec<vpn::model
 /// * `None` - If no eligible relays are available.
 pub async fn select_relay(
     relay_map: Vec<vpn::models::RelayLocation>,
-    whitelist: &Vec<String>,
-    blacklist: &Vec<String>,
+    whitelist: &[String],
+    blacklist: &[String],
 ) -> Option<vpn::models::RelayLocation> {
-    log::debug!("whitelist: {:?}", whitelist);
-    log::debug!("blacklist: {:?}", blacklist);
     let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
     for relay_location in relay_map {
         // Skip all relays within a country if the 'country_code' is blacklisted
@@ -96,4 +97,29 @@ pub async fn select_relay(
     }
     let mut rng = rand::rng();
     relays.choose(&mut rng).cloned()
+}
+
+pub fn validate_codes(
+    relays: &[vpn::models::RelayLocation],
+    whitelist: &[String],
+    blacklist: &[String],
+) -> Result<(), vpn::models::VpnError> {
+    let known: HashSet<String> = relays
+        .iter()
+        .flat_map(|r| [r.country_code.to_lowercase(), r.city_code.to_lowercase()])
+        .collect();
+    let invalid: Vec<&str> = whitelist
+        .iter()
+        .chain(blacklist)
+        .map(String::as_str)
+        .filter(|c| !known.contains(&c.to_lowercase()))
+        .collect();
+    if invalid.is_empty() {
+        Ok(())
+    } else {
+        Err(vpn::models::VpnError::Invalid(format!(
+            "Unknown country/city code(s): {}",
+            invalid.join(", ")
+        )))
+    }
 }

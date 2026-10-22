@@ -49,11 +49,7 @@ pub fn open() -> Connection {
 /// * `conn` - Active SQLite database connection.
 /// * `hash` - Unique torrent hash identifier.
 /// * `entry` - The `RsyncTrack` data to persist.
-pub fn upsert(
-    conn: &Connection,
-    hash: &str,
-    entry: &config::settings::RsyncTrack,
-) {
+pub fn upsert(conn: &Connection, hash: &str, entry: &config::settings::RsyncTrack) {
     let (status, progress) = encode_status(&entry.status);
     let existing_added_at: Option<f64> = conn
         .query_row(
@@ -63,9 +59,7 @@ pub fn upsert(
         )
         .ok()
         .filter(|s: &f64| !s.is_nan());
-    let added_at = existing_added_at.unwrap_or_else(|| {
-        squire::misc::timestamp()
-    });
+    let added_at = existing_added_at.unwrap_or_else(squire::misc::timestamp);
     match conn.execute(
         "INSERT OR REPLACE INTO state
             (hash, name, status, progress, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy, in_qbit, files_deleted, added_at)

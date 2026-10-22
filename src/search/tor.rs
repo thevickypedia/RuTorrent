@@ -16,7 +16,10 @@ pub async fn client(
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Client> {
-    let url = format!("{}://{}:{}", config.tor_scheme, config.tor_host, config.tor_port);
+    let url = format!(
+        "{}://{}:{}",
+        config.tor_scheme, config.tor_host, config.tor_port
+    );
     log::debug!("Proxy url: {}", url);
     let builder = Client::builder()
         .timeout(Duration::from_secs(config.tor_timeout))
@@ -36,12 +39,7 @@ pub async fn client(
 /// # Returns
 ///
 /// Returns a `Result` containing the verified HTTP client if the connection uses Tor, or an error if the request fails or Tor verification is unsuccessful.
-pub async fn verify(
-    config: &config::env::Config,
-    metadata: &config::constant::MetaData,
-    existing_client: Option<Client>
-) -> api::schema::Result<Client> {
-    let tor_client = existing_client.unwrap_or(client(config, metadata).await.unwrap_or_default());
+pub async fn verify(tor_client: Client) -> api::schema::Result<Client> {
     let response: serde_json::Value = tor_client
         .get("https://check.torproject.org/api/ip")
         .send()

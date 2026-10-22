@@ -76,7 +76,11 @@ async fn fetch_git_trackers(take: usize) -> api::schema::Result<Vec<String>> {
 /// Returns up to N lines from the file as a vector of strings, or an I/O error if the file cannot be read.
 async fn fetch_io_trackers(filepath: &PathBuf, lines: usize) -> std::io::Result<Vec<String>> {
     let contents = std::fs::read_to_string(filepath)?;
-    Ok(contents.lines().take(lines).map(|l| l.trim().to_string()).collect())
+    Ok(contents
+        .lines()
+        .take(lines)
+        .map(|l| l.trim().to_string())
+        .collect())
 }
 
 /// Retrieve tracker URLs from the configured sources in priority order.
@@ -94,10 +98,12 @@ async fn fetch_io_trackers(filepath: &PathBuf, lines: usize) -> std::io::Result<
 pub async fn get(config: &config::env::Config) -> Vec<String> {
     let mut trackers: Vec<String> = Vec::new();
     if let Some(filepath) = config.trackers_file.as_ref() {
-        let io_trackers = fetch_io_trackers(filepath, config.max_trackers).await.unwrap_or_else(|e| {
-            log::warn!("Failed to read IO trackers: {e}");
-            Vec::new()
-        });
+        let io_trackers = fetch_io_trackers(filepath, config.max_trackers)
+            .await
+            .unwrap_or_else(|e| {
+                log::warn!("Failed to read IO trackers: {e}");
+                Vec::new()
+            });
         if !io_trackers.is_empty() {
             log::info!("Trackers loaded from {:?}: {:?}", filepath, trackers);
             trackers.extend(io_trackers);
@@ -106,9 +112,11 @@ pub async fn get(config: &config::env::Config) -> Vec<String> {
     if !trackers.is_empty() {
         return trackers;
     }
-    fetch_git_trackers(config.max_trackers).await.unwrap_or_else(|e| {
-        log::warn!("Failed to fetch Git trackers, using hard coded list");
-        log::error!("{e}");
-        TRACKERS.iter().copied().map(String::from).collect()
-    })
+    fetch_git_trackers(config.max_trackers)
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to fetch Git trackers, using hard coded list");
+            log::error!("{e}");
+            TRACKERS.iter().copied().map(String::from).collect()
+        })
 }

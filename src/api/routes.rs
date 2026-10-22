@@ -119,27 +119,32 @@ pub async fn get_torrents(
     };
 
     let mut out: Vec<api::schema::TorrentEntry> = Vec::new();
-    let array = api::squire::get_existing(&client, &config).await;
+    let existing = match api::squire::get_existing(&client, &config).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
 
     let mut existing_hashes: Vec<String> = Vec::new();
-    if let Ok(conn) = db_connection.lock() {
-        for (hash, local) in database::db::load_all(&conn) {
-            let live = array.iter().find(|t| t.hash.as_str() == hash.as_str());
-            let live_progress = live.map(|t| t.progress);
-            let live_state = live.map(|t| t.state.clone()).unwrap_or_default();
-            out.push(api::squire::to_entry(
-                &hash,
-                &local,
-                live_progress,
-                live_state,
-            ));
-            existing_hashes.push(hash);
-        }
+    let Ok(conn) = db_connection.lock() else {
+        log::error!("Failed to lock database connection");
+        return HttpResponse::InternalServerError().body("Database unavailable");
+    };
+    for (hash, local) in database::db::load_all(&conn) {
+        let live = existing.iter().find(|t| t.hash.as_str() == hash.as_str());
+        let live_progress = live.map(|t| t.progress);
+        let live_state = live.map(|t| t.state.clone()).unwrap_or_default();
+        out.push(api::squire::to_entry(
+            &hash,
+            &local,
+            live_progress,
+            live_state,
+        ));
+        existing_hashes.push(hash);
     }
 
     // Also surface torrents currently in qBittorrent that were never tracked
     // by this app at all (e.g. added directly through qBittorrent).
-    for tracker in array.iter() {
+    for tracker in existing.iter() {
         if existing_hashes.contains(&tracker.hash) {
             continue;
         }
@@ -227,14 +232,24 @@ pub async fn put_torrent(
 
     let mut pending_lock = pending.write().await;
 
-    let existing = api::squire::get_existing(&client, &config).await;
+    let existing = match api::squire::get_existing(&client, &config).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let hashes: Vec<String> = existing
         .into_iter()
         .map(|i| i.hash.to_uppercase())
         .collect();
 
     let mut response: Vec<config::settings::PutResponse> = Vec::new();
-    for mut item in api::squire::resolve_payload(&body.into_inner(), &config).await {
+    for resolved in api::squire::resolve_payload(&body.into_inner(), &config).await {
+        let mut item = match resolved {
+            Ok(i) => i,
+            Err(r) => {
+                response.push(r);
+                continue;
+            }
+        };
         let tag = Uuid::new_v4().to_string();
         let url = item.url.to_string();
         let name = item.name.as_ref().unwrap().to_string();
@@ -242,7 +257,10 @@ pub async fn put_torrent(
         let trackers = item.trackers.as_ref().unwrap().to_vec();
 
         if hashes.contains(&hash) {
-            response.push(config::settings::PutResponse { name, state: "Conflict - Duplicate request".to_string() });
+            response.push(config::settings::PutResponse {
+                name,
+                state: "Conflict - Duplicate request".to_string(),
+            });
             continue;
         }
 
@@ -270,8 +288,9 @@ pub async fn put_torrent(
         if let Err(e) =
             squire::qb::handle_response(resp, squire::qb::ResponseContext::AddTorrent).await
         {
-            log::error!("{:?}", e.status().to_string());
-            response.push(config::settings::PutResponse { name, state: e.status().to_string() });
+            let state = squire::qb::error_text(e).await;
+            log::error!("Failed to add '{}': {}", name, state);
+            response.push(config::settings::PutResponse { name, state });
             continue;
         }
 
@@ -286,12 +305,12 @@ pub async fn put_torrent(
             log::info!("No rsync location set, download-only");
         }
         pending_lock.insert(tag.clone(), item.clone());
-        if let Ok(conn) = db_connection.lock() {
-            log::debug!("Updated database for pending");
-            database::db::upsert_pending(&conn, &tag, &item);
-        } else {
-            log::error!("Failed to update database for pending");
-        }
+        let Ok(conn) = db_connection.lock() else {
+            log::error!("Failed to lock database connection");
+            return HttpResponse::InternalServerError().body("Database unavailable");
+        };
+        log::debug!("Updated database for pending");
+        database::db::upsert_pending(&conn, &tag, &item);
         response.push(config::settings::PutResponse {
             name,
             state: format!("OK! Saving to: {}", item.save_path),
@@ -376,7 +395,10 @@ pub async fn delete_torrent(
 
     // Resolve hash from qBit (may differ from state if torrent was added externally)
     let hash_from_qbit = {
-        let existing = api::squire::get_existing(&client, &config).await;
+        let existing = match api::squire::get_existing(&client, &config).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
         existing
             .iter()
             .find(|torrent| torrent.name == *identifier)
@@ -409,15 +431,20 @@ pub async fn delete_torrent(
     if let Err(e) =
         squire::qb::handle_response(resp, squire::qb::ResponseContext::DeleteTorrent).await
     {
-        log::warn!(
-            "qBit delete returned non-OK (may already be gone): {}",
-            e.status()
-        );
+        if hash_from_qbit.is_some() {
+            log::error!("qBit delete failed for {}: {}", identifier, e.status());
+            return e;
+        }
+        log::warn!("qBit delete returned non-OK (already gone): {}", e.status());
     }
 
     // Always drop from RuTorrent state and DB regardless of qBit outcome
     if let Ok(conn) = db_connection.lock() {
         database::db::remove(&conn, &hash);
+    } else {
+        log::error!("Failed to lock database connection");
+        return HttpResponse::InternalServerError()
+            .body("Torrent deleted from qBittorrent, but state database is unavailable");
     }
 
     log::info!("Successfully deleted {}", identifier);
@@ -760,7 +787,10 @@ pub async fn pause_torrent(
         Err(e) => return e,
     };
 
-    let existing = api::squire::get_existing(&client, &config).await;
+    let existing = match api::squire::get_existing(&client, &config).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
     let hash = existing.iter().find_map(|t| {
         if &t.name == name {
             Some(t.hash.to_owned())
@@ -933,7 +963,21 @@ pub async fn search_torrents(
         Ok(torrents) => torrents,
         Err(e) => {
             log::error!("Failed to search for {} - {}", payload.query, e);
-            return HttpResponse::InternalServerError().json(e.to_string());
+            let status = if let Some(h) = e.downcast_ref::<api::schema::HttpError>() {
+                actix_web::http::StatusCode::from_u16(h.status)
+                    .unwrap_or(actix_web::http::StatusCode::INTERNAL_SERVER_ERROR)
+            } else if let Some(r) = e.downcast_ref::<reqwest::Error>() {
+                if r.is_timeout() {
+                    actix_web::http::StatusCode::GATEWAY_TIMEOUT
+                } else if r.is_builder() {
+                    actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+                } else {
+                    actix_web::http::StatusCode::BAD_GATEWAY
+                }
+            } else {
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
+            };
+            return HttpResponse::build(status).json(e.to_string());
         }
     };
     let length = torrents.len();
@@ -993,12 +1037,7 @@ pub async fn get_vpn(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    if let Some(response) = vpn::connect::get_current() {
-        HttpResponse::Ok().json(response)
-    } else {
-        log::error!("Failed to get current connection status");
-        HttpResponse::InternalServerError().into()
-    }
+    api::squire::vpn_response(vpn::connect::get_current())
 }
 
 /// API endpoint to connect to a vpn relay using mullvad cli.
@@ -1008,7 +1047,7 @@ pub async fn get_vpn(
 /// - Supports both city and country codes for whitelist and blacklist.
 ///
 /// - Check [https://api.mullvad.net/www/relays/all/](https://api.mullvad.net/www/relays/all/) to get the list of all relays.
-/// 
+///
 /// # Arguments
 ///
 /// * `request` - Reference to the `HttpRequest` object.
@@ -1062,44 +1101,25 @@ pub async fn connect_vpn(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    if query.get("disconnect").map(|v| v == "true").unwrap_or(false) {
+    if query
+        .get("disconnect")
+        .map(|v| v == "true")
+        .unwrap_or(false)
+    {
         log::warn!("Received disconnect request");
-        return if let Some(response) = vpn::connect::disconnect().await {
-            HttpResponse::Ok().json(response)
-        } else {
-            HttpResponse::InternalServerError().into()
-        }
+        return api::squire::vpn_response(vpn::connect::disconnect().await);
     }
-    if !payload.hostname.is_empty() {
-        return if let Some(response) = vpn::connect::connect_by_hostname(&payload.hostname).await {
-            HttpResponse::Ok().json(response)
-        } else {
-            HttpResponse::InternalServerError().into()
-        }
+    if !payload.hostname.trim().is_empty() {
+        return api::squire::vpn_response(
+            vpn::connect::connect_by_hostname(payload.hostname.trim()).await,
+        );
     }
-    let blacklist: Option<Vec<String>> = if payload.blacklist.is_empty() {
-        None
-    } else {
-        Some(
-            payload.blacklist
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect()
+    api::squire::vpn_response(
+        vpn::connect::shuffler(
+            api::squire::split_codes(&payload.whitelist),
+            api::squire::split_codes(&payload.blacklist),
+            &config,
         )
-    };
-    let whitelist: Option<Vec<String>> = if payload.whitelist.is_empty() {
-        None
-    } else {
-        Some(
-            payload.whitelist
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .collect()
-        )
-    };
-    if let Some(response) = vpn::connect::shuffler(whitelist, blacklist, &config).await {
-        HttpResponse::Ok().json(response)
-    } else {
-        HttpResponse::InternalServerError().into()
-    }
+        .await,
+    )
 }

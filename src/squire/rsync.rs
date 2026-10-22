@@ -47,11 +47,7 @@ pub async fn run(
         );
         if run_once(&name, &put_item).await {
             log::info!("rsync complete: {}", name);
-            set_status(
-                &db_connection,
-                &hash,
-                config::settings::Status::Completed,
-            );
+            set_status(&db_connection, &hash, config::settings::Status::Completed);
             return;
         }
 
@@ -61,11 +57,7 @@ pub async fn run(
                 attempt,
                 name
             );
-            set_status(
-                &db_connection,
-                &hash,
-                config::settings::Status::CopyError,
-            );
+            set_status(&db_connection, &hash, config::settings::Status::CopyError);
             return;
         }
 

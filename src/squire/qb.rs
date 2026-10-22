@@ -137,7 +137,11 @@ pub async fn handle_response(
             let status = r.status();
             let body = r.text().await.unwrap_or_default();
 
-            if context == ResponseContext::Login {
+            if context == ResponseContext::Login && body.trim() == "Fails." {
+                log::error!("qBit authentication failed: {}", body);
+                return Err(HttpResponse::ServiceUnavailable()
+                    .body("qBittorrent rejected the login; check qbit_username/qbit_password"));
+            } else if context == ResponseContext::Login {
                 log::debug!("{} -> HTTP {} body: {:?}", context.as_str(), status, body);
             } else {
                 log::info!("{} -> HTTP {} body: {:?}", context.as_str(), status, body);
@@ -156,7 +160,24 @@ pub async fn handle_response(
         }
         Err(e) => {
             log::info!("{} request failed: {}", context.as_str(), e);
-            Err(HttpResponse::ServiceUnavailable().body("Request failed"))
+            Err(HttpResponse::ServiceUnavailable().body(format!(
+                "{} request failed: {}",
+                context.as_str(),
+                e
+            )))
         }
+    }
+}
+
+pub async fn error_text(resp: HttpResponse) -> String {
+    let status = resp.status();
+    let body = actix_web::body::to_bytes(resp.into_body())
+        .await
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .unwrap_or_default();
+    if body.is_empty() {
+        status.to_string()
+    } else {
+        format!("{status} - {body}")
     }
 }
