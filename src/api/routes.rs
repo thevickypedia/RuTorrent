@@ -307,7 +307,14 @@ pub async fn put_torrent(
         pending_lock.insert(tag.clone(), item.clone());
         let Ok(conn) = db_connection.lock() else {
             log::error!("Failed to lock database connection");
-            return HttpResponse::InternalServerError().body("Database unavailable");
+            response.push(config::settings::PutResponse {
+                name,
+                state: format!(
+                    "OK! Saving to: {} (warning: pending state not persisted)",
+                    item.save_path
+                ),
+            });
+            continue;
         };
         log::debug!("Updated database for pending");
         database::db::upsert_pending(&conn, &tag, &item);
