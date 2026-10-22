@@ -1048,7 +1048,7 @@ pub async fn get_vpn(
     if !authenticator(request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    api::squire::vpn_response(vpn::connect::get_current())
+    api::squire::vpn_response(vpn::connect::get_current().await)
 }
 
 /// API endpoint to connect to a vpn relay using mullvad cli.

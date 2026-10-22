@@ -1,6 +1,6 @@
 use crate::{config, notifier, vpn};
 use std::io;
-use std::process::Command;
+use tokio::process::Command;
 use tokio::time::{Duration, sleep};
 
 use crate::vpn::models::VpnError;
@@ -11,6 +11,7 @@ const CONNECTOR: &[&str] = &["connect"];
 const DISCONNECTOR: &[&str] = &["disconnect"];
 const RESET: &[&str] = &["relay", "set", "location", "any"];
 const RECONNECT: &[&str] = &["reconnect"];
+const CMD_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Runs CLI commands.
 ///
@@ -21,8 +22,16 @@ const RECONNECT: &[&str] = &["reconnect"];
 /// # Returns
 ///
 /// Returns the `io::Result<String> ` object.
-fn run_command(args: &[&str]) -> Result<String, VpnError> {
-    let output = Command::new("mullvad").args(args).output().map_err(|e| {
+async fn run_command(args: &[&str]) -> Result<String, VpnError> {
+    let output = tokio::time::timeout(
+        CMD_TIMEOUT,
+        Command::new("mullvad").args(args).kill_on_drop(true).output(),
+    )
+    .await
+    .map_err(|_| VpnError::Timeout(format!(
+        "'mullvad {}' did not respond within {}s", args.join(" "), CMD_TIMEOUT.as_secs()
+    )))?
+    .map_err(|e| {
         VpnError::Unavailable(if e.kind() == io::ErrorKind::NotFound {
             "'mullvad' CLI was not found in PATH".to_string()
         } else {
@@ -47,7 +56,7 @@ fn run_command(args: &[&str]) -> Result<String, VpnError> {
 /// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn disconnect() -> Result<vpn::models::MullvadResponse, VpnError> {
     // TODO: Disable kill switch or else the server may get into an un-reachable state
-    run_command(DISCONNECTOR)?;
+    run_command(DISCONNECTOR).await?;
     log::info!("Disconnected vpn");
     await_connection("disconnected").await
 }
@@ -57,11 +66,11 @@ pub async fn disconnect() -> Result<vpn::models::MullvadResponse, VpnError> {
 /// # Returns
 ///
 /// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
+pub async fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
     // TODO: During connecting or disconnecting, details isn’t a location object
     //  GET /vpn will therefore return a 502 “Unexpected output” in those windows
     //  It’s accurate, but may prefer a lenient details object
-    let out = run_command(GETTER)?;
+    let out = run_command(GETTER).await?;
     serde_json::from_str(&out)
         .map_err(|e| VpnError::Failed(format!("Unexpected output from 'mullvad status': {e}")))
 }
@@ -82,7 +91,7 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
     for attempt in 0..5 {
         sleep(Duration::from_secs(3)).await;
         log::debug!("Checking connection (attempt {})", attempt + 1);
-        let current = run_command(GETTER)?;
+        let current = run_command(GETTER).await?;
         // MARK: Avoid parsing as struct for transient state as the "details" node is "nothing"
         let Ok(response) = serde_json::from_str::<serde_json::Value>(&current) else {
             log::error!("Failed to parse JSON from GETTER");
@@ -127,7 +136,7 @@ pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadR
     {
         return Err(VpnError::Invalid(format!("Invalid hostname '{hostname}'")));
     }
-    set_and_connect(&[hostname])?;
+    set_and_connect(&[hostname]).await?;
     await_connection("connected").await
 }
 
@@ -140,10 +149,10 @@ pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadR
 /// # Returns
 ///
 /// Returns `Result<(), VpnError>` to indicate connection state.
-fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
+async fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
     let args: Vec<&str> = SETTER.iter().chain(selection).copied().collect();
     // CLI rejecting the relay => bad input (400); CLI missing stays 503
-    run_command(&args).map_err(|e| match e {
+    run_command(&args).await.map_err(|e| match e {
         VpnError::Failed(m) => VpnError::Invalid(format!(
             "Relay '{}' rejected by mullvad: {m}",
             selection.join(" ")
@@ -151,7 +160,7 @@ fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
         other => other,
     })?;
     log::debug!("Relay set to {}", selection.join(" "));
-    run_command(CONNECTOR)?;
+    run_command(CONNECTOR).await?;
     log::debug!("Connected to {}", selection.join(" "));
     Ok(())
 }
@@ -176,7 +185,7 @@ async fn target_connector(
         relay.city,
         relay.country
     );
-    set_and_connect(&[&relay.country_code, &relay.city_code])?;
+    set_and_connect(&[&relay.country_code, &relay.city_code]).await?;
     await_connection("connected").await
 }
 
@@ -228,7 +237,7 @@ pub async fn shuffler(
             Err(e) => {
                 log::warn!("Targeted connection failed ({e}). Trying whitelisted regions.");
                 for selection in &whitelisted {
-                    if set_and_connect(&[selection]).is_ok()
+                    if set_and_connect(&[selection]).await.is_ok()
                         && let Ok(connected) = await_connection("connected").await
                     {
                         return Ok(connected);
@@ -238,10 +247,10 @@ pub async fn shuffler(
             }
         }
     }
-    if let Err(e) = run_command(RESET) {
+    if let Err(e) = run_command(RESET).await {
         log::error!("Failed to reset mullvad relay preferences - {}", e);
     }
-    let connected = get_current().is_ok_and(|c| c.state == "connected");
+    let connected = get_current().await.is_ok_and(|c| c.state == "connected");
     let (cmd, log_st) = if connected {
         log::info!("Existing connection found; resetting.");
         (RECONNECT, "reconnect")
@@ -249,7 +258,7 @@ pub async fn shuffler(
         log::info!("No existing connection found; establishing.");
         (CONNECTOR, "connect")
     };
-    let result = match run_command(cmd) {
+    let result = match run_command(cmd).await {
         Ok(_) => await_connection("connected").await,
         Err(e) => Err(e),
     };
