@@ -109,11 +109,12 @@ fn resolve_status(local: &config::settings::RsyncTrack, live_progress: Option<f6
 ///
 /// # Returns
 ///
-/// Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
+/// * `success` - Returns a vector of HashMap with `name`, `hash` and `progress` in key-value format.
+/// * `failure` - Returns a HttpResponse object with the appropriate response code.
 pub async fn get_existing(
     client: &Client,
     config: &config::env::Config,
-) -> Result<Vec<squire::qb::Tracker>, actix_web::HttpResponse> {
+) -> Result<Vec<squire::qb::Tracker>, HttpResponse> {
     let url = format!("{}/api/v2/torrents/info", config.qbit_url);
     let resp = client
         .get(&url)
@@ -122,16 +123,14 @@ pub async fn get_existing(
         .and_then(|r| r.error_for_status())
         .map_err(|e| {
             log::error!("qBit torrents/info failed: {}", e);
-            actix_web::HttpResponse::ServiceUnavailable()
-                .body(format!("Failed to reach qBittorrent: {e}"))
+            HttpResponse::ServiceUnavailable().body(format!("Failed to reach qBittorrent: {e}"))
         })?;
     let value: Value = resp.json().await.map_err(|e| {
-        actix_web::HttpResponse::BadGateway()
-            .body(format!("Invalid response from qBittorrent: {e}"))
+        HttpResponse::BadGateway().body(format!("Invalid response from qBittorrent: {e}"))
     })?;
-    let arr = value.as_array().ok_or_else(|| {
-        actix_web::HttpResponse::BadGateway().body("Unexpected response from qBittorrent")
-    })?;
+    let arr = value
+        .as_array()
+        .ok_or_else(|| HttpResponse::BadGateway().body("Unexpected response from qBittorrent"))?;
     Ok(arr.iter().map(squire::qb::parse_tracker).collect())
 }
 

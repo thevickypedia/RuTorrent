@@ -159,7 +159,7 @@ pub async fn handle_response(
             Ok(())
         }
         Err(e) => {
-            log::info!("{} request failed: {}", context.as_str(), e);
+            log::error!("{} request failed: {}", context.as_str(), e);
             Err(HttpResponse::ServiceUnavailable().body(format!(
                 "{} request failed: {}",
                 context.as_str(),

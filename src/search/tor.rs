@@ -32,9 +32,7 @@ pub async fn client(
 ///
 /// # Arguments
 ///
-/// * `config` - Application configuration containing Tor proxy settings.
-/// * `metadata` - Application metadata used to configure a new client if needed.
-/// * `existing_client` - Optional HTTP client to use; creates a new client if `None`.
+/// * `tor_client` - `reqwest::Client` object to validate.
 ///
 /// # Returns
 ///

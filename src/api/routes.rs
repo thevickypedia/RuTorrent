@@ -65,7 +65,7 @@ fn authenticator(request: HttpRequest, config: &config::env::Config) -> bool {
 /// # Arguments
 ///
 /// * `request` - Reference to the `HttpRequest` object.
-/// * `state` - Reference to the `SharedState` object.
+/// * `db_connection` - Database connection received through app data.
 /// * `config` - Reference to the `Config` object.
 ///
 /// #### Sample Request
@@ -1034,7 +1034,11 @@ pub async fn search_torrents(
     get,
     path = "/vpn",
     responses(
-        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
+        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
+        (status = 400, description = "Invalid hostname, or unknown/conflicting whitelist/blacklist codes", body = String),
+        (status = 502, description = "mullvad CLI error", body = String),
+        (status = 503, description = "mullvad CLI missing or relay list unavailable", body = String),
+        (status = 504, description = "VPN did not reach the requested state", body = String),
     )
 )]
 pub async fn get_vpn(
@@ -1063,7 +1067,8 @@ pub async fn get_vpn(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl -X POST localhost:3000/vpn
+/// curl -X POST localhost:3000/vpn?disconnect=$vpnDisconnectFlag \
+///   -H "Content-Type: application/json" -d '{}'
 /// ```
 ///
 /// #### Sample Response
@@ -1096,7 +1101,11 @@ pub async fn get_vpn(
     ),
     request_body = Option<config::settings::ConnectVPN>,
     responses(
-        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse)
+        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
+        (status = 400, description = "Invalid hostname, or unknown/conflicting whitelist/blacklist codes", body = String),
+        (status = 502, description = "mullvad CLI error", body = String),
+        (status = 503, description = "mullvad CLI missing or relay list unavailable", body = String),
+        (status = 504, description = "VPN did not reach the requested state", body = String),
     )
 )]
 pub async fn connect_vpn(

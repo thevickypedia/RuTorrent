@@ -12,12 +12,11 @@ const DISCONNECTOR: &[&str] = &["disconnect"];
 const RESET: &[&str] = &["relay", "set", "location", "any"];
 const RECONNECT: &[&str] = &["reconnect"];
 
-
 /// Runs CLI commands.
 ///
 /// # Arguments
 ///
-/// * `command` - Reference to the command string.
+/// * `args` - An array of arbitrary commands.
 ///
 /// # Returns
 ///
@@ -45,7 +44,7 @@ fn run_command(args: &[&str]) -> Result<String, VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn disconnect() -> Result<vpn::models::MullvadResponse, VpnError> {
     // TODO: Disable kill switch or else the server may get into an un-reachable state
     run_command(DISCONNECTOR)?;
@@ -57,8 +56,11 @@ pub async fn disconnect() -> Result<vpn::models::MullvadResponse, VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
+    // TODO: During connecting or disconnecting, details isn’t a location object
+    //  GET /vpn will therefore return a 502 “Unexpected output” in those windows
+    //  It’s accurate, but may prefer a lenient details object
     let out = run_command(GETTER)?;
     serde_json::from_str(&out)
         .map_err(|e| VpnError::Failed(format!("Unexpected output from 'mullvad status': {e}")))
@@ -74,7 +76,7 @@ pub fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadResponse, VpnError> {
     let mut last_state = String::from("unknown");
     for attempt in 0..5 {
@@ -116,7 +118,7 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadResponse, VpnError> {
     if hostname.starts_with('-')
         || !hostname
@@ -137,7 +139,7 @@ pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadR
 ///
 /// # Returns
 ///
-/// Returns `true` if connected, `false` otherwise.
+/// Returns `Result<(), VpnError>` to indicate connection state.
 fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
     let args: Vec<&str> = SETTER.iter().chain(selection).copied().collect();
     // CLI rejecting the relay => bad input (400); CLI missing stays 503
@@ -163,7 +165,7 @@ fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 async fn target_connector(
     relay: &vpn::models::RelayLocation,
 ) -> Result<vpn::models::MullvadResponse, VpnError> {
@@ -197,7 +199,7 @@ async fn target_connector(
 ///
 /// # Returns
 ///
-/// Returns the `Option<vpn::models::MullvadResponse>` object.
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn shuffler(
     whitelist: Option<Vec<String>>,
     blacklist: Option<Vec<String>>,
