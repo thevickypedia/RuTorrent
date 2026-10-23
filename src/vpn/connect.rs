@@ -12,6 +12,7 @@ const DISCONNECTOR: &[&str] = &["disconnect"];
 const RESET: &[&str] = &["relay", "set", "location", "any"];
 const RECONNECT: &[&str] = &["reconnect"];
 const CMD_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_RELAY_ATTEMPTS: usize = 3;
 
 /// Runs CLI commands.
 ///
@@ -25,12 +26,19 @@ const CMD_TIMEOUT: Duration = Duration::from_secs(30);
 async fn run_command(args: &[&str]) -> Result<String, VpnError> {
     let output = tokio::time::timeout(
         CMD_TIMEOUT,
-        Command::new("mullvad").args(args).kill_on_drop(true).output(),
+        Command::new("mullvad")
+            .args(args)
+            .kill_on_drop(true)
+            .output(),
     )
     .await
-    .map_err(|_| VpnError::Timeout(format!(
-        "'mullvad {}' did not respond within {}s", args.join(" "), CMD_TIMEOUT.as_secs()
-    )))?
+    .map_err(|_| {
+        VpnError::Timeout(format!(
+            "'mullvad {}' did not respond within {}s",
+            args.join(" "),
+            CMD_TIMEOUT.as_secs()
+        ))
+    })?
     .map_err(|e| {
         VpnError::Unavailable(if e.kind() == io::ErrorKind::NotFound {
             "'mullvad' CLI was not found in PATH".to_string()
@@ -197,9 +205,7 @@ async fn target_connector(
 ///
 /// # Warnings
 ///
-/// 1. Attempts to select and connect to a location using the provided whitelist and blacklist.
-/// 2. If the connection fails and a whitelist is provided, attempts to connect to each whitelisted region until successful or all options are exhausted.
-/// 3. If all attempts fail, resets the relay preferences and reconnects using the default relay selection.
+/// Worst case scenario this can run up to 45 seconds.
 ///
 /// # Arguments
 ///
@@ -223,29 +229,40 @@ pub async fn shuffler(
             .await
             .map_err(|e| VpnError::Unavailable(format!("Failed to load relay list: {e}")))?;
         vpn::relay::validate_codes(&relay_map, &whitelisted, &blacklisted)?;
-        let relay = vpn::relay::select_relay(relay_map, &whitelisted, &blacklisted)
-            .await
-            .ok_or_else(|| {
-                VpnError::Invalid(
-                    "No relay matches the whitelist/blacklist combination (are they conflicting?)"
-                        .into(),
-                )
-            })?;
-        match target_connector(&relay).await {
-            Ok(connected) => return Ok(connected),
-            Err(VpnError::Unavailable(m)) => return Err(VpnError::Unavailable(m)), // fallbacks are pointless
-            Err(e) => {
-                log::warn!("Targeted connection failed ({e}). Trying whitelisted regions.");
-                for selection in &whitelisted {
-                    if set_and_connect(&[selection]).await.is_ok()
-                        && let Ok(connected) = await_connection("connected").await
-                    {
-                        return Ok(connected);
-                    }
+        let candidates = vpn::relay::eligible_relays(relay_map, &whitelisted, &blacklisted);
+        if candidates.is_empty() {
+            // TODO: Include a self validation for this - update validate_codes for conflict
+            return Err(VpnError::Invalid(
+                "No relay matches the whitelist/blacklist combination (are they conflicting?)".into(),
+            ));
+        }
+        let mut last_err = None;
+        for relay in candidates.iter().take(MAX_RELAY_ATTEMPTS) {
+            match target_connector(relay).await {
+                Ok(connected) => return Ok(connected),
+                Err(e @ VpnError::Unavailable(_)) => return Err(e), // retrying is pointless
+                Err(e) => {
+                    log::warn!(
+                        "Connecting to {}-{} failed: {e}",
+                        relay.country_code,
+                        relay.city_code
+                    );
+                    last_err = Some(e);
                 }
-                log::warn!("Failed to connect to preferred location. Resetting preferences..");
             }
         }
+        // Don't leave the daemon pinned to a relay that failed
+        let _ = run_command(RESET).await;
+        notifier::notify(
+            "RuTorrent: VPN ERROR".to_string(),
+            format!(
+                "Failed to connect to a relay matching the whitelist/blacklist after {MAX_RELAY_ATTEMPTS} attempts."
+            ),
+            config.to_owned(),
+        );
+        return Err(
+            last_err.unwrap_or_else(|| VpnError::Failed("No connection attempt was made".into()))
+        );
     }
     if let Err(e) = run_command(RESET).await {
         log::error!("Failed to reset mullvad relay preferences - {}", e);

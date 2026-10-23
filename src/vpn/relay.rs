@@ -52,13 +52,12 @@ pub async fn generate_relay_map(
     Ok(relays)
 }
 
-/// Selects a random relay from the relay map after applying the specified filters.
+/// Selects distinct (country, city) locations passing both lists, in random order.
 ///
 /// # Filtering Rules
 ///
 /// * If `blacklist` is provided, exclude relays whose country or city code is blacklist.
 /// * If `whitelist` is provided, consider only relays whose country or city code is whitelist.
-/// * Exclude the currently connected relay, if any.
 ///
 /// # Arguments
 ///
@@ -71,32 +70,25 @@ pub async fn generate_relay_map(
 ///
 /// * `Some(RelayConnector)` - A randomly selected relay that satisfies all filters.
 /// * `None` - If no eligible relays are available.
-pub async fn select_relay(
+pub fn eligible_relays(
     relay_map: Vec<vpn::models::RelayLocation>,
     whitelist: &[String],
     blacklist: &[String],
-) -> Option<vpn::models::RelayLocation> {
-    let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
-    for relay_location in relay_map {
-        // Skip all relays within a country if the 'country_code' is blacklisted
-        if blacklist.contains(&relay_location.country_code) {
-            continue;
-        }
-        // Skip all relays within a city if the 'city_code' is blacklisted
-        if blacklist.contains(&relay_location.city_code) {
-            continue;
-        }
-        // Skip if whitelisted array exists, but does not contain the 'city_code' or 'country_code'
-        if !whitelist.is_empty()
-            && !whitelist.contains(&relay_location.city_code)
-            && !whitelist.contains(&relay_location.country_code)
-        {
-            continue;
-        }
-        relays.push(relay_location);
-    }
-    let mut rng = rand::rng();
-    relays.choose(&mut rng).cloned()
+) -> Vec<vpn::models::RelayLocation> {
+    let mut seen = HashSet::new();
+    let mut relays: Vec<_> = relay_map
+        .into_iter()
+        .filter(|r| {
+            !blacklist.contains(&r.country_code)
+                && !blacklist.contains(&r.city_code)
+                && (whitelist.is_empty()
+                || whitelist.contains(&r.city_code)
+                || whitelist.contains(&r.country_code))
+                && seen.insert((r.country_code.clone(), r.city_code.clone()))
+        })
+        .collect();
+    relays.shuffle(&mut rand::rng());
+    relays
 }
 
 pub fn validate_codes(
