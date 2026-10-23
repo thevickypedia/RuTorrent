@@ -186,6 +186,9 @@ pub async fn resolve_payload(
             }));
             continue;
         }
+        if name.is_empty() {
+            name = hash.clone();
+        }
         if trackers.is_empty() {
             let ident = if name.is_empty() {
                 &item.url.to_string()
