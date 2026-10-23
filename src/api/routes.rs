@@ -51,7 +51,7 @@ pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Re
 /// # Returns
 ///
 /// Returns a boolean value to indicate the authentication status.
-fn authenticator(request: HttpRequest, config: &config::env::Config) -> bool {
+fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
     request
         .headers()
         .get("apikey")
@@ -110,7 +110,7 @@ pub async fn get_torrents(
     db_connection: web::Data<config::settings::DBConnection>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     let client = match squire::qb::client(&config).await {
@@ -222,7 +222,7 @@ pub async fn put_torrent(
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<Vec<config::settings::PutItem>>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     let client = match squire::qb::client(&config).await {
@@ -370,7 +370,7 @@ pub async fn delete_torrent(
     db_connection: web::Data<config::settings::DBConnection>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     let identifier = match query.get("name") {
@@ -523,7 +523,7 @@ pub async fn retry_torrent(
     db_connection: web::Data<config::settings::DBConnection>,
     body: web::Json<config::settings::RetryOptions>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
 
@@ -782,7 +782,7 @@ pub async fn pause_torrent(
     config: web::Data<config::env::Config>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     let name = match query.get("name") {
@@ -879,7 +879,7 @@ pub async fn search_category(
     query: web::Query<HashMap<String, String>>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     let nested = query.get("nested").map(|v| v == "true").unwrap_or(false);
@@ -954,7 +954,7 @@ pub async fn search_torrents(
     config: web::Data<config::env::Config>,
     metadata: web::Data<config::constant::MetaData>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     log::debug!("Query: {:?}", payload);
@@ -1047,7 +1047,7 @@ pub async fn get_vpn(
     request: HttpRequest,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     api::squire::vpn_response(vpn::connect::get_current().await)
@@ -1116,8 +1116,7 @@ pub async fn connect_vpn(
     payload: web::Json<config::settings::ConnectVPN>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    // TODO: Update authentication to take a reference of request
-    if !authenticator(request.clone(), &config) {
+    if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     if query
