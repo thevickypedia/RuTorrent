@@ -78,8 +78,10 @@ async fn fetch_io_trackers(filepath: &PathBuf, lines: usize) -> std::io::Result<
     let contents = std::fs::read_to_string(filepath)?;
     Ok(contents
         .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .take(lines)
-        .map(|l| l.trim().to_string())
+        .map(String::from)
         .collect())
 }
 
@@ -105,7 +107,7 @@ pub async fn get(config: &config::env::Config) -> Vec<String> {
                 Vec::new()
             });
         if !io_trackers.is_empty() {
-            log::info!("Trackers loaded from {:?}: {:?}", filepath, trackers);
+            log::info!("Trackers loaded from {:?}: {:?}", filepath, io_trackers);
             trackers.extend(io_trackers);
         }
     }
