@@ -118,3 +118,12 @@ pub async fn get_default_save_path(
         }
     }
 }
+
+/// Only directories that look like a per-torrent wrapper (absolute, last
+/// component == torrent name, not $HOME) may be removed recursively.
+pub fn is_removable(save_path: &str, name: &str) -> bool {
+    let path = Path::new(save_path.trim());
+    path.is_absolute()
+        && path.file_name().and_then(|n| n.to_str()) == Some(sanitize_dir_component(name).as_str())
+        && dirs::home_dir().is_none_or(|h| path != h)
+}

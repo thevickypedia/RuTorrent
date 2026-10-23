@@ -674,7 +674,9 @@ async fn redownload_torrent(
 
     // Delete any locally downloaded files left over from the previous attempt.
     if !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists() {
-        if let Err(err) = std::fs::remove_dir_all(&put_item.save_path) {
+        if !squire::savepath::is_removable(&put_item.save_path, &opts.name) {
+            log::warn!("Not removing '{}': not a per-torrent directory", put_item.save_path);
+        } else if let Err(err) = std::fs::remove_dir_all(&put_item.save_path) {
             log::error!("Failed to remove old files for '{}': {}", opts.name, err);
             return HttpResponse::InternalServerError()
                 .body(format!("Failed to remove old files: {}", err));

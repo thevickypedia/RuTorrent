@@ -385,16 +385,20 @@ pub fn spawn_worker(
                         .await
                         {
                             log::error!("Failed to delete torrent: {}", e.status());
-                            if std::path::Path::new(&entry.put_item.save_path).exists()
-                                && let Err(err) = std::fs::remove_dir_all(&entry.put_item.save_path)
-                            {
-                                log::error!("Failed to delete files: {}", err);
-                                files_deleted = false;
-                                notifier::notify(
-                                    "RuTorrent: Delete Failed".to_string(),
-                                    format!("Failed to delete torrent: {}", name_clone),
-                                    config.clone(),
-                                );
+                            let path = std::path::Path::new(&entry.put_item.save_path);
+                            if path.exists() {
+                                if !squire::savepath::is_removable(&entry.put_item.save_path, &entry.name) {
+                                    log::warn!("Not removing '{}': not a per-torrent directory", entry.put_item.save_path);
+                                    files_deleted = false;
+                                } else if let Err(err) = std::fs::remove_dir_all(path) {
+                                    log::error!("Failed to delete files: {}", err);
+                                    files_deleted = false;
+                                    notifier::notify(
+                                        "RuTorrent: Delete Failed".to_string(),
+                                        format!("Failed to delete torrent: {}", name_clone),
+                                        config.clone(),
+                                    );
+                                }
                             }
                         }
                         if files_deleted {
