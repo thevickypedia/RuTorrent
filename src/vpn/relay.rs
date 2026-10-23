@@ -96,6 +96,18 @@ pub fn validate_codes(
     whitelist: &[String],
     blacklist: &[String],
 ) -> Result<(), vpn::models::VpnError> {
+    let whitelist_set: HashSet<&String> = whitelist.iter().collect();
+    let conflicts: Vec<String> = blacklist
+        .iter()
+        .filter(|entry| whitelist_set.contains(entry))
+        .cloned()
+        .collect();
+    if !conflicts.is_empty() {
+        return Err(vpn::models::VpnError::Invalid(format!(
+            "Conflicting whitelist and blacklist entries were found: {}",
+            conflicts.join(", ")
+        )))
+    }
     let known: HashSet<String> = relays
         .iter()
         .flat_map(|r| [r.country_code.to_lowercase(), r.city_code.to_lowercase()])

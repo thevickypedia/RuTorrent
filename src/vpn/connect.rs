@@ -235,9 +235,8 @@ pub async fn shuffler(
         vpn::relay::validate_codes(&relay_map, &whitelisted, &blacklisted)?;
         let candidates = vpn::relay::eligible_relays(relay_map, &whitelisted, &blacklisted);
         if candidates.is_empty() {
-            // TODO: Include a self validation for this - update validate_codes for conflict
             return Err(VpnError::Invalid(
-                "No relay matches the whitelist/blacklist combination (are they conflicting?)".into(),
+                "No relay matches the whitelist/blacklist combination".into(),
             ));
         }
         let mut last_err = None;
