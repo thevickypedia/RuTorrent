@@ -1116,7 +1116,8 @@ pub async fn connect_vpn(
     payload: web::Json<config::settings::ConnectVPN>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
-    if !authenticator(request, &config) {
+    // TODO: Update authentication to take a reference of request
+    if !authenticator(request.clone(), &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
     if query
@@ -1124,8 +1125,14 @@ pub async fn connect_vpn(
         .map(|v| v == "true")
         .unwrap_or(false)
     {
+        let disable_lockdown = request
+            .headers()
+            .get(HeaderName::from_static("host"))
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.starts_with("https"))
+            .unwrap_or(false);
         log::warn!("Received disconnect request");
-        return api::squire::vpn_response(vpn::connect::disconnect().await);
+        return api::squire::vpn_response(vpn::connect::disconnect(disable_lockdown).await);
     }
     if !payload.hostname.trim().is_empty() {
         return api::squire::vpn_response(
