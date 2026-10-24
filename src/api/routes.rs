@@ -7,20 +7,13 @@ use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+// TODO: Use hash instead of name to identify
+
 /// API endpoint to get the current health status.
 ///
 /// # Returns
 ///
 /// Returns the HTTPResponse with a JSON message to indicate the API is up.
-#[utoipa::path(
-    get,
-    tag = "System",
-    path = "/status",
-    security(()),
-    responses(
-        (status = 200, description = "List of users", body = serde_json::Value),
-    ),
-)]
 pub async fn status() -> impl Responder {
     HttpResponse::Ok().json(json!({ "status": "ok" }))
 }
@@ -30,15 +23,6 @@ pub async fn status() -> impl Responder {
 /// # Returns
 ///
 /// Returns the HTTPResponse with a JSON message resolved during compile time.
-#[utoipa::path(
-    get,
-    tag = "System",
-    path = "/version",
-    security(()),
-    responses(
-        (status = 200, description = "API version", body = serde_json::Value)
-    )
-)]
 pub async fn version(metadata: web::Data<config::constant::MetaData>) -> impl Responder {
     HttpResponse::Ok().json(json!({ "version": metadata.pkg_version }))
 }
@@ -62,7 +46,7 @@ fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
         .unwrap_or(false)
 }
 
-/// API endpoint to get download/copy status.
+/// API endpoint to GET download/copy status.
 ///
 /// # Arguments
 ///
@@ -162,7 +146,7 @@ pub async fn get_torrents(
     HttpResponse::Ok().json(out)
 }
 
-/// API endpoint to add torrents to the download queue.
+/// API endpoint to ADD torrents to the download queue.
 ///
 /// # Arguments
 ///
@@ -329,7 +313,7 @@ pub async fn put_torrent(
     HttpResponse::Ok().json(response)
 }
 
-/// API endpoint to delete a torrent.
+/// API endpoint to DELETE a torrent.
 ///
 /// # Arguments
 ///
@@ -461,7 +445,7 @@ pub async fn delete_torrent(
     HttpResponse::Ok().body("Deleted")
 }
 
-/// API endpoint to retry a failed rsync transfer.
+/// API endpoint to RETRY a failed download [OR] transfer.
 ///
 /// # Arguments
 ///
@@ -474,7 +458,7 @@ pub async fn delete_torrent(
 ///
 /// #### Sample Request (retry the transfer using existing local files)
 /// ```shell
-/// curl -X POST localhost:3000/retry \
+/// curl -X POST localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '{
 ///     "name": "Sintel",
@@ -487,7 +471,7 @@ pub async fn delete_torrent(
 ///
 /// #### Sample Request (delete old files, re-download from scratch, then transfer)
 /// ```shell
-/// curl -X POST localhost:3000/retry \
+/// curl -X POST localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '{
 ///     "name": "Sintel",
@@ -510,7 +494,7 @@ pub async fn delete_torrent(
 #[utoipa::path(
     post,
     tag = "Torrent",
-    path = "/retry",
+    path = "/torrent",
     params(
         ("name" = String, Query, description = "Torrent name")
     ),
@@ -762,7 +746,7 @@ async fn redownload_torrent(
     HttpResponse::Ok().json("Re-download queued")
 }
 
-/// API endpoint to pause or resume a torrent in qBittorrent.
+/// API endpoint to PAUSE [OR] RESUME a torrent in qBittorrent.
 ///
 /// # Arguments
 ///
@@ -774,9 +758,9 @@ async fn redownload_torrent(
 ///
 /// Returns an `HttpResponse` indicating the result.
 #[utoipa::path(
-    post,
+    patch,
     tag = "Torrent",
-    path = "/torrent/pause",
+    path = "/torrent",
     params(
         ("name" = String, Query, description = "Torrent name"),
         ("pause" = Option<bool>, Query, description = "true to pause, false to resume")
@@ -1067,7 +1051,7 @@ pub async fn get_vpn(
 
 /// API endpoint to connect to a vpn relay using mullvad cli.
 ///
-/// - `node` input takes the higest priority
+/// - `hostname` input takes the highest priority.
 ///
 /// - Supports both city and country codes for whitelist and blacklist.
 ///
@@ -1125,21 +1109,21 @@ pub async fn get_vpn(
 )]
 pub async fn connect_vpn(
     request: HttpRequest,
-    payload: web::Json<config::settings::ConnectVPN>,
+    body: web::Json<config::settings::ConnectVPN>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    if !payload.hostname.trim().is_empty() {
+    if !body.hostname.trim().is_empty() {
         return api::squire::vpn_response(
-            vpn::connect::connect_by_hostname(payload.hostname.trim()).await,
+            vpn::connect::connect_by_hostname(body.hostname.trim()).await,
         );
     }
     api::squire::vpn_response(
         vpn::connect::shuffler(
-            api::squire::split_codes(&payload.whitelist),
-            api::squire::split_codes(&payload.blacklist),
+            api::squire::split_codes(&body.whitelist),
+            api::squire::split_codes(&body.blacklist),
             &config,
         )
         .await,

@@ -69,14 +69,14 @@ async fn main() -> std::io::Result<()> {
 
 **Database and post download**
 
-| Key                 | Description                                       | Endpoint                      |
-|---------------------|---------------------------------------------------|-------------------------------|
-| `SAVE_PATH`         | Default path to save downloaded torrents locally. | `PUT /torrent`                |
-| `REMOTE_HOST`       | Remote hostname to copy via `rsync` through SSH.  | `PUT /torrent`, `POST /retry` |
-| `REMOTE_USER`       | Username for the remote host.                     | `PUT /torrent`, `POST /retry` |
-| `REMOTE_PATH`       | Default path to copy in remote host.              | `PUT /torrent`, `POST /retry` |
-| `RSYNC_TIMEOUT`     | Default SSH `ConnectTimeout` in rsync.            | `PUT /torrent`, `POST /retry` |
-| `DELETE_AFTER_COPY` | Boolean flag to be a leecher.                     | `PUT /torrent`, `POST /retry` |
+| Key                 | Description                                       | Endpoint                        |
+|---------------------|---------------------------------------------------|---------------------------------|
+| `SAVE_PATH`         | Default path to save downloaded torrents locally. | `PUT /torrent`                  |
+| `REMOTE_HOST`       | Remote hostname to copy via `rsync` through SSH.  | `PUT /torrent`, `POST /torrent` |
+| `REMOTE_USER`       | Username for the remote host.                     | `PUT /torrent`, `POST /torrent` |
+| `REMOTE_PATH`       | Default path to copy in remote host.              | `PUT /torrent`, `POST /torrent` |
+| `RSYNC_TIMEOUT`     | Default SSH `ConnectTimeout` in rsync.            | `PUT /torrent`, `POST /torrent` |
+| `DELETE_AFTER_COPY` | Boolean flag to be a leecher.                     | `PUT /torrent`, `POST /torrent` |
 
 > [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:
@@ -161,15 +161,24 @@ docker run -d \
 
 ### API methods
 
-1. `GET /search` - Returns search results.
+#### Search
+
+1. `GET /categories` - Returns the available categories for search.
+   ```shell
+   curl -H "apikey: ${APIKEY}" 'localhost:3000/categories?nested=false'
+   ```
+2. `GET /search` - Returns search results.
    ```shell
    curl -H "apikey: ${APIKEY}" 'localhost:3000/search?query=ubuntu&use_tor=true&strict=false'
    ```
-2. `GET /torrent` - Returns the download/copy status.
+
+#### Torrent
+
+1. `GET /torrent` - Returns the download/copy status.
     ```shell
     curl -H "apikey: ${APIKEY}" localhost:3000/torrent
     ```
-3. `PUT /torrent` - Adds new torrent URLs to the queue.
+2. `PUT /torrent` - Adds new torrent URLs to the queue.
     ```shell
     curl -X PUT localhost:3000/torrent \
       -H "Content-Type: application/json" \
@@ -197,9 +206,27 @@ docker run -d \
         }
       ]'
     ```
+3. `POST /torrent` - Retry a failed download/transfer.
+    ```shell
+    curl -X POST localhost:3000/torrent \
+      -H "Content-Type: application/json" \
+      -H "apikey: ${APIKEY}" \
+      -d '{
+        "name": "Sintel",
+        "remote_host": "192.168.1.99",
+        "remote_username": "admin",
+        "remote_path": "/Users/admin/Sintel",
+        "delete_after_copy": false
+      }'
+    ```
 4. `DELETE /torrent` - Deletes a torrent.
     ```shell
-   curl -X DELETE -H "apikey: ${APIKEY}" "localhost:3000/torrent?name=Big+Buck+Bunny"
+    curl -X DELETE -H "apikey: ${APIKEY}" "localhost:3000/torrent?name=Big+Buck+Bunny"
+    ```
+5. `PATCH /torrent` - Pause or resume a download.
+    ```shell
+    curl -X PATCH localhost:3000/torrent?name=Sintel&pause=true \
+      -H "apikey: ${APIKEY}"
     ```
 
 ### VPN (Mullvad CLI)
@@ -210,9 +237,10 @@ docker run -d \
    ```
 2. `POST /vpn` - Connect/Reconnect/Change VPN relay
    ```shell
-   curl -X POST --url "localhost:3000/vpn?disconnect=false" \
+   curl -X POST --url "localhost:3000/vpn" \
+     -H "Content-Type: application/json" \
      -H "apikey: ${APIKEY}" \
-     --data-raw '{"blacklist":"us,il,cl,cz","node":"","whitelist":"ch,se,ie,it,tyo"}'
+     -d '{"blacklist":"us,il,cl,cz","hostname":"","whitelist":"ch,se,ie,it,tyo"}'
    ```
 3. `DELETE /vpn` - Disconnect vpn
    ```shell

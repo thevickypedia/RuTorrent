@@ -8,8 +8,6 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::routes::status,
-        api::routes::version,
         api::routes::get_vpn,
         api::routes::connect_vpn,
         api::routes::disconnect_vpn,

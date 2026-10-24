@@ -279,7 +279,7 @@ pub fn spawn_worker(
                 if matches!(entry.status, config::settings::Status::CopyError) {
                     notifier::notify(
                         "RuTorrent: Copy Failed".to_string(),
-                        format!("Transfer failed for {} — use /retry to resume", entry.name),
+                        format!("Transfer failed for {}", entry.name),
                         config.clone(),
                     );
                     entry.status = config::settings::Status::Failed;

@@ -74,19 +74,24 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(web::Data::new(config.clone()))
             .app_data(web::Data::new(db_conn.clone()))
             .app_data(web::Data::new(metadata.clone()))
-            .route("/vpn", web::get().to(api::routes::get_vpn))
-            .route("/vpn", web::post().to(api::routes::connect_vpn))
-            .route("/vpn", web::delete().to(api::routes::disconnect_vpn))
+            // API
             .route("/status", web::get().to(api::routes::status))
             .route("/health", web::get().to(api::routes::status))
             .route("/version", web::get().to(api::routes::version))
-            .route("/torrent", web::get().to(api::routes::get_torrents))
+            // Search
             .route("/search", web::get().to(api::routes::search_torrents))
             .route("/categories", web::get().to(api::routes::search_category))
+            // Torrent
+            .route("/torrent", web::get().to(api::routes::get_torrents))
             .route("/torrent", web::put().to(api::routes::put_torrent))
             .route("/torrent", web::delete().to(api::routes::delete_torrent))
-            .route("/retry", web::post().to(api::routes::retry_torrent))
-            .route("/torrent/pause", web::post().to(api::routes::pause_torrent))
+            .route("/torrent", web::post().to(api::routes::retry_torrent))
+            .route("/torrent", web::patch().to(api::routes::pause_torrent))
+            // VPN
+            .route("/vpn", web::get().to(api::routes::get_vpn))
+            .route("/vpn", web::post().to(api::routes::connect_vpn))
+            .route("/vpn", web::delete().to(api::routes::disconnect_vpn))
+            // UI
             .route("/swagger", web::get().to(swagger::openapi::redirector))
             .route("/ui", web::get().to(swagger::openapi::redirector))
             .route("/authenticator", web::post().to(swagger::ui::authenticator))

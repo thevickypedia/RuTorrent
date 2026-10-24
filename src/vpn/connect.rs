@@ -137,7 +137,7 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
     )))
 }
 
-/// Connect to a VPN relay by node.
+/// Connect to a VPN relay by hostname.
 ///
 /// # Returns
 ///

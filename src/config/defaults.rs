@@ -64,5 +64,5 @@ pub fn default_vpn_whitelist() -> String { String::new() }
 /// Returns an empty string for comma separated blacklist.
 pub fn default_vpn_blacklist() -> String { String::new() }
 
-/// Returns an empty string for vpn node.
+/// Returns an empty string for default vpn hostname.
 pub fn default_vpn_hostname() -> String { String::new() }

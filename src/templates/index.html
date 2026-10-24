@@ -3753,7 +3753,7 @@
         };
 
         try {
-            const resp = await fetch('/retry', {
+            const resp = await fetch('/torrent', {
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify(payload),
@@ -3836,8 +3836,8 @@
         btn.disabled = true;
         try {
             const resp = await fetch(
-                `/torrent/pause?name=${encodeURIComponent(name)}&pause=${!isPaused}`,
-                {method: 'POST', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
+                `/torrent?name=${encodeURIComponent(name)}&pause=${!isPaused}`,
+                {method: 'PATCH', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
             );
             if (resp.status === 401) {
                 handleUnauth();
