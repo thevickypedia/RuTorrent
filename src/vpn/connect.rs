@@ -83,9 +83,6 @@ pub async fn disconnect(disable_lockdown: bool) -> Result<vpn::models::MullvadRe
 ///
 /// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
 pub async fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
-    // TODO: During connecting or disconnecting, details isn’t a location object
-    //  GET /vpn will therefore return a 502 “Unexpected output” in those windows
-    //  It’s accurate, but may prefer a lenient details object
     let out = run_command(GETTER).await?;
     serde_json::from_str(&out)
         .map_err(|e| VpnError::Failed(format!("Unexpected output from 'mullvad status': {e}")))

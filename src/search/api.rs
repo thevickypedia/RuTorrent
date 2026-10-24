@@ -1,3 +1,4 @@
+use std::time::Duration;
 use crate::{api, config, search};
 use reqwest::Client;
 use serde_json::Value;
@@ -168,29 +169,35 @@ pub async fn search(
     let client: Client = if use_tor {
         log::info!("Connecting to Tor network...");
         // Mark 2: A new connection is created and verified everytime and this is a design choice
-        match search::tor::client(config, metadata).await {
-            Ok(client) => {
-                // Mark 3: If client creation is successful, verify if client is routed through Tor network
-                match search::tor::verify(client.clone()).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        // Mark 4: If Tor verification has failed, and strict mode is enabled fail the request;
-                        // Otherwise, log a warning and continue
-                        if strict {
-                            log::info!("Strict mode was enabled, so failing due to: {}", e);
-                            return Err(api::schema::HttpError::boxed(
-                                503,
-                                format!("Tor verification failed: {e}"),
-                            ));
-                        } else {
-                            log::warn!("Strict mode was disabled, so proceed with error: {}", e);
-                        }
-                    }
-                }
-                client
+        let tor_client = search::tor::client(config, metadata).await?;
+        // Mark 3: Verify that the client is actually routed through the Tor network
+        match search::tor::verify(tor_client.clone()).await {
+            Ok(_) => tor_client,
+            // Mark 4: Strict mode fails the request outright
+            Err(e) if strict => {
+                log::info!("Strict mode was enabled, so failing due to: {}", e);
+                return Err(api::schema::HttpError::boxed(
+                    503,
+                    format!("Tor verification failed: {e}"),
+                ));
             }
+            // Mark 5: Non-strict mode continues, choosing a client that can actually work
             Err(e) => {
-                return Err(e);
+                let proxy_unreachable = e
+                    .downcast_ref::<reqwest::Error>()
+                    .is_some_and(|r| r.is_connect() || r.is_timeout());
+                if proxy_unreachable {
+                    log::warn!(
+                    "Tor proxy is unreachable ({e}); strict mode is disabled, so falling back to a direct connection. Your IP will be exposed."
+                );
+                    Client::builder()
+                        .timeout(Duration::from_secs(config.tor_timeout))
+                        .user_agent(format!("apibay-rs/{}", metadata.pkg_version))
+                        .build()?
+                } else {
+                    log::warn!("Strict mode was disabled, so proceeding through the proxy despite: {e}");
+                    tor_client
+                }
             }
         }
     } else {
