@@ -23,7 +23,7 @@ const MAX_RELAY_ATTEMPTS: usize = 3;
 ///
 /// # Returns
 ///
-/// Returns the `io::Result<String> ` object.
+/// Returns the `Result<String, VpnError>` object.
 async fn run_command(args: &[&str]) -> Result<String, VpnError> {
     let output = tokio::time::timeout(
         CMD_TIMEOUT,
@@ -59,6 +59,10 @@ async fn run_command(args: &[&str]) -> Result<String, VpnError> {
 }
 
 /// Disconnect VPN.
+///
+/// # Arguments
+///
+/// * `disable_lockdown` - Boolean flag to disable lockdown mode before disconnecting vpn.
 ///
 /// # Returns
 ///
@@ -152,7 +156,7 @@ pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadR
     await_connection("connected").await
 }
 
-/// Sets a relay selection and attempst to connect to it.
+/// Sets a relay selection and attempts to connect to it.
 ///
 /// # Arguments
 ///
@@ -175,30 +179,6 @@ async fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
     run_command(CONNECTOR).await?;
     log::debug!("Connected to {}", selection.join(" "));
     Ok(())
-}
-
-/// Picks a random relay location and establishes VPN connection.
-///
-/// # Arguments
-///
-/// * `whitelist` - An array of city [OR] country codes to whitelist.
-/// * `blacklist` - An array of city [OR] country codes to blacklist.
-///
-/// # Returns
-///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-async fn target_connector(
-    relay: &vpn::models::RelayLocation,
-) -> Result<vpn::models::MullvadResponse, VpnError> {
-    log::info!(
-        "Selecting a relay from '{} {}' - {}, {}",
-        relay.country_code,
-        relay.city_code,
-        relay.city,
-        relay.country
-    );
-    set_and_connect(&[&relay.country_code, &relay.city_code]).await?;
-    await_connection("connected").await
 }
 
 /// Chooses targeted connection if whitelist and blacklist are provided.
@@ -241,7 +221,15 @@ pub async fn shuffler(
         }
         let mut last_err = None;
         for relay in candidates.iter().take(MAX_RELAY_ATTEMPTS) {
-            match target_connector(relay).await {
+            log::info!(
+                "Selecting a relay from '{} {}' - {}, {}",
+                relay.country_code,
+                relay.city_code,
+                relay.city,
+                relay.country
+            );
+            set_and_connect(&[&relay.country_code, &relay.city_code]).await?;
+            match await_connection("connected").await {
                 Ok(connected) => return Ok(connected),
                 Err(e @ VpnError::Unavailable(_)) => return Err(e), // retrying is pointless
                 Err(e) => {
@@ -263,9 +251,9 @@ pub async fn shuffler(
             ),
             config.to_owned(),
         );
-        return Err(
-            last_err.unwrap_or_else(|| VpnError::Failed("No connection attempt was made".into()))
-        );
+        let err = match last_err { Some(VpnError::Invalid(m)) => VpnError::Failed(m), Some(e) => e,
+            None => VpnError::Failed("No connection attempt was made".into()) };
+        return Err(err);
     }
     if let Err(e) = run_command(RESET).await {
         log::error!("Failed to reset mullvad relay preferences - {}", e);
