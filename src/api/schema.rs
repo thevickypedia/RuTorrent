@@ -72,6 +72,7 @@ impl BaseTorrent {
     }
 }
 
+/// `HttpError` object with status as `u16` and message as a `String` object.
 #[derive(Debug)]
 pub struct HttpError {
     pub status: u16,
@@ -82,7 +83,7 @@ impl std::fmt::Display for HttpError {
         write!(f, "{}", self.message)
     }
 }
-impl std::error::Error for HttpError {}
+impl Error for HttpError {}
 impl HttpError {
     pub fn boxed(status: u16, msg: impl Into<String>) -> Box<dyn Error + Send + Sync> {
         Box::new(Self {

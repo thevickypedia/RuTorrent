@@ -169,6 +169,7 @@ pub async fn handle_response(
     }
 }
 
+/// Converts `HttpResponse` object into a `String` object.
 pub async fn error_text(resp: HttpResponse) -> String {
     let status = resp.status();
     let body = actix_web::body::to_bytes(resp.into_body())

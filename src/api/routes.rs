@@ -92,8 +92,6 @@ fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
 ///
 /// #### Status
 /// * `200`: Successfully queued.
-/// * `409`: Duplicate request.
-/// * `400`: Invalid magnet link.
 ///
 /// # Returns
 ///
@@ -675,17 +673,21 @@ async fn redownload_torrent(
     // Delete any locally downloaded files left over from the previous attempt.
     if !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists() {
         if !squire::savepath::is_removable(&put_item.save_path, &opts.name) {
-            log::warn!("Not removing '{}': not a per-torrent directory", put_item.save_path);
+            log::warn!(
+                "Not removing '{}': not a per-torrent directory",
+                put_item.save_path
+            );
         } else if let Err(err) = std::fs::remove_dir_all(&put_item.save_path) {
             log::error!("Failed to remove old files for '{}': {}", opts.name, err);
             return HttpResponse::InternalServerError()
                 .body(format!("Failed to remove old files: {}", err));
+        } else {
+            log::info!(
+                "Removed old local files for '{}' at {}",
+                opts.name,
+                put_item.save_path
+            );
         }
-        log::info!(
-            "Removed old local files for '{}' at {}",
-            opts.name,
-            put_item.save_path
-        );
     }
 
     let client = match squire::qb::client(&config).await {
@@ -934,8 +936,7 @@ pub async fn search_category(
 ///
 /// #### Status
 /// * `200`: Successful.
-/// * `400`: Invalid request.
-/// * `500`: Server error.
+/// * `404`: Not found.
 ///
 /// # Returns
 ///
@@ -945,7 +946,11 @@ pub async fn search_category(
     path = "/search",
     params(config::settings::SearchTorrents),
     responses(
-        (status = 200, description = "List of results as structured object", body = Vec<api::schema::BaseTorrent>)
+        (status = 200, description = "List of results as structured object", body = Vec<api::schema::BaseTorrent>),
+        (status = 404),
+        (status = 502),
+        (status = 503),
+        (status = 504),
     )
 )]
 pub async fn search_torrents(
@@ -1026,8 +1031,8 @@ pub async fn search_torrents(
 /// ```
 ///
 /// #### Status
-/// * `200`: Successful.
-/// * `500`: Server error.
+/// * `200`: Response from mullvad.
+/// * `502`: Mullvad CLI error.
 ///
 /// # Returns
 ///
@@ -1037,10 +1042,7 @@ pub async fn search_torrents(
     path = "/vpn",
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
-        (status = 400, description = "Invalid hostname, or unknown/conflicting whitelist/blacklist codes", body = String),
-        (status = 502, description = "mullvad CLI error", body = String),
-        (status = 503, description = "mullvad CLI missing or relay list unavailable", body = String),
-        (status = 504, description = "VPN did not reach the requested state", body = String),
+        (status = 502, description = "mullvad CLI error", body = String)
     )
 )]
 pub async fn get_vpn(
@@ -1089,8 +1091,11 @@ pub async fn get_vpn(
 /// ```
 ///
 /// #### Status
-/// * `200`: Successful.
-/// * `500`: Server error.
+/// * `200`: Response from mullvad.
+/// * `400`: Invalid user input.
+/// * `502`: Mullvad CLI error.
+/// * `503`: Mullvad CLI missing relay.
+/// * `504`: VPN did not reach requested state.
 ///
 /// # Returns
 ///
@@ -1124,12 +1129,8 @@ pub async fn connect_vpn(
         .map(|v| v == "true")
         .unwrap_or(false)
     {
-        let disable_lockdown = request
-            .headers()
-            .get(HeaderName::from_static("host"))
-            .and_then(|value| value.to_str().ok())
-            .map(|value| value.starts_with("https"))
-            .unwrap_or(false);
+        // TODO: Perhaps this needs to be a flag?
+        let disable_lockdown = request.connection_info().scheme() == "https";
         log::warn!("Received disconnect request");
         return api::squire::vpn_response(vpn::connect::disconnect(disable_lockdown).await);
     }

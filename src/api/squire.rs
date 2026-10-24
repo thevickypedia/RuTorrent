@@ -222,6 +222,15 @@ pub async fn resolve_payload(
     ret
 }
 
+/// Construct an `HttpResponse` object.
+///
+/// # Arguments
+///
+/// * `result` - Result as `Result<vpn::models::MullvadResponse, vpn::models::VpnError>` object.
+///
+/// # Returns
+///
+/// Returns the final `HttpResponse` object.
 pub fn vpn_response(
     result: Result<vpn::models::MullvadResponse, vpn::models::VpnError>,
 ) -> HttpResponse {
