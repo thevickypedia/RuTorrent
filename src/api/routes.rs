@@ -1124,15 +1124,17 @@ pub async fn connect_vpn(
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    if query
+    let disconnect_flag = query
         .get("disconnect")
         .map(|v| v == "true")
-        .unwrap_or(false)
-    {
-        // TODO: Perhaps this needs to be a flag?
-        let disable_lockdown = request.connection_info().scheme() == "https";
-        log::warn!("Received disconnect request");
-        return api::squire::vpn_response(vpn::connect::disconnect(disable_lockdown).await);
+        .unwrap_or(false);
+    if disconnect_flag {
+        let lockdown = query
+            .get("lockdown")
+            .map(|v| v == "true")
+            .unwrap_or(false);
+        log::warn!("Received disconnect request with lockdown state as {}", lockdown);
+        return api::squire::vpn_response(vpn::connect::disconnect(lockdown).await);
     }
     if !payload.hostname.trim().is_empty() {
         return api::squire::vpn_response(

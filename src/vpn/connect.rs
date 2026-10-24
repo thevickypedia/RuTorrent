@@ -10,6 +10,7 @@ const SETTER: &[&str] = &["relay", "set", "location"];
 const CONNECTOR: &[&str] = &["connect"];
 const DISCONNECTOR: &[&str] = &["disconnect"];
 const LOCKDOWN_OFF: &[&str] = &["lockdown-mode", "set", "off"];
+const LOCKDOWN_ON: &[&str] = &["lockdown-mode", "set", "on"];
 const RESET: &[&str] = &["relay", "set", "location", "any"];
 const RECONNECT: &[&str] = &["reconnect"];
 const CMD_TIMEOUT: Duration = Duration::from_secs(30);
@@ -67,8 +68,11 @@ async fn run_command(args: &[&str]) -> Result<String, VpnError> {
 /// # Returns
 ///
 /// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn disconnect(disable_lockdown: bool) -> Result<vpn::models::MullvadResponse, VpnError> {
-    if disable_lockdown {
+pub async fn disconnect(lockdown: bool) -> Result<vpn::models::MullvadResponse, VpnError> {
+    if lockdown {
+        log::info!("Enabling lockdown mode");
+        run_command(LOCKDOWN_ON).await?;
+    } else {
         log::info!("Disabling lockdown mode");
         run_command(LOCKDOWN_OFF).await?;
     }

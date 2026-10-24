@@ -955,6 +955,25 @@
             margin-bottom: 1.25rem;
         }
 
+        #vpnFormContent[hidden],
+        #vpnFormFields[hidden],
+        #vpnDisconnectFields[hidden],
+        #vpnLockdownWarning[hidden],
+        #vpnResultContent[hidden] {
+            display: none !important;
+        }
+
+        .vpn-warning {
+            color: var(--error);
+            background: rgba(255, 79, 79, 0.07);
+            border: 1px solid rgba(255, 79, 79, 0.3);
+            border-left: 3px solid var(--error);
+            padding: 0.7rem 0.85rem;
+            margin-bottom: 1rem;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
         .vpn-result-message.disconnected {
             color: var(--error);
         }
@@ -2196,6 +2215,20 @@
                     </div>
                 </div>
             </div>
+            <div id="vpnDisconnectFields" hidden>
+                <div class="vpn-warning" role="alert">
+                    Turning off the VPN removes encryption for any ongoing downloads and requests made through this WebUI.
+                </div>
+                <div class="toggle-field">
+                    <input class="toggle" id="vpnLockdownToggle" type="checkbox">
+                    <label class="toggle-label" for="vpnLockdownToggle">Lockdown mode</label>
+                </div>
+                <div class="vpn-warning" id="vpnLockdownWarning" role="alert" hidden>
+                    Lockdown: this machine may become unreachable if you are accessing it without an
+                    internal transit gateway (e.g. nginx running on another machine and forwarding traffic
+                    through an internal IP).
+                </div>
+            </div>
             <div class="error-msg" id="vpnError" role="alert"></div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="cancelVpnModal" type="button">Cancel</button>
@@ -2992,11 +3025,14 @@
         toggle.title = vpnDisconnectMode ? 'Switch to connect mode' : 'Switch to disconnect mode';
         toggle.disabled = !vpnCurrentConnected;
         fields.hidden = vpnDisconnectMode;
+        document.getElementById('vpnDisconnectFields').hidden = !vpnDisconnectMode;
         submit.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
     }
 
     function resetVpnModalView() {
         updateVpnMode(false);
+        document.getElementById('vpnLockdownToggle').checked = false;
+        document.getElementById('vpnLockdownWarning').hidden = true;
         document.getElementById('vpnModeToggle').hidden = false;
         document.getElementById('vpnFormContent').hidden = false;
         document.getElementById('vpnResultContent').hidden = true;
@@ -3034,6 +3070,9 @@
         error.textContent = '';
         error.classList.remove('visible');
     });
+    document.getElementById('vpnLockdownToggle').addEventListener('change', e => {
+        document.getElementById('vpnLockdownWarning').hidden = !e.target.checked;
+    });
     document.getElementById('closeVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('cancelVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('doneVpnModal').addEventListener('click', closeVpnModal);
@@ -3058,7 +3097,8 @@
         setSearchLoading(true, disconnecting ? 'Disconnecting VPN…' : 'Connecting to VPN…');
 
         try {
-            const resp = await fetch(disconnecting ? '/vpn?disconnect=true' : '/vpn', {
+            const lockdown = document.getElementById('vpnLockdownToggle').checked;
+            const resp = await fetch(disconnecting ? `/vpn?disconnect=true&lockdown=${lockdown}` : '/vpn', {
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify(disconnecting ? {} : payload),
