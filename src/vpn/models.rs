@@ -1,5 +1,5 @@
 use serde;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Debug)]
@@ -25,24 +25,19 @@ pub struct RelayLocation {
     pub country_code: String,
 }
 
-fn lenient_details<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Details>, D::Error> {
-    let raw = serde_json::Value::deserialize(d)?;
-    Ok(serde_json::from_value::<Details>(raw).ok()) // null / transient shapes -> None
-}
-
 #[derive(serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct MullvadResponse {
     pub state: String,
-    #[serde(default, deserialize_with = "lenient_details")]
     pub details: Option<Details>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Details {
-    pub location: Location,
+    pub location: Option<Location>,
+    pub locked_down: Option<bool>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
 pub struct Location {
     pub city: String,
     pub country: String,

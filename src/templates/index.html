@@ -959,6 +959,7 @@
         #vpnFormFields[hidden],
         #vpnDisconnectFields[hidden],
         #vpnLockdownWarning[hidden],
+        #vpnResultGrid[hidden],
         #vpnResultContent[hidden] {
             display: none !important;
         }
@@ -2224,7 +2225,7 @@
                     <label class="toggle-label" for="vpnLockdownToggle">Lockdown mode</label>
                 </div>
                 <div class="vpn-warning" id="vpnLockdownWarning" role="alert" hidden>
-                    Lockdown: this machine may become unreachable if you are accessing it without an
+                    Lockdown: Host may become unreachable if you are accessing it without an
                     internal transit gateway (e.g. nginx running on another machine and forwarding traffic
                     through an internal IP).
                 </div>
@@ -2238,7 +2239,7 @@
 
         <div hidden id="vpnResultContent">
             <p class="vpn-result-message" id="vpnResultMessage">VPN connection established.</p>
-            <dl class="vpn-result-grid">
+            <dl class="vpn-result-grid" id="vpnResultGrid">
                 <dt id="vpnResultPrimaryLabel">Hostname</dt>
                 <dd id="vpnResultPrimaryValue">—</dd>
                 <dt>City</dt>
@@ -2967,6 +2968,11 @@
 
     // Shared from the same status payload that drives the header display; no extra request is needed.
     let vpnCurrentConnected = false;
+    const LOCKED_DOWN_TEXT = 'Internet connection for host is blocked';
+
+    function isLockedDown(data) {
+        return data?.details?.locked_down === true;
+    }
 
     function setVpnStatus(data) {
         const connected = String(data?.state || '').toLowerCase() === 'connected';
@@ -2987,11 +2993,13 @@
             globe.hidden = !connected;
             pulse.hidden = false;
             pulse.classList.toggle('vpn-status-disconnected', !connected);
-            text.textContent = data ? connected
-                    ? `Connected with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} to ${place || 'location unavailable'}`
-                    : `Exposed with ${ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip)} at ${place || 'location unavailable'}`
-                : 'NOT CONNECTED';
-            status.title = connected ? text.textContent : 'NOT CONNECTED';
+            const lockedDown = isLockedDown(data);
+            const ipText = ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip);
+            text.textContent = !data ? 'NOT CONNECTED'
+                : connected ? `Connected with ${ipText} to ${place || 'location unavailable'}`
+                    : lockedDown ? LOCKED_DOWN_TEXT
+                        : `Exposed with ${ipText} at ${place || 'location unavailable'}`;
+            status.title = (connected || lockedDown) ? text.textContent : 'NOT CONNECTED';
         });
     }
 
@@ -3042,6 +3050,7 @@
         const resultMessage = document.getElementById('vpnResultMessage');
         resultMessage.textContent = 'VPN connection established.';
         resultMessage.classList.remove('disconnected');
+        document.getElementById('vpnResultGrid').hidden = false;
     }
 
     function openVpnModal() {
@@ -3126,8 +3135,13 @@
             const primaryValue = document.getElementById('vpnResultPrimaryValue');
             const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4 ?? location.ip ?? data?.ip;
 
+            const blocked = disconnecting && (isLockedDown(data) || lockdown);
+            document.getElementById('vpnResultGrid').hidden = blocked;
+
             if (disconnecting) {
-                resultMessage.textContent = 'VPN was disconnected.';
+                resultMessage.textContent = blocked
+                    ? `VPN was disconnected. ${LOCKED_DOWN_TEXT}.`
+                    : 'VPN was disconnected.';
                 resultMessage.classList.add('disconnected');
                 primaryLabel.textContent = 'IP';
                 primaryValue.textContent = ip === null || ip === undefined || String(ip).trim() === '' ? '—' : String(ip);
@@ -3146,7 +3160,7 @@
             setVpnStatus(data);
 
             if (disconnecting) {
-                toast(`VPN disconnected: ${ip || 'IP unavailable'}`, 'success');
+                toast(blocked ? `VPN disconnected: ${LOCKED_DOWN_TEXT}` : `VPN disconnected: ${ip || 'IP unavailable'}`, 'success');
             } else {
                 toast(`VPN connected: ${location.hostname || payload.hostname || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
             }

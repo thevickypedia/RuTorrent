@@ -129,9 +129,6 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
                     "Connected, but mullvad returned no location details".into(),
                 ));
             }
-            if let Some(d) = response.details.as_ref() {
-                log::info!("Connection validated to {:?}", d.location.hostname);
-            }
             return Ok(response);
         }
     }
