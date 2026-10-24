@@ -208,11 +208,16 @@ docker run -d \
    ```shell
    curl -H "apikey: ${APIKEY}" localhost:3000/vpn
    ```
-2. `POST /vpn` - Disconnect/Connect/Reconnect/Change VPN relay
+2. `POST /vpn` - Connect/Reconnect/Change VPN relay
    ```shell
-   curl --url "localhost:3000/vpn?disconnect=false" \
+   curl -X POST --url "localhost:3000/vpn?disconnect=false" \
      -H "apikey: ${APIKEY}" \
      --data-raw '{"blacklist":"us,il,cl,cz","node":"","whitelist":"ch,se,ie,it,tyo"}'
+   ```
+3. `DELETE /vpn` - Disconnect vpn
+   ```shell
+   curl -X DELETE --url "localhost:3000/vpn?lockdown=false" \
+     -H "apikey: ${APIKEY}"
    ```
 
 ### Standalone UI

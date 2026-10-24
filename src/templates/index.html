@@ -2225,7 +2225,7 @@
                     <label class="toggle-label" for="vpnLockdownToggle">Lockdown mode</label>
                 </div>
                 <div class="vpn-warning" id="vpnLockdownWarning" role="alert" hidden>
-                    Lockdown: Host may become unreachable if you are accessing it without an
+                    Lockdown: Host may become unreachable if you are accessing it via public internet without an
                     internal transit gateway (e.g. nginx running on another machine and forwarding traffic
                     through an internal IP).
                 </div>
@@ -3107,8 +3107,10 @@
 
         try {
             const lockdown = document.getElementById('vpnLockdownToggle').checked;
-            const resp = await fetch(disconnecting ? `/vpn?disconnect=true&lockdown=${lockdown}` : '/vpn', {
-                method: 'POST',
+            const method = disconnecting ? "DELETE" : "POST";
+            const url = disconnecting ? `/vpn?lockdown=${lockdown}` : '/vpn';
+            const resp = await fetch(url, {
+                method: method,
                 headers: authHeaders(),
                 body: JSON.stringify(disconnecting ? {} : payload),
                 // VPN connection changes can take longer than ordinary API calls.

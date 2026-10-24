@@ -1071,7 +1071,7 @@ pub async fn get_vpn(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl -X POST localhost:3000/vpn?disconnect=$vpnDisconnectFlag \
+/// curl -X POST localhost:3000/vpn \
 ///   -H "Content-Type: application/json" -d '{}'
 /// ```
 ///
@@ -1103,9 +1103,6 @@ pub async fn get_vpn(
 #[utoipa::path(
     post,
     path = "/vpn",
-    params(
-        ("disconnect" = Option<bool>, Query, description = "Boolean flag to disconnect; payload body is ignored when set to true.")
-    ),
     request_body = Option<config::settings::ConnectVPN>,
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
@@ -1117,24 +1114,11 @@ pub async fn get_vpn(
 )]
 pub async fn connect_vpn(
     request: HttpRequest,
-    query: web::Query<HashMap<String, String>>,
     payload: web::Json<config::settings::ConnectVPN>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
-    }
-    let disconnect_flag = query
-        .get("disconnect")
-        .map(|v| v == "true")
-        .unwrap_or(false);
-    if disconnect_flag {
-        let lockdown = query
-            .get("lockdown")
-            .map(|v| v == "true")
-            .unwrap_or(false);
-        log::warn!("Received disconnect request with lockdown state as {}", lockdown);
-        return api::squire::vpn_response(vpn::connect::disconnect(lockdown).await);
     }
     if !payload.hostname.trim().is_empty() {
         return api::squire::vpn_response(
@@ -1149,4 +1133,65 @@ pub async fn connect_vpn(
         )
         .await,
     )
+}
+
+/// API endpoint to disconnect mullvad vpn.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl -X DELETE localhost:3000/vpn?lockdown=false
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "state": "disconnected",
+///   "details": {
+///     "location": null,
+///     "locked_down": true,
+///   }
+/// }
+/// ```
+///
+/// #### Status
+/// * `200`: Response from mullvad.
+/// * `400`: Invalid user input.
+/// * `502`: Mullvad CLI error.
+/// * `503`: Mullvad CLI missing relay.
+/// * `504`: VPN did not reach requested state.
+///
+/// # Returns
+///
+/// Returns the `vpn::models::MullvadResponse` object.
+#[utoipa::path(
+    delete,
+    path = "/vpn",
+    params(
+        ("lockdown" = Option<bool>, Query, description = "Boolean flag to set lockdown mode.")
+    ),
+    responses(
+        (status = 200, description = "Disconnected", body = vpn::models::MullvadResponse),
+        (status = 502, description = "mullvad CLI error", body = String),
+        (status = 504, description = "VPN did not reach the requested state", body = String),
+    )
+)]
+pub async fn disconnect_vpn(
+    request: HttpRequest,
+    query: web::Query<HashMap<String, String>>,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(&request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let lockdown = query
+        .get("lockdown")
+        .map(|v| v == "true")
+        .unwrap_or(false);
+    log::warn!("Received disconnect request with lockdown state as {}", lockdown);
+    api::squire::vpn_response(vpn::connect::disconnect(lockdown).await)
 }

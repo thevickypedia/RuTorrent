@@ -12,6 +12,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::routes::version,
         api::routes::get_vpn,
         api::routes::connect_vpn,
+        api::routes::disconnect_vpn,
         api::routes::get_torrents,
         api::routes::search_torrents,
         api::routes::search_category,
