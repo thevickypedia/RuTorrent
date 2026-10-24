@@ -14,6 +14,7 @@ use uuid::Uuid;
 /// Returns the HTTPResponse with a JSON message to indicate the API is up.
 #[utoipa::path(
     get,
+    tag = "System",
     path = "/status",
     security(()),
     responses(
@@ -31,6 +32,7 @@ pub async fn status() -> impl Responder {
 /// Returns the HTTPResponse with a JSON message resolved during compile time.
 #[utoipa::path(
     get,
+    tag = "System",
     path = "/version",
     security(()),
     responses(
@@ -98,6 +100,7 @@ fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
 /// Returns a JSON array of [`TorrentEntry`] objects.
 #[utoipa::path(
     get,
+    tag = "Torrent",
     path = "/torrent",
     responses(
         (status = 200, description = "Torrent list", body = Vec<api::schema::TorrentEntry>)
@@ -207,6 +210,7 @@ pub async fn get_torrents(
 /// Returns a JSON object to indicate the status.
 #[utoipa::path(
     put,
+    tag = "Torrent",
     path = "/torrent",
     request_body = Vec<config::settings::PutItem>,
     responses(
@@ -353,6 +357,7 @@ pub async fn put_torrent(
 /// Returns a JSON object to indicate the status.
 #[utoipa::path(
     delete,
+    tag = "Torrent",
     path = "/torrent",
     params(
         ("name" = String, Query, description = "Torrent name"),
@@ -504,6 +509,7 @@ pub async fn delete_torrent(
 /// Returns a JSON string indicating the result.
 #[utoipa::path(
     post,
+    tag = "Torrent",
     path = "/retry",
     params(
         ("name" = String, Query, description = "Torrent name")
@@ -769,6 +775,7 @@ async fn redownload_torrent(
 /// Returns an `HttpResponse` indicating the result.
 #[utoipa::path(
     post,
+    tag = "Torrent",
     path = "/torrent/pause",
     params(
         ("name" = String, Query, description = "Torrent name"),
@@ -867,6 +874,7 @@ pub async fn pause_torrent(
 /// Returns a HashMap of categories with id and name as key-value pairs.
 #[utoipa::path(
     get,
+    tag = "Search",
     path = "/categories",
     params(
         ("nested" = Option<bool>, Query, description = "Boolean flag to get nested categories")
@@ -943,6 +951,7 @@ pub async fn search_category(
 /// Returns a JSON array of [`BaseTorrent`] objects.
 #[utoipa::path(
     get,
+    tag = "Search",
     path = "/search",
     params(config::settings::SearchTorrents),
     responses(
@@ -1039,6 +1048,7 @@ pub async fn search_torrents(
 /// Returns the `vpn::models::MullvadResponse` object.
 #[utoipa::path(
     get,
+    tag = "VPN",
     path = "/vpn",
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
@@ -1102,6 +1112,7 @@ pub async fn get_vpn(
 /// Returns the `vpn::models::MullvadResponse` object.
 #[utoipa::path(
     post,
+    tag = "VPN",
     path = "/vpn",
     request_body = Option<config::settings::ConnectVPN>,
     responses(
@@ -1170,6 +1181,7 @@ pub async fn connect_vpn(
 /// Returns the `vpn::models::MullvadResponse` object.
 #[utoipa::path(
     delete,
+    tag = "VPN",
     path = "/vpn",
     params(
         ("lockdown" = Option<bool>, Query, description = "Boolean flag to set lockdown mode.")
