@@ -68,8 +68,7 @@ pub async fn generate_relay_map(
 ///
 /// # Returns
 ///
-/// * `Some(RelayConnector)` - A randomly selected relay that satisfies all filters.
-/// * `None` - If no eligible relays are available.
+/// Returns a `Vec<vpn::models::RelayLocation>` object of all eligible objects.
 pub fn eligible_relays(
     relay_map: Vec<vpn::models::RelayLocation>,
     whitelist: &[String],
@@ -79,18 +78,30 @@ pub fn eligible_relays(
     let mut relays: Vec<_> = relay_map
         .into_iter()
         .filter(|r| {
-            !blacklist.contains(&r.country_code)
-                && !blacklist.contains(&r.city_code)
+            !blacklist.contains(&r.country_code.to_lowercase())
+                && !blacklist.contains(&r.city_code.to_lowercase())
                 && (whitelist.is_empty()
-                || whitelist.contains(&r.city_code)
-                || whitelist.contains(&r.country_code))
-                && seen.insert((r.country_code.clone(), r.city_code.clone()))
+                || whitelist.contains(&r.city_code.to_lowercase())
+                || whitelist.contains(&r.country_code.to_lowercase()))
+                && seen.insert((r.country_code.to_lowercase(), r.city_code.to_lowercase()))
         })
         .collect();
     relays.shuffle(&mut rand::rng());
     relays
 }
 
+/// Validates relays and country codes.
+///
+/// # Arguments
+///
+/// * `relays` - Reference to an array of `vpn::models::RelayLocation` objects.
+/// * `whitelist` - Reference to an array of whitelisted city codes or country codes.
+/// * `blacklist` - Reference to an array of blacklisted city codes or country codes.
+///
+/// # Returns
+///
+/// * `Ok(())` - All validations were done with no errors.
+/// * `Err(vpn::models::VpnError)` - VpnError object with the appropriate error message.
 pub fn validate_codes(
     relays: &[vpn::models::RelayLocation],
     whitelist: &[String],
