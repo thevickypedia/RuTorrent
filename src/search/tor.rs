@@ -34,12 +34,14 @@ pub async fn client(
 ///
 /// Returns a `Result` containing the verified HTTP client if the connection uses Tor, or an error if the request fails or Tor verification is unsuccessful.
 pub async fn verify(tor_client: Client) -> api::schema::Result<Client> {
+    log::debug!("Verifying tor client...");
     let response: serde_json::Value = tor_client
         .get("https://check.torproject.org/api/ip")
         .send()
         .await?
         .json()
         .await?;
+    log::debug!("Tor response: {:?}", response);
 
     if response["IsTor"].as_bool().unwrap_or(false) {
         if let Some(ip) = response.get("IP").and_then(serde_json::Value::as_str) {

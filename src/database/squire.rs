@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::database::db;
 use rusqlite::Result;
 
@@ -24,7 +25,7 @@ pub fn print_content() -> Result<()> {
     // Goes through `database::open()` (rather than opening the file directly)
     // so schema creation always runs first, even when `--read_db` is invoked
     // before the app has ever started normally.
-    let conn = db::open();
+    let conn = db::open(PathBuf::new());
 
     println!("\n=== STATE ===");
     let mut stmt =

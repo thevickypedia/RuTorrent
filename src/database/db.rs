@@ -1,14 +1,15 @@
 use crate::{config, squire};
 use rusqlite::{Connection, params};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Opens (or creates) the SQLite database and ensures the required schema exists.
 ///
 /// # Returns
 ///
 /// Returns an open `Connection` to the `rutorrent.db` SQLite database.
-pub fn open() -> Connection {
-    let conn = Connection::open("rutorrent.db").expect("Failed to open database");
+pub fn open(filepath: PathBuf) -> Connection {
+    let conn = Connection::open(filepath).expect("Failed to open database");
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS state (
             hash        TEXT PRIMARY KEY,
