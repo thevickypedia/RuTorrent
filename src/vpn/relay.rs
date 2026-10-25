@@ -81,8 +81,8 @@ pub fn eligible_relays(
             !blacklist.contains(&r.country_code.to_lowercase())
                 && !blacklist.contains(&r.city_code.to_lowercase())
                 && (whitelist.is_empty()
-                || whitelist.contains(&r.city_code.to_lowercase())
-                || whitelist.contains(&r.country_code.to_lowercase()))
+                    || whitelist.contains(&r.city_code.to_lowercase())
+                    || whitelist.contains(&r.country_code.to_lowercase()))
                 && seen.insert((r.country_code.to_lowercase(), r.city_code.to_lowercase()))
         })
         .collect();
@@ -117,7 +117,7 @@ pub fn validate_codes(
         return Err(vpn::models::VpnError::Invalid(format!(
             "Conflicting whitelist and blacklist entries were found: {}",
             conflicts.join(", ")
-        )))
+        )));
     }
     let known: HashSet<String> = relays
         .iter()

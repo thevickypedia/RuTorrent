@@ -344,7 +344,7 @@ pub async fn put_torrent(
 ///
 /// #### Sample Response
 /// ```json
-/// Deleted
+/// Deleted <name> [<hash>]
 /// ```
 ///
 /// # Returns
@@ -386,7 +386,9 @@ pub async fn delete_torrent(
         Err(e) => return e,
     };
     let (name, in_qbit) =
-        match api::squire::resolve_name(&hash, &client, &config, Some(db_connection.get_ref())).await {
+        match api::squire::resolve_name(&hash, &client, &config, Some(db_connection.get_ref()))
+            .await
+        {
             Ok(Some(found)) => found,
             Ok(None) => return HttpResponse::NotFound().body("Torrent not found"),
             Err(e) => return e,
@@ -539,7 +541,8 @@ pub async fn retry_torrent(
     if files_deleted || !files_present {
         log::info!(
             "Local files missing for '{}' [{}], falling back to redownload",
-            name, body.hash
+            name,
+            body.hash
         );
         return redownload_torrent(pending, config, db_connection, body.into_inner()).await;
     }
@@ -693,8 +696,7 @@ async fn redownload_torrent(
     // Re-add the torrent to kick off a brand-new download.
     let tag = Uuid::new_v4().to_string();
     if put_item.save_path.is_empty() {
-        put_item.save_path =
-            squire::savepath::get_default_save_path(&client, &config, &name).await;
+        put_item.save_path = squire::savepath::get_default_save_path(&client, &config, &name).await;
     }
     put_item.save_path = put_item.save_path.trim().to_string();
 
@@ -919,7 +921,7 @@ pub async fn search_category(
     params(config::settings::SearchTorrents),
     responses(
         (status = 200, description = "List of results as structured object", body = Vec<api::schema::BaseTorrent>),
-        (status = 404),
+        (status = 404, description = "No results", body = String),
         (status = 502),
         (status = 503),
         (status = 504),
@@ -1134,7 +1136,6 @@ pub async fn connect_vpn(
 ///
 /// #### Status
 /// * `200`: Response from mullvad.
-/// * `400`: Invalid user input.
 /// * `502`: Mullvad CLI error.
 /// * `503`: Mullvad CLI missing relay.
 /// * `504`: VPN did not reach requested state.
@@ -1152,6 +1153,7 @@ pub async fn connect_vpn(
     responses(
         (status = 200, description = "Disconnected", body = vpn::models::MullvadResponse),
         (status = 502, description = "mullvad CLI error", body = String),
+        (status = 503, description = "mullvad CLI missing", body = String),
         (status = 504, description = "VPN did not reach the requested state", body = String),
     )
 )]

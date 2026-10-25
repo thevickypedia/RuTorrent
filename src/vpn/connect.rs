@@ -63,7 +63,7 @@ async fn run_command(args: &[&str]) -> Result<String, VpnError> {
 ///
 /// # Arguments
 ///
-/// * `disable_lockdown` - Boolean flag to disable lockdown mode before disconnecting vpn.
+/// * `lockdown` - Boolean flag to enable/disable lockdown mode before disconnecting vpn.
 ///
 /// # Returns
 ///
@@ -230,7 +230,11 @@ pub async fn shuffler(
                 if matches!(e, VpnError::Unavailable(_)) {
                     return Err(e);
                 }
-                log::warn!("Relay {}-{} rejected: {e}", relay.country_code, relay.city_code);
+                log::warn!(
+                    "Relay {}-{} rejected: {e}",
+                    relay.country_code,
+                    relay.city_code
+                );
                 last_err = Some(e);
                 continue;
             }
@@ -256,8 +260,11 @@ pub async fn shuffler(
             ),
             config.to_owned(),
         );
-        let err = match last_err { Some(VpnError::Invalid(m)) => VpnError::Failed(m), Some(e) => e,
-            None => VpnError::Failed("No connection attempt was made".into()) };
+        let err = match last_err {
+            Some(VpnError::Invalid(m)) => VpnError::Failed(m),
+            Some(e) => e,
+            None => VpnError::Failed("No connection attempt was made".into()),
+        };
         return Err(err);
     }
     if let Err(e) = run_command(RESET).await {

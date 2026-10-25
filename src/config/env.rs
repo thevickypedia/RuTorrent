@@ -183,7 +183,13 @@ impl Config {
         let workers = match default_workers.parse::<usize>() {
             Ok(n) if n > 0 && n < max_workers => n,
             Ok(_) => {
-                startup_error(format!("'workers' must be > 0, but < {}, got {}", max_workers, default_workers).as_str());
+                startup_error(
+                    format!(
+                        "'workers' must be > 0, but < {}, got {}",
+                        max_workers, default_workers
+                    )
+                    .as_str(),
+                );
                 std::process::exit(1)
             }
             Err(e) => {
@@ -287,20 +293,21 @@ impl Config {
             Some(PathBuf::from(raw_trackers_file))
         };
 
-        let max_trackers = match squire::misc::get_env_var("max_trackers", Some("10")).parse::<usize>() {
-            Ok(mt) => {
-                if mt > 0 { mt } else {
-                    startup_error(
-                        format!("Invalid 'max_trackers' value '{mt}'").as_str(),
-                    );
-                    std::process::exit(1);
+        let max_trackers =
+            match squire::misc::get_env_var("max_trackers", Some("10")).parse::<usize>() {
+                Ok(mt) => {
+                    if mt > 0 {
+                        mt
+                    } else {
+                        startup_error(format!("Invalid 'max_trackers' value '{mt}'").as_str());
+                        std::process::exit(1);
+                    }
                 }
-            },
-            Err(err) => {
-                startup_error(&err.to_string());
-                std::process::exit(1)
-            }
-        };
+                Err(err) => {
+                    startup_error(&err.to_string());
+                    std::process::exit(1)
+                }
+            };
 
         let mullvad_cache_env = squire::misc::get_env_var("mullvad_relay_cache", None);
         let mullvad_relay_cache = if !mullvad_cache_env.is_empty() {

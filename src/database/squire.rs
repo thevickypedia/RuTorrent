@@ -47,7 +47,7 @@ pub fn print_content() -> Result<()> {
         }
         println!(
             "  [{}] {} — {} ({:.0}%){}",
-            &hash[..8],
+            hash.get(..8).unwrap_or(&hash),
             name,
             status,
             progress * 100.0,
@@ -68,7 +68,7 @@ pub fn print_content() -> Result<()> {
         let url: String = row.get(1)?;
         let host: String = row.get(2)?;
         let path: String = row.get(3)?;
-        println!("  [{}] {}", &tag[..8], url);
+        println!("  [{}] {}", tag.get(..8).unwrap_or(&tag), url);
         if !host.is_empty() {
             println!("        → {}:{}", host, path);
         }

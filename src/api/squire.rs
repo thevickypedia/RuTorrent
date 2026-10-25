@@ -263,12 +263,14 @@ pub fn split_codes(raw: &str) -> Option<Vec<String>> {
 
 /// Get name with hash from the local database.
 pub fn get_name_from_state(
-    hash: &str, db_connection: &config::settings::DBConnection
+    hash: &str,
+    db_connection: &config::settings::DBConnection,
 ) -> Option<String> {
     if let Ok(conn) = db_connection.lock()
-        && let Some(rsync_track) = database::db::load_one(&conn, hash) {
-            return Some(rsync_track.name)
-        }
+        && let Some(rsync_track) = database::db::load_one(&conn, hash)
+    {
+        return Some(rsync_track.name);
+    }
     None
 }
 
