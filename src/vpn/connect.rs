@@ -226,7 +226,14 @@ pub async fn shuffler(
                 relay.city,
                 relay.country
             );
-            set_and_connect(&[&relay.country_code, &relay.city_code]).await?;
+            if let Err(e) = set_and_connect(&[&relay.country_code, &relay.city_code]).await {
+                if matches!(e, VpnError::Unavailable(_)) {
+                    return Err(e);
+                }
+                log::warn!("Relay {}-{} rejected: {e}", relay.country_code, relay.city_code);
+                last_err = Some(e);
+                continue;
+            }
             match await_connection("connected").await {
                 Ok(connected) => return Ok(connected),
                 Err(e @ VpnError::Unavailable(_)) => return Err(e), // retrying is pointless
