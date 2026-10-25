@@ -778,11 +778,14 @@ pub async fn pause_torrent(
         Err(e) => return e,
     };
 
-    let name = match api::squire::resolve_name(&hash, &client, &config, None).await {
-        Ok(Some((name, _))) => name,
+    let (name, in_qbit) = match api::squire::resolve_name(&hash, &client, &config, None).await {
+        Ok(Some(found)) => found,
         Ok(None) => return HttpResponse::NotFound().body("Torrent not found"),
         Err(e) => return e,
     };
+    if !in_qbit {
+        return HttpResponse::NotFound().body("Torrent is not in qBittorrent");
+    }
 
     let action = if pause { "stop" } else { "start" };
     let resp = client
