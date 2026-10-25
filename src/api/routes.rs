@@ -214,8 +214,6 @@ pub async fn put_torrent(
         Err(e) => return e,
     };
 
-    let mut pending_lock = pending.write().await;
-
     let existing = match api::squire::get_existing(&client, &config).await {
         Ok(v) => v,
         Err(e) => return e,
@@ -303,7 +301,7 @@ pub async fn put_torrent(
         } else {
             log::info!("No rsync location set, download-only");
         }
-        pending_lock.insert(tag.clone(), item.clone());
+        pending.write().await.insert(tag.clone(), item.clone());
         let Ok(conn) = db_connection.lock() else {
             log::error!("Failed to lock database connection");
             response.push(config::settings::PutResponse {
