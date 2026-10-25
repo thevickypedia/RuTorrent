@@ -939,13 +939,11 @@ pub async fn search_torrents(
     if payload.use_tor && config.tor_url.is_empty() {
         return HttpResponse::FailedDependency().json("Host does not support tor");
     }
-    // TODO: Remove strict mode - fail if tor fails
     log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,
         payload.category,
         payload.use_tor,
-        payload.strict,
         payload.hydrate_categories,
         &config,
         &metadata,

@@ -1,4 +1,3 @@
-use std::time::Duration;
 use crate::{api, config, search};
 use reqwest::Client;
 use serde_json::Value;
@@ -149,18 +148,16 @@ pub async fn ensure_trackers(config: &config::env::Config) -> &'static Vec<Strin
 /// * `query` - Search query string.
 /// * `category` - Category Id for search.
 /// * `use_tor` - Whether to route requests through the Tor network.
-/// * `strict` - Whether to fail if Tor verification fails.
 /// * `config` - Application environment configuration.
 /// * `metadata` - Application metadata required for Tor setup and verification.
 ///
 /// # Returns
 ///
-/// Returns a `Result` containing the collected torrent results, or an error if client creation, request execution, response validation, or strict Tor verification fails.
+/// Returns a `Result` containing the collected torrent results, or an error if client creation, request execution, response validation, or Tor verification fails.
 pub async fn search(
     query: &str,
     category: u16,
     use_tor: bool,
-    strict: bool,
     hydrate_categories: bool,
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
@@ -173,31 +170,13 @@ pub async fn search(
         // Mark 3: Verify that the client is actually routed through the Tor network
         match search::tor::verify(tor_client.clone()).await {
             Ok(_) => tor_client,
-            // Mark 4: Strict mode fails the request outright
-            Err(e) if strict => {
-                log::info!("Strict mode was enabled, so failing due to: {}", e);
+            // Mark 4: Fails the request, if 'tor_client' verification fails
+            Err(e) => {
+                log::info!("Failed to verify tor client: {}", e);
                 return Err(api::schema::HttpError::boxed(
                     503,
                     format!("Tor verification failed: {e}"),
                 ));
-            }
-            // Mark 5: Non-strict mode continues, choosing a client that can actually work
-            Err(e) => {
-                let proxy_unreachable = e
-                    .downcast_ref::<reqwest::Error>()
-                    .is_some_and(|r| r.is_connect() || r.is_timeout());
-                if proxy_unreachable {
-                    log::warn!(
-                    "Tor proxy is unreachable ({e}); strict mode is disabled, so falling back to a direct connection. Your IP will be exposed."
-                );
-                    Client::builder()
-                        .timeout(Duration::from_secs(config.tor_timeout))
-                        .user_agent(format!("apibay-rs/{}", metadata.pkg_version))
-                        .build()?
-                } else {
-                    log::warn!("Strict mode was disabled, so proceeding through the proxy despite: {e}");
-                    tor_client
-                }
             }
         }
     } else {

@@ -122,9 +122,6 @@ pub struct SearchTorrents {
     #[serde(default = "defaults::default_use_tor")]
     #[param(required = false)]
     pub use_tor: bool,
-    #[serde(default = "defaults::default_strict")]
-    #[param(required = false)]
-    pub strict: bool,
 }
 
 /// ### ConnectVPN

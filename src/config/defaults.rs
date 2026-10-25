@@ -51,13 +51,6 @@ pub fn default_use_tor() -> bool {
         .unwrap_or(true)
 }
 
-/// Returns the default boolean flag to fail if Tor network establishment fails.
-pub fn default_strict() -> bool {
-    squire::misc::get_env_var("strict_mode", Some("true"))
-        .parse::<bool>()
-        .unwrap_or(true)
-}
-
 /// Returns an empty string for comma separated whilelist.
 pub fn default_vpn_whitelist() -> String { String::new() }
 

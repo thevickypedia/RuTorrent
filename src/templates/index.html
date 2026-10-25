@@ -1601,11 +1601,6 @@
             color: var(--accent);
         }
 
-        /* Remove the Strict control from the layout while Tor is disabled. */
-        #strictGroup[hidden] {
-            display: none !important;
-        }
-
         .explore-results-area {
             padding: 1.5rem 2rem;
             flex: 1;
@@ -2139,10 +2134,6 @@
                 <div class="explore-control-group">
                     <span>Tor</span>
                     <input checked class="toggle" id="exploreUseTor" type="checkbox">
-                </div>
-                <div class="explore-control-group" id="strictGroup">
-                    <span>Strict</span>
-                    <input checked class="toggle" id="exploreStrict" type="checkbox">
                 </div>
             </div>
         </div>
@@ -4007,20 +3998,7 @@
         }
     }
 
-    // ── Show Strict only while Tor is enabled; preserve its selection ──
     const exploreUseTor = document.getElementById('exploreUseTor');
-    const exploreStrict = document.getElementById('exploreStrict');
-    const strictGroup = document.getElementById('strictGroup');
-
-    function syncStrictControl() {
-        const hideStrict = !exploreUseTor.checked;
-        strictGroup.hidden = hideStrict;
-        strictGroup.setAttribute('aria-hidden', String(hideStrict));
-    }
-
-    exploreUseTor.addEventListener('change', syncStrictControl);
-    syncStrictControl();
-
     document.getElementById('exploreBtn').addEventListener('click', () => {
         stopPolling();
         showView('exploreView');
@@ -4074,13 +4052,11 @@
 
         const category = document.getElementById('exploreCategory').value;
         const useTor = exploreUseTor.checked;
-        // Strict is omitted entirely when Tor is disabled, without changing its saved UI state.
-        const strictParam = useTor ? `&strict=${exploreStrict.checked}` : '';
 
         setSearchLoading(true);
         try {
             const resp = await fetch(
-                `/search?query=${encodeURIComponent(query)}&category=${category}&hydrate_categories=true&use_tor=${useTor}${strictParam}`,
+                `/search?query=${encodeURIComponent(query)}&category=${category}&hydrate_categories=true&use_tor=${useTor}`,
                 {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
             );
             if (resp.status === 401) {
