@@ -3415,7 +3415,7 @@
                 ? `(${entries.length}/${allEntries.length})`
                 : `(${entries.length})`;
 
-            const validHashes = new Set(allEntries.map(e => e.hash));
+            const validHashes = new Set(entries.map(e => e.hash));
             selectedHashes.forEach(hash => {
                 if (!validHashes.has(hash)) selectedHashes.delete(hash);
             });
@@ -3439,7 +3439,7 @@
                        </td>
                    </tr>`;
 
-            body.querySelectorAll('tr').forEach(row => {
+            body.querySelectorAll('tr[data-hash]').forEach(row => {
                 row.addEventListener('click', e => {
                     if (e.target.tagName !== 'INPUT') {
                         const cb = row.querySelector('input');
@@ -4265,11 +4265,11 @@
         const host = document.getElementById('ed-host').value.trim();
         const user = document.getElementById('ed-user').value.trim();
         const path = document.getElementById('ed-path').value.trim();
-        const timeout = parseInt(document.getElementById('ed-timeout').value.trim(), 10);
+        const rsyncTimeout = parseInt(document.getElementById('ed-timeout').value.trim(), 10);
         if (host) payload.remote_host = host;
         if (user) payload.remote_username = user;
         if (path) payload.remote_path = path;
-        if (!isNaN(timeout) && timeout > 0) payload.rsync_timeout = timeout;
+        if (!isNaN(rsyncTimeout) && rsyncTimeout > 0) payload.rsync_timeout = rsyncTimeout;
 
         const btn = document.getElementById('submitExploreDownload');
         btn.disabled = true;
@@ -4280,7 +4280,7 @@
                 method: 'PUT',
                 headers: authHeaders(),
                 body: JSON.stringify([payload]),
-                signal: AbortSignal.timeout(timeout * 1000 || 10000)
+                signal: AbortSignal.timeout(10000)
             });
             if (resp.status === 401) {
                 handleUnauth();
