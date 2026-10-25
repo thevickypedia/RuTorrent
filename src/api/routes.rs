@@ -291,6 +291,7 @@ pub async fn put_torrent(
             response.push(config::settings::PutResponse { name, state });
             continue;
         }
+        hashes.push(hash.clone());
 
         // Only keep rsync info if ALL fields are present
         let has_rsync = !item.remote_host.is_empty()
