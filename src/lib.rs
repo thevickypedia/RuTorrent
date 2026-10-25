@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 extern crate core;
 
-use std::path::PathBuf;
 use actix_web::{App, HttpServer, web};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -41,8 +40,7 @@ pub async fn start() -> std::io::Result<()> {
     let config = config::env::Config::new();
     output::logger::init_logger(&config, &metadata);
 
-    let db_path = PathBuf::from("data").join("rutorrent.db");
-    let db_conn = database::db::open(db_path);
+    let db_conn = database::db::open();
     let initial_pending = database::db::load_pending(&db_conn);
     log::info!(
         "Loaded {} pending entries from database",
@@ -50,8 +48,14 @@ pub async fn start() -> std::io::Result<()> {
     );
     let pending: config::settings::PendingMap = Arc::new(RwLock::new(initial_pending));
 
+    let client = match squire::qb::client(&config).await {
+        Ok(client) => client,
+        Err(_) => {
+            error!("Failed to authenticate qBittorrent");
+        }
+    };
     let db_conn = Arc::new(std::sync::Mutex::new(db_conn));
-    squire::background::spawn_worker(pending.clone(), config.clone(), db_conn.clone()).await;
+    squire::background::spawn_worker(client, pending.clone(), config.clone(), db_conn.clone());
 
     let host = config.host.clone();
     let port = config.port;

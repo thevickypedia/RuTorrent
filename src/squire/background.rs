@@ -1,4 +1,5 @@
 use crate::{config, database, notifier, squire};
+use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{Duration, sleep};
 
@@ -161,28 +162,16 @@ async fn resolve_new_torrents(
 /// - Everything present in qBittorrent is guaranteed to exist in the DB.
 /// - Spawns separate async tasks for rsync operations.
 /// - Sleeps between polling cycles to avoid excessive API calls.
-pub async  fn spawn_worker(
+pub fn spawn_worker(
+    mut client: Client,
     pending: config::settings::PendingMap,
     config: config::env::Config,
     db_connection: config::settings::DBConnection,
 ) {
     let mut n = 0;
-    let max_errors = 30;
+    let max_auth_errors = 30;
     let interval = Duration::from_secs(5);
 
-    // MARK 1: During startup wait for qBit client creation
-    let mut client = loop {
-        match squire::qb::client(&config).await {
-            Ok(c) => {
-                log::info!("qBit client connected");
-                break c
-            },
-            Err(e) => {
-                log::debug!("Failed to connect to tor client: {}", e.status());
-                tokio::time::sleep(Duration::from_secs(10)).await;
-            }
-        }
-    };
     tokio::spawn(async move {
         log::info!("Worker started");
 
@@ -202,13 +191,16 @@ pub async  fn spawn_worker(
                 log::trace!("Torrents active: {:?}", array);
                 resolve_new_torrents(array, &pending, &db_connection).await;
             } else {
-                // MARK 2: Between loops, re-create qBit client when failed
                 log::error!("Failed to get info from QBitAPI");
                 client = match squire::qb::client(&config).await {
                     Ok(c) => c,
                     Err(e) => {
-                        log::error!("Failed to authenticate qBittorrent: {:?} on {}-th attempt", e, n);
-                        if n > max_errors {
+                        log::error!(
+                            "Failed to authenticate qBittorrent: {:?} on {}-th attempt",
+                            e,
+                            n
+                        );
+                        if n > max_auth_errors {
                             return;
                         } else {
                             continue;

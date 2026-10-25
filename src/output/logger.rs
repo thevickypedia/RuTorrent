@@ -1,5 +1,5 @@
 use std::{fs::OpenOptions, io::Write};
-use std::path::PathBuf;
+
 use crate::config;
 use chrono::{DateTime, Local};
 use env_logger::Target;
@@ -31,20 +31,17 @@ pub fn init_logger(config: &config::env::Config, metadata: &config::constant::Me
     // Configure output target
     if config.log == config::env::LogOptions::File {
         // Ensure logs directory exists
-        let logs_dir = PathBuf::from("logs");
-        if !logs_dir.exists() {
-            std::fs::create_dir_all(&logs_dir).unwrap();
-        }
+        std::fs::create_dir_all("logs").unwrap();
 
         // Generate timestamped filename
         let timestamp = Local::now().format("%Y-%m-%d_%H:%M:%S");
-        let filename = format!("{}_{}.log", metadata.crate_name, timestamp);
-        let log_filename = logs_dir.join(filename);
+
+        let log_file_name = format!("logs/{}_{}.log", metadata.crate_name, timestamp);
 
         let file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(log_filename)
+            .open(log_file_name)
             .unwrap();
 
         builder.target(Target::Pipe(Box::new(file)));
