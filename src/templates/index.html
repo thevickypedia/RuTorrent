@@ -2555,8 +2555,14 @@
 <script>
     // ── State ─────────────────────────────────────────────────
     let apikey = sessionStorage.getItem('apikey') || '';
-    let selectedNames = new Set();
+    let selectedHashes = new Set();
     let torrentsData = {};
+
+    function updateDeleteButton() {
+        const btn = document.getElementById('deleteBtn');
+        btn.disabled = selectedHashes.size === 0;
+        btn.textContent = btn.disabled ? `Delete Selected` : `Delete Selected (${selectedHashes.size})`;
+    }
     let pollTimer = null;
     let pollPaused = false;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
@@ -3255,7 +3261,8 @@
         apikey = '';
         sessionStorage.removeItem('apikey');
         sessionStorage.removeItem('sessionExpiresAt');
-        selectedNames.clear();
+        selectedHashes.clear();
+        updateDeleteButton();
         showView('loginView');
         document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
         document.getElementById('loginError').classList.add('visible');
@@ -3267,7 +3274,8 @@
         apikey = '';
         sessionStorage.removeItem('apikey');
         sessionStorage.removeItem('sessionExpiresAt');
-        selectedNames.clear();
+        selectedHashes.clear();
+        updateDeleteButton();
         showView('loginView');
         toast('Logged out', 'success');
     });
@@ -3346,19 +3354,19 @@
 
     document.getElementById('selectAll').addEventListener('change', e => {
         const checked = e.target.checked;
-        document.querySelectorAll('#torrentBody tr[data-name]').forEach(row => {
+        document.querySelectorAll('#torrentBody tr[data-hash]').forEach(row => {
             const cb = row.querySelector('.torrent-check');
-            const name = row.dataset.name;
+            const hash = row.dataset.hash;
             cb.checked = checked;
             if (checked) {
-                selectedNames.add(name);
+                selectedHashes.add(hash);
                 row.classList.add('selected');
             } else {
-                selectedNames.delete(name);
+                selectedHashes.delete(hash);
                 row.classList.remove('selected');
             }
         });
-        document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
+        updateDeleteButton();
     });
 
     // ── Fetch torrents ─────────────────────────────────────────
@@ -3366,6 +3374,7 @@
         if (document.querySelector('.modal-backdrop.open')) return;
         try {
             const resp = await fetch('/torrent', {
+                method: 'GET',
                 headers: authHeaders(),
                 signal: AbortSignal.timeout(timeout)
             });
@@ -3387,8 +3396,8 @@
                     <tr>
                         <td colspan="4" class="empty-state">No active torrents</td>
                     </tr>`;
-                selectedNames.clear();
-                document.getElementById('deleteBtn').disabled = true;
+                selectedHashes.clear();
+                updateDeleteButton();
                 torrentsData = {};
                 return;
             }
@@ -3396,7 +3405,7 @@
             const allEntries = sortEntries(rawData);
             torrentsData = {};
             allEntries.forEach(entry => {
-                torrentsData[entry.name] = entry;
+                torrentsData[entry.hash] = entry;
             });
 
             const filters = parseSearchQuery(activeSearchQuery);
@@ -3406,17 +3415,17 @@
                 ? `(${entries.length}/${allEntries.length})`
                 : `(${entries.length})`;
 
-            const validNames = new Set(allEntries.map(e => e.name));
-            selectedNames.forEach(name => {
-                if (!validNames.has(name)) selectedNames.delete(name);
+            const validHashes = new Set(allEntries.map(e => e.hash));
+            selectedHashes.forEach(hash => {
+                if (!validHashes.has(hash)) selectedHashes.delete(hash);
             });
 
             body.innerHTML = entries.length
                 ? entries.map(e => `
-                    <tr class="${selectedNames.has(e.name) ? 'selected' : ''}" data-name="${esc(e.name)}">
+                    <tr class="${selectedHashes.has(e.hash) ? 'selected' : ''}" data-name="${esc(e.name)}" data-hash="${esc(e.hash)}">
                         <td>
-                            <input class="torrent-check" type="checkbox" value="${esc(e.name)}"
-                                   ${selectedNames.has(e.name) ? 'checked' : ''}>
+                            <input class="torrent-check" type="checkbox" value="${esc(e.hash)}"
+                                   ${selectedHashes.has(e.hash) ? 'checked' : ''}>
                         </td>
                         <td>${esc(e.name)}</td>
                         <td>${badge(e)}</td>
@@ -3437,20 +3446,20 @@
                         cb.checked = !cb.checked;
                     }
                     const cb = row.querySelector('input');
-                    const name = row.dataset.name;
+                    const hash = row.dataset.hash;
                     if (cb.checked) {
-                        selectedNames.add(name);
+                        selectedHashes.add(hash);
                         row.classList.add('selected');
                     } else {
-                        selectedNames.delete(name);
+                        selectedHashes.delete(hash);
                         row.classList.remove('selected');
                     }
-                    document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
+                    updateDeleteButton();
                 });
             });
 
-            document.getElementById('deleteBtn').disabled = selectedNames.size === 0;
-            document.getElementById('selectAll').checked = entries.length > 0 && selectedNames.size === entries.length;
+            updateDeleteButton();
+            document.getElementById('selectAll').checked = entries.length > 0 && entries.every(e => selectedHashes.has(e.hash));
         } catch (err) {
             console.error(err);
             toast(err.message || `Failed to fetch torrents: ${err.statusText || err.status}`, 'error');
@@ -3458,18 +3467,18 @@
     }
 
     // ── Delete Modal ──────────────────────────────────────────
-    let _deleteNames = [];
+    let _deleteHashes = [];
 
     document.getElementById('deleteBtn').addEventListener('click', () => {
-        if (selectedNames.size === 0) return;
-        _deleteNames = [...selectedNames];
+        if (selectedHashes.size === 0) return;
+        _deleteHashes = [...selectedHashes];
 
         document.getElementById('delete-modal-title').textContent =
-            _deleteNames.length === 1 ? 'Delete Torrent' : `Delete ${_deleteNames.length} Torrents`;
+            _deleteHashes.length === 1 ? 'Delete Torrent' : `Delete ${_deleteHashes.length} Torrents`;
         document.getElementById('delete-modal-names').innerHTML =
             `<div style="max-height:150px; overflow-y:auto;">
                 <ul style="list-style-type:disc; padding-left:40px;">
-                    ${_deleteNames.map(name => `<li>${esc(name)}</li>`).join('')}
+                    ${_deleteHashes.map(hash => `<li>${esc(torrentsData[hash]?.name || hash)}</li>`).join('')}
                 </ul>
             </div>`;
 
@@ -3480,7 +3489,7 @@
 
     function closeDelete() {
         document.getElementById('deleteModal').classList.remove('open');
-        _deleteNames = [];
+        _deleteHashes = [];
         resumePollingAfterModal();
     }
 
@@ -3491,17 +3500,18 @@
     });
 
     document.getElementById('submitDelete').addEventListener('click', async () => {
-        const names = _deleteNames;
-        if (names.length === 0) return;
+        const hashes = _deleteHashes;
+        if (hashes.length === 0) return;
         const includeFiles = document.getElementById('d-include-files').checked;
         const btn = document.getElementById('submitDelete');
         btn.disabled = true;
         btn.textContent = 'Deleting…';
 
         try {
-            await Promise.all(names.map(async name => {
+            await Promise.all(hashes.map(async hash => {
+                const name = torrentsData[hash]?.name || hash;
                 const resp = await fetch(
-                    `/torrent?name=${encodeURIComponent(name)}&delete-files=${includeFiles}`,
+                    `/torrent?hash=${encodeURIComponent(hash)}&delete-files=${includeFiles}`,
                     {method: 'DELETE', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
                 );
                 if (resp.status === 401) {
@@ -3511,9 +3521,10 @@
                 if (!resp.ok) throw new Error(`${name}: ${await resp.text()}`);
                 toast(await resp.text(), resp.status === 200 ? 'success' : 'warning');
             }));
-            selectedNames.clear();
+            selectedHashes.clear();
+            updateDeleteButton();
             closeDelete();
-            await fetchTorrents();
+            setTimeout(fetchTorrents, 2000);
         } catch (err) {
             toast(err.message || `Delete failed: ${err.description}`, 'error');
         } finally {
@@ -3584,7 +3595,7 @@
             if (status.startsWith('OK')) {
                 toast(`Queued: ${name}`, 'success');
                 closeAdd();
-                await fetchTorrents();
+                setTimeout(fetchTorrents, 2000);
             } else {
                 toast(`${name}: ${status}`, 'error');
             }
@@ -3661,6 +3672,7 @@
 
     // ── Retry Modal ───────────────────────────────────────────
     let _retryBtn = null;
+    let _retryHash = null;
 
     function updateRetryMode() {
         const transferRadio = document.getElementById('r-mode-transfer');
@@ -3686,9 +3698,11 @@
             event.stopPropagation();
         }
         const name = btn.closest('tr').dataset.name;
-        const entry = torrentsData[name] || {};
+        const hash = btn.closest('tr').dataset.hash;
+        const entry = torrentsData[hash] || {};
         const filesGone = !!entry.files_deleted;
         _retryBtn = btn;
+        _retryHash = hash;
 
         document.getElementById('r-name').value = name;
 
@@ -3717,6 +3731,7 @@
     function closeRetry() {
         document.getElementById('retryModal').classList.remove('open');
         _retryBtn = null;
+        _retryHash = null;
         resumePollingAfterModal();
     }
 
@@ -3743,7 +3758,7 @@
         }
 
         const payload = {
-            name,
+            hash: _retryHash,
             redownload,
             remote_host: document.getElementById('r-host').value.trim(),
             remote_username: document.getElementById('r-user').value.trim(),
@@ -3766,7 +3781,7 @@
             if (resp.ok) {
                 toast(`${redownload ? 'Re-download' : 'Retry'} queued: ${name}`, 'success');
                 closeRetry();
-                await fetchTorrents();
+                setTimeout(fetchTorrents, 2000);
             } else {
                 toast(`${redownload ? 'Re-download' : 'Retry'} failed: ${resp.statusText} [${resp.status}] — ${await resp.text()}`, 'error');
             }
@@ -3789,7 +3804,8 @@
             event.stopPropagation();
         }
         const name = btn.closest('tr').dataset.name;
-        const e = torrentsData[name] || {};
+        const hash = btn.closest('tr').dataset.hash;
+        const e = torrentsData[hash] || {};
 
         document.getElementById('info-modal-title').textContent = name;
 
@@ -3832,11 +3848,12 @@
             event.stopPropagation();
         }
         const name = btn.closest('tr').dataset.name;
+        const hash = btn.closest('tr').dataset.hash;
         const isPaused = btn.title === 'Resume';
         btn.disabled = true;
         try {
             const resp = await fetch(
-                `/torrent?name=${encodeURIComponent(name)}&pause=${!isPaused}`,
+                `/torrent?hash=${encodeURIComponent(hash)}&pause=${!isPaused}`,
                 {method: 'PATCH', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
             );
             if (resp.status === 401) {
@@ -3845,7 +3862,7 @@
             }
             if (!resp.ok) throw new Error(await resp.text());
             toast(`${isPaused ? 'Resumed' : 'Paused'}: ${name}`, 'success');
-            await fetchTorrents();
+            setTimeout(fetchTorrents, 2000);
         } catch (err) {
             toast(err.message || 'Pause/resume failed', 'error');
         } finally {

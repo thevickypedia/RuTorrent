@@ -184,7 +184,7 @@ pub fn remove(conn: &Connection, hash: &str) {
 }
 
 /// Maps a single row from the `state` table into `(hash, RsyncTrack)`.
-/// Shared by `load_all`, `load_one`, and `find_by_name` so the column
+/// Shared by `load_all` and `load_one` so the column
 /// layout only needs to be kept in sync with the schema in one place.
 ///
 /// # Arguments
@@ -277,30 +277,6 @@ pub fn load_one(conn: &Connection, hash: &str) -> Option<config::settings::Rsync
     stmt.query_row(params![hash], row_to_entry)
         .ok()
         .map(|(_, entry)| entry)
-}
-
-/// Finds a single tracked torrent entry from the database by name.
-/// Filters at the SQL level (indexed on `name`) instead of decoding
-/// every row in the table just to find one.
-///
-/// # Arguments
-///
-/// * `conn` - Active SQLite database connection.
-/// * `hash` - Hash for the required record.
-///
-/// # Returns
-///
-/// Returns `Some((hash, RsyncTrack))` if found, otherwise `None`.
-pub fn find_by_name(
-    conn: &Connection,
-    name: &str,
-) -> Option<(String, config::settings::RsyncTrack)> {
-    let mut stmt = conn
-        .prepare(&format!(
-            "SELECT {STATE_COLUMNS} FROM state WHERE name = ?1 LIMIT 1"
-        ))
-        .ok()?;
-    stmt.query_row(params![name], row_to_entry).ok()
 }
 
 /// Encodes an internal `Status` enum into a database-friendly representation.

@@ -7,8 +7,6 @@ use serde_json::json;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-// TODO: Use hash instead of name to identify
-
 /// API endpoint to get the current health status.
 ///
 /// # Returns
@@ -222,10 +220,24 @@ pub async fn put_torrent(
         Ok(v) => v,
         Err(e) => return e,
     };
-    let hashes: Vec<String> = existing
+    let mut hashes: Vec<String> = existing
         .into_iter()
         .map(|i| i.hash.to_uppercase())
         .collect();
+    match db_connection.lock() {
+        Ok(conn) => {
+            for (hash, _) in database::db::load_all(&conn) {
+                let hash = hash.to_uppercase();
+                if !hashes.contains(&hash) {
+                    hashes.push(hash);
+                }
+            }
+        }
+        Err(_) => {
+            log::error!("Failed to lock database connection");
+            return HttpResponse::InternalServerError().body("Database unavailable");
+        }
+    }
 
     let mut response: Vec<config::settings::PutResponse> = Vec::new();
     for resolved in api::squire::resolve_payload(&body.into_inner(), &config).await {
@@ -245,7 +257,7 @@ pub async fn put_torrent(
         if hashes.contains(&hash) {
             response.push(config::settings::PutResponse {
                 name,
-                state: "Conflict - Duplicate request".to_string(),
+                state: "Conflict - already tracked; delete it or use retry/re-download".to_string(),
             });
             continue;
         }
@@ -323,12 +335,12 @@ pub async fn put_torrent(
 ///
 /// #### Sample Request (delete any downloaded files)
 /// ```shell
-/// curl -X DELETE "http://localhost:3000/torrent?name=Ubuntu+22.04+LTS"
+/// curl -X DELETE "http://localhost:3000/torrent?hash=2C..85"
 /// ```
 ///
 /// #### Sample Request (retain any downloaded files)
 /// ```shell
-/// curl -X DELETE "http://localhost:3000/torrent?name=Ubuntu+22.04+LTS&delete-files=false"
+/// curl -X DELETE "http://localhost:3000/torrent?hash=2C..85&delete-files=false"
 /// ```
 ///
 /// #### Sample Response
@@ -344,11 +356,11 @@ pub async fn put_torrent(
     tag = "Torrent",
     path = "/torrent",
     params(
-        ("name" = String, Query, description = "Torrent name"),
+        ("hash" = String, Query, description = "Torrent hash"),
         ("delete-files" = Option<bool>, Query, description = "Delete files")
     ),
     responses(
-        (status = 200, description = "Deleted", body = String)
+        (status = 200, description = "Deleted <name> [<hash>]", body = String)
     )
 )]
 pub async fn delete_torrent(
@@ -360,9 +372,9 @@ pub async fn delete_torrent(
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let identifier = match query.get("name") {
-        Some(i) => i,
-        None => return HttpResponse::BadRequest().body("Missing name"),
+    let hash = match query.get("hash") {
+        Some(i) => i.trim().to_lowercase(),
+        None => return HttpResponse::BadRequest().body("Missing hash"),
     };
 
     let delete_files = match query.get("delete-files") {
@@ -370,44 +382,20 @@ pub async fn delete_torrent(
         None => true,
     };
 
-    // Resolve hash from RuTorrent's own state first (works even if qBit already removed it).
-    let hash_from_state = {
-        if let Ok(conn) = db_connection.lock() {
-            let db = database::db::load_all(&conn);
-            db.iter()
-                .find(|(_, v)| v.name == *identifier)
-                .map(|(h, _)| h.clone())
-        } else {
-            None
-        }
-    };
-
     let client = match squire::qb::client(&config).await {
         Ok(c) => c,
         Err(e) => return e,
     };
-
-    // Resolve hash from qBit (may differ from state if torrent was added externally)
-    let hash_from_qbit = {
-        let existing = match api::squire::get_existing(&client, &config).await {
-            Ok(v) => v,
+    let (name, in_qbit) =
+        match api::squire::resolve_name(&hash, &client, &config, Some(db_connection.get_ref())).await {
+            Ok(Some(found)) => found,
+            Ok(None) => return HttpResponse::NotFound().body("Torrent not found"),
             Err(e) => return e,
         };
-        existing
-            .iter()
-            .find(|torrent| torrent.name == *identifier)
-            .map(|torrent| torrent.hash.to_owned())
-    };
-
-    // Prefer the qBit hash (authoritative); fall back to state hash for the qBit delete call
-    let hash = match hash_from_qbit.as_ref().or(hash_from_state.as_ref()) {
-        Some(h) => h.clone(),
-        None => return HttpResponse::NotFound().body("Torrent not found"),
-    };
 
     log::info!(
         "Deleting torrent, name: {}, hash: {}, deleteFiles: {}",
-        identifier,
+        name,
         hash,
         delete_files
     );
@@ -425,8 +413,8 @@ pub async fn delete_torrent(
     if let Err(e) =
         squire::qb::handle_response(resp, squire::qb::ResponseContext::DeleteTorrent).await
     {
-        if hash_from_qbit.is_some() {
-            log::error!("qBit delete failed for {}: {}", identifier, e.status());
+        if in_qbit {
+            log::error!("qBit delete failed for {} [{}]: {}", name, hash, e.status());
             return e;
         }
         log::warn!("qBit delete returned non-OK (already gone): {}", e.status());
@@ -441,8 +429,9 @@ pub async fn delete_torrent(
             .body("Torrent deleted from qBittorrent, but state database is unavailable");
     }
 
-    log::info!("Successfully deleted {}", identifier);
-    HttpResponse::Ok().body("Deleted")
+    let fin = format!("Deleted {} [{}]", name, hash);
+    log::info!("{}", fin);
+    HttpResponse::Ok().body(fin)
 }
 
 /// API endpoint to RETRY a failed download [OR] transfer.
@@ -461,7 +450,7 @@ pub async fn delete_torrent(
 /// curl -X POST localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '{
-///     "name": "Sintel",
+///     "hash": "2C..85",
 ///     "remote_host": "192.168.1.102",
 ///     "remote_username": "admin",
 ///     "remote_path": "/Users/admin/Sintel",
@@ -474,7 +463,7 @@ pub async fn delete_torrent(
 /// curl -X POST localhost:3000/torrent \
 ///   -H "Content-Type: application/json" \
 ///   -d '{
-///     "name": "Sintel",
+///     "hash": "2C..85",
 ///     "redownload": true,
 ///     "remote_host": "192.168.1.102",
 ///     "remote_username": "admin",
@@ -495,9 +484,7 @@ pub async fn delete_torrent(
     post,
     tag = "Torrent",
     path = "/torrent",
-    params(
-        ("name" = String, Query, description = "Torrent name")
-    ),
+    request_body = config::settings::RetryOptions,
     responses(
         (status = 200, description = "Retry queued", body = String),
         (status = 400, description = "Not in a retriable state", body = String),
@@ -509,33 +496,34 @@ pub async fn retry_torrent(
     pending: web::Data<config::settings::PendingMap>,
     config: web::Data<config::env::Config>,
     db_connection: web::Data<config::settings::DBConnection>,
-    body: web::Json<config::settings::RetryOptions>,
+    mut body: web::Json<config::settings::RetryOptions>,
 ) -> impl Responder {
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
 
-    if body.name.is_empty() {
-        return HttpResponse::BadRequest().body("Missing name");
+    if body.hash.is_empty() {
+        return HttpResponse::BadRequest().body("Missing hash");
     }
+    body.hash = body.hash.trim().to_lowercase();
 
     if body.redownload {
         return redownload_torrent(pending, config, db_connection, body.into_inner()).await;
     }
 
     // Find the hash for the given name in state
-    let (hash, mut put_item, files_deleted) = {
+    let (name, mut put_item, files_deleted) = {
         let Ok(conn) = db_connection.lock() else {
             return HttpResponse::InternalServerError().body("Database unavailable");
         };
-        match database::db::find_by_name(&conn, &body.name) {
+        match database::db::load_one(&conn, &body.hash) {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
-            Some((hash, entry)) => match entry.status {
+            Some(entry) => match entry.status {
                 config::settings::Status::CopyError
                 | config::settings::Status::DownloadComplete
                 | config::settings::Status::Failed
                 | config::settings::Status::Transferred => {
-                    (hash, entry.put_item, entry.files_deleted)
+                    (entry.name, entry.put_item, entry.files_deleted)
                 }
                 _ => return HttpResponse::BadRequest().body("Torrent is not in a retriable state"),
             },
@@ -551,8 +539,8 @@ pub async fn retry_torrent(
         !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists();
     if files_deleted || !files_present {
         log::info!(
-            "Local files missing for '{}', falling back to redownload",
-            body.name
+            "Local files missing for '{}' [{}], falling back to redownload",
+            name, body.hash
         );
         return redownload_torrent(pending, config, db_connection, body.into_inner()).await;
     }
@@ -578,22 +566,23 @@ pub async fn retry_torrent(
         let Ok(conn) = db_connection.lock() else {
             return HttpResponse::InternalServerError().body("Database unavailable");
         };
-        if let Some(mut entry) = database::db::load_one(&conn, &hash) {
+        if let Some(mut entry) = database::db::load_one(&conn, &body.hash) {
             entry.status = config::settings::Status::Copying;
             entry.put_item = put_item.clone();
-            database::db::upsert(&conn, &hash, &entry);
+            database::db::upsert(&conn, &body.hash, &entry);
         }
     }
 
     let db_connection_clone = db_connection.as_ref().clone();
-    let hash_clone = hash.clone();
-    let name_clone = body.name.clone();
+    let hash_clone = body.hash.clone();
+    let name_clone = name.clone();
     tokio::spawn(async move {
         squire::rsync::run(db_connection_clone, hash_clone, name_clone, put_item).await;
     });
 
-    log::info!("Retry queued for: {}", body.name);
-    HttpResponse::Ok().json("Retry queued")
+    let fin = format!("Retry queued: {} [{}]", name, body.hash);
+    log::info!("{}", fin);
+    HttpResponse::Ok().json(fin)
 }
 
 /// Deletes any existing local files for a tracked torrent (if present), then
@@ -620,17 +609,17 @@ async fn redownload_torrent(
     opts: config::settings::RetryOptions,
 ) -> HttpResponse {
     // Find the tracked entry and its originally stored URL/save path.
-    let (hash, mut put_item) = {
+    let (name, mut put_item) = {
         let Ok(conn) = db_connection.lock() else {
             return HttpResponse::InternalServerError().body("Database unavailable");
         };
-        match database::db::find_by_name(&conn, &opts.name) {
+        match database::db::load_one(&conn, &opts.hash) {
             None => return HttpResponse::NotFound().body("Torrent not found in state"),
-            Some((hash, entry)) => match entry.status {
+            Some(entry) => match entry.status {
                 config::settings::Status::CopyError
                 | config::settings::Status::DownloadComplete
                 | config::settings::Status::Transferred
-                | config::settings::Status::Failed => (hash, entry.put_item),
+                | config::settings::Status::Failed => (entry.name, entry.put_item),
                 _ => {
                     return HttpResponse::BadRequest().body(
                         "Torrent must be finished (or failed) before it can be re-downloaded",
@@ -662,19 +651,19 @@ async fn redownload_torrent(
 
     // Delete any locally downloaded files left over from the previous attempt.
     if !put_item.save_path.is_empty() && std::path::Path::new(&put_item.save_path).exists() {
-        if !squire::savepath::is_removable(&put_item.save_path, &opts.name) {
+        if !squire::savepath::is_removable(&put_item.save_path, &name) {
             log::warn!(
                 "Not removing '{}': not a per-torrent directory",
                 put_item.save_path
             );
         } else if let Err(err) = std::fs::remove_dir_all(&put_item.save_path) {
-            log::error!("Failed to remove old files for '{}': {}", opts.name, err);
+            log::error!("Failed to remove old files for '{}': {}", name, err);
             return HttpResponse::InternalServerError()
                 .body(format!("Failed to remove old files: {}", err));
         } else {
             log::info!(
                 "Removed old local files for '{}' at {}",
-                opts.name,
+                name,
                 put_item.save_path
             );
         }
@@ -689,7 +678,7 @@ async fn redownload_torrent(
     // present, so re-adding the same magnet starts a genuinely fresh download.
     let resp = client
         .post(format!("{}/api/v2/torrents/delete", config.qbit_url))
-        .form(&[("hashes", hash.as_str()), ("deleteFiles", "true")])
+        .form(&[("hashes", opts.hash.as_str()), ("deleteFiles", "true")])
         .send()
         .await;
     if let Err(e) =
@@ -697,7 +686,7 @@ async fn redownload_torrent(
     {
         log::warn!(
             "Torrent '{}' delete-before-redownload returned: {}",
-            opts.name,
+            name,
             e.status()
         );
     }
@@ -706,7 +695,7 @@ async fn redownload_torrent(
     let tag = Uuid::new_v4().to_string();
     if put_item.save_path.is_empty() {
         put_item.save_path =
-            squire::savepath::get_default_save_path(&client, &config, &opts.name).await;
+            squire::savepath::get_default_save_path(&client, &config, &name).await;
     }
     put_item.save_path = put_item.save_path.trim().to_string();
 
@@ -727,7 +716,7 @@ async fn redownload_torrent(
     // Clear the stale record so the background worker's `resolve_new_torrents`
     // treats the re-added torrent (usually the same hash) as fresh.
     if let Ok(conn) = db_connection.lock() {
-        database::db::remove(&conn, &hash);
+        database::db::remove(&conn, &opts.hash);
     }
 
     {
@@ -740,10 +729,11 @@ async fn redownload_torrent(
 
     log::info!(
         "Re-download queued for: {} (→ {})",
-        opts.name,
+        name,
         put_item.save_path
     );
-    HttpResponse::Ok().json("Re-download queued")
+    let fin = format!("Re-download queued: {} [{}]", name, opts.hash);
+    HttpResponse::Ok().json(fin)
 }
 
 /// API endpoint to PAUSE [OR] RESUME a torrent in qBittorrent.
@@ -762,7 +752,7 @@ async fn redownload_torrent(
     tag = "Torrent",
     path = "/torrent",
     params(
-        ("name" = String, Query, description = "Torrent name"),
+        ("hash" = String, Query, description = "Torrent hash"),
         ("pause" = Option<bool>, Query, description = "true to pause, false to resume")
     ),
     responses(
@@ -778,9 +768,9 @@ pub async fn pause_torrent(
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let name = match query.get("name") {
-        Some(n) => n,
-        None => return HttpResponse::BadRequest().body("Missing name"),
+    let hash = match query.get("hash") {
+        Some(n) => n.trim().to_lowercase(),
+        None => return HttpResponse::BadRequest().body("Missing hash"),
     };
     let pause = query.get("pause").map(|v| v == "true").unwrap_or(true);
 
@@ -789,21 +779,10 @@ pub async fn pause_torrent(
         Err(e) => return e,
     };
 
-    let existing = match api::squire::get_existing(&client, &config).await {
-        Ok(v) => v,
+    let name = match api::squire::resolve_name(&hash, &client, &config, None).await {
+        Ok(Some((name, _))) => name,
+        Ok(None) => return HttpResponse::NotFound().body("Torrent not found"),
         Err(e) => return e,
-    };
-    let hash = existing.iter().find_map(|t| {
-        if &t.name == name {
-            Some(t.hash.to_owned())
-        } else {
-            None
-        }
-    });
-
-    let hash = match hash {
-        Some(h) => h,
-        None => return HttpResponse::NotFound().body("Torrent not found"),
     };
 
     let action = if pause { "stop" } else { "start" };
@@ -819,12 +798,10 @@ pub async fn pause_torrent(
         return e;
     }
 
-    log::info!(
-        "{} torrent: {}",
-        if pause { "Paused" } else { "Resumed" },
-        name
-    );
-    HttpResponse::Ok().body(if pause { "Paused" } else { "Resumed" })
+    let state_ = if pause { "Paused" } else { "Resumed" };
+    let fin = format!("{} {} [{}]", state_, name, hash);
+    log::info!("{}", fin);
+    HttpResponse::Ok().body(fin)
 }
 
 /// API endpoint to get search category.
@@ -1184,10 +1161,10 @@ pub async fn disconnect_vpn(
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    let lockdown = query
-        .get("lockdown")
-        .map(|v| v == "true")
-        .unwrap_or(false);
-    log::warn!("Received disconnect request with lockdown state as {}", lockdown);
+    let lockdown = query.get("lockdown").map(|v| v == "true").unwrap_or(false);
+    log::warn!(
+        "Received disconnect request with lockdown state as {}",
+        lockdown
+    );
     api::squire::vpn_response(vpn::connect::disconnect(lockdown).await)
 }

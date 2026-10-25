@@ -1,4 +1,4 @@
-use crate::{api, config, search, squire, vpn};
+use crate::{api, config, database, search, squire, vpn};
 
 use actix_web::HttpResponse;
 use reqwest::Client;
@@ -257,4 +257,43 @@ pub fn split_codes(raw: &str) -> Option<Vec<String>> {
         .filter(|s| !s.is_empty())
         .collect();
     (!v.is_empty()).then_some(v)
+}
+
+/// Get name with hash from the local database.
+pub fn get_name_from_state(
+    hash: &str, db_connection: &config::settings::DBConnection
+) -> Option<String> {
+    if let Ok(conn) = db_connection.lock()
+        && let Some(rsync_track) = database::db::load_one(&conn, hash) {
+            return Some(rsync_track.name)
+        }
+    None
+}
+
+/// Get name with hash from the qBit API.
+pub async fn get_name_from_qbit(
+    hash: &str,
+    client: &Client,
+    config: &config::env::Config,
+) -> Result<Option<String>, HttpResponse> {
+    Ok(get_existing(client, config)
+        .await?
+        .into_iter()
+        .find(|t| t.hash.eq_ignore_ascii_case(hash))
+        .map(|t| t.name))
+}
+
+/// Returns `(name, in_qbit)`; qBit is authoritative, state is the fallback.
+pub async fn resolve_name(
+    hash: &str,
+    client: &Client,
+    config: &config::env::Config,
+    db_connection: Option<&config::settings::DBConnection>,
+) -> Result<Option<(String, bool)>, HttpResponse> {
+    if let Some(name) = get_name_from_qbit(hash, client, config).await? {
+        return Ok(Some((name, true)));
+    }
+    Ok(db_connection
+        .and_then(|db| get_name_from_state(hash, db))
+        .map(|name| (name, false)))
 }

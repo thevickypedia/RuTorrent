@@ -88,7 +88,7 @@ pub struct PutResponse {
 /// re-download followed by a fresh rsync transfer.
 #[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RetryOptions {
-    pub name: String,
+    pub hash: String,
     /// When `true`, deletes any existing local files (if present) and starts
     /// a brand-new download from the original torrent URL, followed by a
     /// fresh rsync transfer once it completes. When `false` (default),
