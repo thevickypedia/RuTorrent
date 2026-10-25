@@ -186,16 +186,18 @@ pub async fn resolve_payload(
             }));
             continue;
         }
+        if hash.len() != 40 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+            ret.push(Err(config::settings::PutResponse {
+                name: item.url.clone(),
+                state: "Unsupported hash format: expected 40-character hex btih".into(),
+            }));
+            continue;
+        }
         if name.is_empty() {
             name = hash.clone();
         }
         if trackers.is_empty() {
-            let ident = if name.is_empty() {
-                &item.url.to_string()
-            } else {
-                &name
-            };
-            log::warn!("No trackers found for {}, using search trackers.", ident);
+            log::warn!("No trackers found for {}, using search trackers.", name);
             // MARK 1: If trackers are empty; use search trackers to backfill
             let trackers_bak = search::api::ensure_trackers(config).await;
             trackers.extend(trackers_bak.to_vec());
