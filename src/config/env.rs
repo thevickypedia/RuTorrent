@@ -1,7 +1,6 @@
 use std::fmt;
 
 use crate::{squire, warning};
-use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -178,15 +177,14 @@ impl Config {
             }
         }
 
-        let max_workers = std::thread::available_parallelism().map_or(2, NonZeroUsize::get);
         let default_workers = squire::misc::get_env_var("workers", Some("1"));
         let workers = match default_workers.parse::<usize>() {
-            Ok(n) if n > 0 && n < max_workers => n,
+            Ok(n) if n > 0 => n,
             Ok(_) => {
                 startup_error(
                     format!(
-                        "'workers' must be > 0, but < {}, got {}",
-                        max_workers, default_workers
+                        "'workers' must be > 0, got {}",
+                        default_workers
                     )
                     .as_str(),
                 );
