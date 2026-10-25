@@ -144,8 +144,8 @@ nc -vz 127.0.0.1 9050
 docker run -d \
   --name tor \
   --restart unless-stopped \
-  -p 127.0.0.1:9050:9050 \
-  peterdavehello/tor-socks-proxy:latest
+  -p 9050:9050 \
+  dperson/torproxy
 ```
 
 > [!WARNING]
