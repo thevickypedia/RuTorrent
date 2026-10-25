@@ -936,6 +936,10 @@ pub async fn search_torrents(
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
+    if payload.use_tor && config.tor_url.is_empty() {
+        return HttpResponse::FailedDependency().json("Host does not support tor");
+    }
+    // TODO: Remove strict mode - fail if tor fails
     log::debug!("Query: {:?}", payload);
     let torrents = match search::api::search(
         &payload.query,

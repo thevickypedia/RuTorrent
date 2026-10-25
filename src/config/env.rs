@@ -1,17 +1,6 @@
-use std::fmt;
-
-use crate::{squire, warning};
+use crate::{error, squire, warning};
 use std::path::PathBuf;
 use std::str::FromStr;
-
-/// Formats and prints the startup error message.
-///
-/// # Arguments
-///
-/// * `msg` - Message to be printed.
-fn startup_error(msg: &str) {
-    eprintln!("\nStartupError:\n\t{}\n", msg);
-}
 
 /// Get and parse timeout from environment variables.
 ///
@@ -54,41 +43,6 @@ impl FromStr for LogOptions {
         }
     }
 }
-#[derive(Debug, Clone)]
-pub enum TorScheme {
-    Socks5,
-    Socks5h,
-}
-
-impl fmt::Display for TorScheme {
-    /// Formats the display trait for `TorScheme` value.
-    ///
-    /// Returns a lowercased value for the enum.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TorScheme::Socks5 => write!(f, "socks5"),
-            TorScheme::Socks5h => write!(f, "socks5h"),
-        }
-    }
-}
-impl FromStr for TorScheme {
-    type Err = String;
-
-    /// Parses a string into a `TorScheme` value.
-    ///
-    /// Accepted values are:
-    /// - `"socks5"` → uses local DNS resolution
-    /// - `"socks5h"` → uses remote DNS resolution
-    ///
-    /// Returns an error if the input does not match a supported option.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "socks5" => Ok(TorScheme::Socks5),
-            "socks5h" => Ok(TorScheme::Socks5h),
-            _ => Err(format!("Invalid tor scheme: {}", s)),
-        }
-    }
-}
 
 /// ### Config
 /// Application configuration loaded from environment variables.
@@ -127,9 +81,7 @@ pub struct Config {
     pub telegram_timeout: u64,
 
     // Tor configuration
-    pub tor_scheme: TorScheme,
-    pub tor_host: String,
-    pub tor_port: u16,
+    pub tor_url: String,
     pub tor_timeout: u64,
 
     // Trackers
@@ -157,8 +109,7 @@ impl Config {
         let port = match port_raw.parse::<u16>() {
             Ok(p) => p,
             Err(e) => {
-                startup_error(format!("Invalid 'port' value '{port_raw}': {e}").as_str());
-                std::process::exit(1)
+                error!("\nStartupError:\n\tInvalid 'port' value '{port_raw}': {e}\n");
             }
         };
         let username = squire::misc::get_env_var("username", None);
@@ -166,35 +117,23 @@ impl Config {
 
         let apikey = squire::misc::get_env_var("apikey", None);
         if apikey.is_empty() {
-            startup_error("'apikey' is empty");
-            std::process::exit(1)
+            error!("\nStartupError:\n\t'apikey' is empty");
         }
         match squire::misc::complexity_checker(&apikey, 32) {
             Ok(()) => (),
             Err(err) => {
-                startup_error(format!("Invalid 'apikey': {}", err).as_str());
-                std::process::exit(1)
+                error!("\nStartupError:\n\t'apikey' is invalid: {err}\n");
             }
         }
 
-        let default_workers = squire::misc::get_env_var("workers", Some("1"));
-        let workers = match default_workers.parse::<usize>() {
+        let workers_raw = squire::misc::get_env_var("workers", Some("1"));
+        let workers = match workers_raw.parse::<usize>() {
             Ok(n) if n > 0 => n,
             Ok(_) => {
-                startup_error(
-                    format!(
-                        "'workers' must be > 0, got {}",
-                        default_workers
-                    )
-                    .as_str(),
-                );
-                std::process::exit(1)
+                error!("\nStartupError:\n\t'workers' must be > 0, got '{}'\n", workers_raw);
             }
             Err(e) => {
-                startup_error(
-                    format!("Invalid 'workers' value '{default_workers}': {e}\n").as_str(),
-                );
-                std::process::exit(1)
+                error!("\nStartupError:\n\t'workers' is invalid: {e}\n");
             }
         };
 
@@ -215,42 +154,25 @@ impl Config {
             );
         }
 
-        let tor_scheme =
-            match squire::misc::get_env_var("tor_scheme", Some("socks5h")).parse::<TorScheme>() {
-                Ok(ts) => ts,
-                Err(e) => {
-                    startup_error(format!("Invalid 'tor_scheme' value: {e}").as_str());
-                    std::process::exit(1)
-                }
-            };
-        let tor_host = squire::misc::get_env_var("tor_host", Some("127.0.0.1"));
-        let tor_port = match squire::misc::get_env_var("tor_port", Some("9050")).parse::<u16>() {
-            Ok(p) => p,
-            Err(e) => {
-                startup_error(format!("Invalid 'tor_host' value: {e}").as_str());
-                std::process::exit(1)
-            }
-        };
-
+        let tor_url = squire::misc::get_env_var("tor_url", None);
+        if !(tor_url.is_empty() || tor_url.starts_with("socks5://") || tor_url.starts_with("socks5h://")) {
+            error!("Invalid tor_url - only `socks5://` and `socks5h://` protocols are allowed; received: '{}'", tor_url);
+        } else if !tor_url.is_empty() {
+            warning!("Using tor network at: '{}'\nRefer https://support.torproject.org/faq/staying-anonymous/", tor_url);
+        }
         let utc_logger = squire::misc::get_env_var("utc_logger", Some("true")) == "true";
         let default_log = squire::misc::get_env_var("log", Some("stdout"));
         let log = match default_log.parse::<LogOptions>() {
             Ok(log) => log,
-            Err(err) => {
-                startup_error(&err.to_string());
-                std::process::exit(1);
-            }
+            Err(err) => { error!("{}", &err) }
         };
         let default_log_level = squire::misc::get_env_var("log_level", Some("info"));
         let log_level = match default_log_level.parse::<log::LevelFilter>() {
             Ok(level) => level,
             Err(_) => {
-                startup_error(
-                    format!(
-                        "Invalid 'log_level' value '{default_log_level}'. Expected one of: off, error, warn, info, debug, trace"
-                    ).as_str()
+                error!(
+                    "Invalid 'log_level' value '{default_log_level}'. Expected one of: off, error, warn, info, debug, trace"
                 );
-                std::process::exit(1)
             }
         };
 
@@ -271,10 +193,7 @@ impl Config {
             match telegram_chat_id.parse::<usize>() {
                 Ok(_) => (),
                 Err(_) => {
-                    startup_error(
-                        format!("Invalid 'telegram_chat_id' value '{telegram_chat_id}'").as_str(),
-                    );
-                    std::process::exit(1)
+                    error!("Invalid 'telegram_chat_id' value '{telegram_chat_id}'");
                 }
             };
         }
@@ -297,21 +216,16 @@ impl Config {
                     if mt > 0 {
                         mt
                     } else {
-                        startup_error(format!("Invalid 'max_trackers' value '{mt}'").as_str());
-                        std::process::exit(1);
+                        error!("Invalid 'max_trackers' value '{mt}'");
                     }
                 }
-                Err(err) => {
-                    startup_error(&err.to_string());
-                    std::process::exit(1)
-                }
+                Err(err) => { error!("{}", &err) }
             };
 
         let mullvad_cache_env = squire::misc::get_env_var("mullvad_relay_cache", None);
         let mullvad_relay_cache = if !mullvad_cache_env.is_empty() {
             if !mullvad_cache_env.ends_with("relays.json") {
-                startup_error("'mullvad_relay_cache' must be a path to 'relays.json'");
-                std::process::exit(1)
+                error!("'mullvad_relay_cache' must be a path to 'relays.json'");
             }
             Some(PathBuf::from(mullvad_cache_env))
         } else {
@@ -342,9 +256,7 @@ impl Config {
             telegram_bot_token,
             telegram_chat_id,
             telegram_timeout,
-            tor_scheme,
-            tor_host,
-            tor_port,
+            tor_url,
             tor_timeout,
             trackers_file,
             max_trackers,

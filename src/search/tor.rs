@@ -16,15 +16,11 @@ pub async fn client(
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
 ) -> api::schema::Result<Client> {
-    let url = format!(
-        "{}://{}:{}",
-        config.tor_scheme, config.tor_host, config.tor_port
-    );
-    log::debug!("Proxy url: {}", url);
+    log::debug!("Proxy url: {}", config.tor_url);
     let builder = Client::builder()
         .timeout(Duration::from_secs(config.tor_timeout))
         .user_agent(format!("apibay-rs/{}", metadata.pkg_version))
-        .proxy(Proxy::all(url)?);
+        .proxy(Proxy::all(&config.tor_url)?);
     Ok(builder.build()?)
 }
 
