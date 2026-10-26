@@ -191,8 +191,8 @@ async fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
 ///
 /// # Arguments
 ///
-/// * `whitelist` - Optional array of city [OR] country codes to whitelist.
-/// * `blacklist` - Optional array of city [OR] country codes to blacklist.
+/// * `whitelist` - Optional array of city OR country codes to whitelist.
+/// * `blacklist` - Optional array of city OR country codes to blacklist.
 ///
 /// # Returns
 ///

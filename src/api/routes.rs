@@ -79,7 +79,7 @@ fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
 ///
 /// # Returns
 ///
-/// Returns a JSON array of [`TorrentEntry`] objects.
+/// Returns a JSON array of `TorrentEntry` objects.
 #[utoipa::path(
     get,
     tag = "Torrent",
@@ -435,7 +435,7 @@ pub async fn delete_torrent(
     HttpResponse::Ok().body(fin)
 }
 
-/// API endpoint to RETRY a failed download [OR] transfer.
+/// API endpoint to RETRY a failed download OR transfer.
 ///
 /// # Arguments
 ///
@@ -737,7 +737,7 @@ async fn redownload_torrent(
     HttpResponse::Ok().json(fin)
 }
 
-/// API endpoint to PAUSE [OR] RESUME a torrent in qBittorrent.
+/// API endpoint to PAUSE OR RESUME a torrent in qBittorrent.
 ///
 /// # Arguments
 ///
@@ -878,7 +878,7 @@ pub async fn search_category(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl localhost:3000/search?query=ubuntu
+/// curl localhost:3000/search?query=ubuntu&category=0&hydrate_categories=false&use_tor=true
 /// ```
 ///
 /// #### Sample Response
@@ -913,7 +913,7 @@ pub async fn search_category(
 ///
 /// # Returns
 ///
-/// Returns a JSON array of [`BaseTorrent`] objects.
+/// Returns a JSON array of `BaseTorrent` objects.
 #[utoipa::path(
     get,
     tag = "Search",

@@ -5,7 +5,7 @@ use reqwest::Client;
 use serde_json::Value;
 use url::Url;
 
-/// Builds a [`TorrentEntry`] for a torrent tracked in RuTorrent's own state —
+/// Builds a `TorrentEntry` for a torrent tracked in RuTorrent's own state —
 /// carries the originally submitted URL and transfer settings alongside the
 /// resolved status text.
 ///
@@ -39,7 +39,7 @@ pub fn to_entry(
     }
 }
 
-/// Builds a [`TorrentEntry`] for a torrent currently in qBittorrent that this
+/// Builds a `TorrentEntry` for a torrent currently in qBittorrent that this
 /// app never tracked (e.g. added directly through qBittorrent)
 pub fn untracked_entry(
     name: String,

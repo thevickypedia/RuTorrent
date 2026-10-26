@@ -6,8 +6,9 @@
 
 ### Summary
 
-`RuTorrent` is a lightweight API that downloads magnet links and asynchronously transfers files to a remote server over
-SSH via `rsync`.
+`RuTorrent` is a lightweight API (with an optional WebUI) that can download magnet links and asynchronously transfer
+files to a remote server over SSH via `rsync`. The API also has an explore feature protected with tor proxy; and
+automatic VPN detection using mullvad cli.
 
 ### Installation
 
@@ -28,52 +29,52 @@ async fn main() -> std::io::Result<()> {
 
 ### Environment Variables
 
-| Key                  | Description                                                         | Default                    |
-|----------------------|---------------------------------------------------------------------|----------------------------|
-| `HOST`               | Hostname to run `rutorrent`                                         | `127.0.0.1`                |
-| `PORT`               | Port to run `rutorrent`                                             | `3000`                     |
-| `USERNAME`           | Username to host/authenticate the UI                                | -                          |
-| `PASSWORD`           | Password to host/authenticate the UI                                | -                          |
-| `APIKEY`             | A random string to authenticate requests through the API interface  | MANDATORY                  |
-| `WORKERS`            | Number of Actix workers to run the API                              | `2`                        |
-| `QBIT_URL`           | Base URL for qbittorrent API                                        | `http://localhost:8080`    |
-| `QBIT_USERNAME`      | Username for qbittorrent API                                        | —                          |
-| `QBIT_PASSWORD`      | Password for qbittorrent API                                        | —                          |
-| `QBIT_TIMEOUT`       | Timeout for qbittorrent API                                         | `3`                        |
-| `UTC_LOGGER`         | Boolean flag to set UTC timestamps in logs                          | `true`                     |
-| `LOG`                | Enum value to log to a `file` or `stdout`                           | `stdout`                   |
-| `LOG_LEVEL`          | Log level to set across `actix-web`, `actix-server` and `rurorrent` | `info`                     |
-| `NTFY_URL`           | Ntfy server URL for notifications                                   | —                          |
-| `NTFY_TOPIC`         | Subscribed ntfy topic for notifications                             | —                          |
-| `NTFY_USERNAME`      | Username to authenticate ntfy notifications                         | —                          |
-| `NTFY_PASSWORD`      | Password to authenticate ntfy notifications                         | —                          |
-| `NTFY_TIMEOUT`       | Timeout for the Ntfy request                                        | —                          |
-| `TELEGRAM_CHAT_ID`   | Chat ID where Telegram notifications have to be sent                | —                          |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token                                                  | —                          |
-| `TELEGRAM_TIMEOUT`   | Timeout for the Telegram request                                    | —                          |
-| `TOR_URL`            | URL to connect to `tor` network. Allows `socks5` and `socks5h`      | `socks5h://127.0.0.1:9050` |
-| `TOR_TIMEOUT`        | Maximum timeout through Tor network, in seconds                     | `10`                       |
-| `TRACKERS_FILE`      | Filepath to custom trackers list with each tracker in a new line    | -                          |
-| `MAX_TRACKERS`       | Number of trackers to fetch and/or use                              | `2`                        |
+| Key                  | Description                                                         | Default                 |
+|----------------------|---------------------------------------------------------------------|-------------------------|
+| `HOST`               | Hostname to run `rutorrent`                                         | `127.0.0.1`             |
+| `PORT`               | Port to run `rutorrent`                                             | `3000`                  |
+| `USERNAME`           | Username to host/authenticate the UI                                | -                       |
+| `PASSWORD`           | Password to host/authenticate the UI                                | -                       |
+| `APIKEY`             | A random string to authenticate requests through the API interface  | MANDATORY               |
+| `WORKERS`            | Number of Actix workers to run the API                              | `2`                     |
+| `QBIT_URL`           | Base URL for qbittorrent API                                        | `http://localhost:8080` |
+| `QBIT_USERNAME`      | Username for qbittorrent API                                        | —                       |
+| `QBIT_PASSWORD`      | Password for qbittorrent API                                        | —                       |
+| `QBIT_TIMEOUT`       | Timeout for qbittorrent API                                         | `3`                     |
+| `UTC_LOGGER`         | Boolean flag to set UTC timestamps in logs                          | `true`                  |
+| `LOG`                | Enum value to log to a `file` or `stdout`                           | `stdout`                |
+| `LOG_LEVEL`          | Log level to set across `actix-web`, `actix-server` and `rurorrent` | `info`                  |
+| `NTFY_URL`           | Ntfy server URL for notifications                                   | —                       |
+| `NTFY_TOPIC`         | Subscribed ntfy topic for notifications                             | —                       |
+| `NTFY_USERNAME`      | Username to authenticate ntfy notifications                         | —                       |
+| `NTFY_PASSWORD`      | Password to authenticate ntfy notifications                         | —                       |
+| `NTFY_TIMEOUT`       | Timeout for the Ntfy request                                        | —                       |
+| `TELEGRAM_CHAT_ID`   | Chat ID where Telegram notifications have to be sent                | —                       |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token                                                  | —                       |
+| `TELEGRAM_TIMEOUT`   | Timeout for the Telegram request                                    | —                       |
+| `TOR_URL`            | URL to connect to `tor` network. Allows `socks5` and `socks5h`      | -                       |
+| `TOR_TIMEOUT`        | Maximum timeout through Tor network, in seconds                     | `10`                    |
+| `TRACKERS_FILE`      | Filepath to custom trackers list with each tracker in a new line    | -                       |
+| `MAX_TRACKERS`       | Number of trackers to fetch and/or use                              | `10`                    |
 
 #### Environment variables that can be overridden with API calls
 
 **Search `GET /search`**
 
-| Key           | Description                                                 | Default | Endpoint      |
-|---------------|-------------------------------------------------------------|---------|---------------|
-| `USE_TOR`     | Boolean flag to use Tor network when searching for torrents | `true`  | `GET /search` |
+| Key       | Description                                                 | Default | Override Endpoint |
+|-----------|-------------------------------------------------------------|---------|-------------------|
+| `USE_TOR` | Boolean flag to use Tor network when searching for torrents | `true`  | `GET /search`     |
 
 **Database and post download**
 
-| Key                 | Description                                       | Endpoint                        |
-|---------------------|---------------------------------------------------|---------------------------------|
-| `SAVE_PATH`         | Default path to save downloaded torrents locally. | `PUT /torrent`                  |
-| `REMOTE_HOST`       | Remote hostname to copy via `rsync` through SSH.  | `PUT /torrent`, `POST /torrent` |
-| `REMOTE_USER`       | Username for the remote host.                     | `PUT /torrent`, `POST /torrent` |
-| `REMOTE_PATH`       | Default path to copy in remote host.              | `PUT /torrent`, `POST /torrent` |
-| `RSYNC_TIMEOUT`     | Default SSH `ConnectTimeout` in rsync.            | `PUT /torrent`, `POST /torrent` |
-| `DELETE_AFTER_COPY` | Boolean flag to be a leecher.                     | `PUT /torrent`, `POST /torrent` |
+| Key                 | Description                                       | Default | Override Endpoint               |
+|---------------------|---------------------------------------------------|---------|---------------------------------|
+| `SAVE_PATH`         | Default path to save downloaded torrents locally. | -       | `PUT /torrent`                  |
+| `REMOTE_HOST`       | Remote hostname to copy via `rsync` through SSH.  | -       | `PUT /torrent`, `POST /torrent` |
+| `REMOTE_USER`       | Username for the remote host.                     | -       | `PUT /torrent`, `POST /torrent` |
+| `REMOTE_PATH`       | Default path to copy in remote host.              | -       | `PUT /torrent`, `POST /torrent` |
+| `RSYNC_TIMEOUT`     | Default SSH `ConnectTimeout` in rsync.            | `3`     | `PUT /torrent`, `POST /torrent` |
+| `DELETE_AFTER_COPY` | Boolean flag to be a leecher.                     | `false` | `PUT /torrent`, `POST /torrent` |
 
 > [!TIP]
 > To get the chat ID, message the bot on Telegram and run the command:
@@ -108,7 +109,7 @@ docker run -d \
 ```
 
 > [!WARNING]
-> Running QBitAPI through CLI will have the default username `admin` and the default password `adminadmin`<br>
+> Running QBitAPI through CLI or Docker will have the default username `admin` and the default password `adminadmin`<br>
 > Go to `Tools` → `Options` → `Web UI` → `Authentication` to change the default password
 
 #### RSync
@@ -149,12 +150,10 @@ docker run -d \
 ```
 
 > [!WARNING]
-> Tor service will be used as a proxy **ONLY** for RuTorrent's explore feature available through the `GET /search`
-> endpoint<br>
-> To set up proxy server in qBit, go to `Tools` → `Options` → `Proxy Server` and choose `SOCKS5` type
+> Tor proxy will be used **ONLY** for RuTorrent's explore feature available through the `GET /search` endpoint
 
 > [!CAUTION]
-> Using Tor service as proxy in qBit, may delay or stall the download process
+> Refer to the [tor faq](https://support.torproject.org/faq/staying-anonymous/) before using it
 
 ### API methods
 
@@ -166,7 +165,7 @@ docker run -d \
    ```
 2. `GET /search` - Returns search results.
    ```shell
-   curl -H "apikey: ${APIKEY}" 'localhost:3000/search?query=ubuntu&use_tor=true'
+   curl -H "apikey: ${APIKEY}" 'localhost:3000/search?query=ubuntu&category=303&hydrate_categories=false&use_tor=true'
    ```
 
 #### Torrent

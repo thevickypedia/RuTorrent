@@ -25,12 +25,6 @@ docker-compose up -d
 
 This launches the RuTorrent frontend independently using NGINX.
 
-### Template Reuse
-
-The Docker Compose configuration is designed to download the latest `index.html` (from GitHub) located in [templates] directory.
-
-This ensures consistency between the embedded UI and the standalone deployment while avoiding duplication of frontend assets.
-
 ### Architecture Overview
 
 ```text
@@ -40,9 +34,9 @@ This ensures consistency between the embedded UI and the standalone deployment w
        │
        ▼
 ┌───────────────┐
-│ Standalone UI │
+│  Nginx Proxy  │
 └──────┬────────┘
-       │ NGINX reverse proxy
+       │
        ▼
 ┌───────────────┐
 │ RuTorrent API │
