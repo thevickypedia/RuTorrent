@@ -1,6 +1,47 @@
 Release Notes
 =============
 
+v1.0.0 (10/25/2026)
+-------------------
+- [d3237b6](https://github.com/thevickypedia/RuTorrent/commit/d3237b6d1b2138a309973c011eb4f21b7fb16b9f) chore: Release ``v1.0.0``
+- [e59ce75](https://github.com/thevickypedia/RuTorrent/commit/e59ce75204b16a23242f87324ed4497b60b78f8a) docs: Update docstrings and README.md
+- [a29e8db](https://github.com/thevickypedia/RuTorrent/commit/a29e8db15737e10bb037820360f273f55cd0c62f) revert: Rollback docker support
+- [973d8ef](https://github.com/thevickypedia/RuTorrent/commit/973d8ef630c7e49c9a397b153cdbe4d3d91f0d31) feat: Add docker support
+- [dbf7974](https://github.com/thevickypedia/RuTorrent/commit/dbf7974edf8a33092182a8a9fa4bba08706443e6) docs: Update README.md for tor proxy
+- [6f0728a](https://github.com/thevickypedia/RuTorrent/commit/6f0728a96617b1443ff17852a886649620935dc9) refactor: Remove ``strict`` parameter for ``GET /search`` endpoint
+- [1d5d725](https://github.com/thevickypedia/RuTorrent/commit/1d5d725a2107054099a023eec03602772ef83295) perf: Remove all ``tor`` env to a single ``tor_url`` and add a safety net for incoming search requests
+- [94d2713](https://github.com/thevickypedia/RuTorrent/commit/94d271355ab2acc6c26a3254a377b0543f5aafcf) fix: Avoid capping parallelism with ``max_workers``
+- [59d7c09](https://github.com/thevickypedia/RuTorrent/commit/59d7c0906b22c654e420b8d3659ca65c503d5826) perf: Handle edge-case scenarios to avoid potential panic; update docstrings and re-format code
+- [3273158](https://github.com/thevickypedia/RuTorrent/commit/3273158aa4238fe19cce1213ed66188cff16a7a5) perf: Avoid duplicates slipping through because base32 ``btih`` hashes never match qBit’s 40-character hex
+- [e3f0b88](https://github.com/thevickypedia/RuTorrent/commit/e3f0b88a6f601ac215acb0f97c2d0371f47709fb) fix: Update ``shuffler`` returning the request after the first relay is rejected
+- [e3b164b](https://github.com/thevickypedia/RuTorrent/commit/e3b164bca9cde5dc129d850f9dc5fc2d7b38f15b) fix: Update ``PATCH /torrent`` to raise 404 when torrent is missing in qBit
+- [9c3d13b](https://github.com/thevickypedia/RuTorrent/commit/9c3d13b64c82b6e2565c09ccce7906542bd54030) perf: Remove a deadlock scenario with ``pending_lock`` in ``PUT /torrent`` endpoint
+- [55829e7](https://github.com/thevickypedia/RuTorrent/commit/55829e74d42eac5b8899cc50cb6ff8ffc8bdfcd1) perf: Catch duplicates in the same request in ``PUT /torrent`` endpoint
+- [6a6221a](https://github.com/thevickypedia/RuTorrent/commit/6a6221a89c64b06ce8f60bf04accd7c9ae85751c) fix: Avoid selections checking an empty-state row; differentiate ``rsyncTimeout`` and ``requestTimeout`` for explore download
+- [ece4c7a](https://github.com/thevickypedia/RuTorrent/commit/ece4c7ac6f5211847f47adc6ad3e9693ba835f9e) feat: Use ``hash`` as the identifier for all API endpoints
+- [055f649](https://github.com/thevickypedia/RuTorrent/commit/055f64991cc76941b48caaf9ef6372168690558e) refactor: Re-architecture API routes; replace ambiguous ``/retry`` and ``/pause`` endpoints
+- [b1efc66](https://github.com/thevickypedia/RuTorrent/commit/b1efc66e8a271c2993408627871bdb7a74e32962) perf: Add fallback for icon links in the UI
+- [e496491](https://github.com/thevickypedia/RuTorrent/commit/e49649175e2456461db2770d18d6edad3df7a5f4) feat: Add tags to endpoints in swagger UI
+- [4c875fd](https://github.com/thevickypedia/RuTorrent/commit/4c875fdb0bb151a6b7d8e4d3de131a5c051dfd85) refactor: Add a new ``DELETE /vpn`` endpoint to disconnect instead of overloading ``POST /vpn`` endpoint
+- [bcaf717](https://github.com/thevickypedia/RuTorrent/commit/bcaf717a9d0fe75e40172390d616c2e5226c45df) perf: Update schema to include ``lockdown`` mode and enable control via WebUI
+- [88aa791](https://github.com/thevickypedia/RuTorrent/commit/88aa791fc46170a5fce9d5f69342a21df7bb93d5) feat: Make ``lockdown`` mode simplistic and modify-able through the UI
+- [84e7063](https://github.com/thevickypedia/RuTorrent/commit/84e7063f649f6f4cde1b15616ba514387f0af009) perf: Avoid requests getting 502 even when tor client is set to ``non-strict`` mode
+- [90d250a](https://github.com/thevickypedia/RuTorrent/commit/90d250acf6ca2bf0783259c78aef52d8431922a1) docs: Update docstrings and formatting
+- [6c1fb80](https://github.com/thevickypedia/RuTorrent/commit/6c1fb808f853e88b84c0a97fda624887c93970db) perf: Construct the details object for ``MullvadResponse`` leniently
+- [85fb8d6](https://github.com/thevickypedia/RuTorrent/commit/85fb8d6f2fa12565ef042dc21ce05ebc1333e7d4) perf: Ensure ``eligible_relays`` use case-insensitivity
+- [2e7e9e8](https://github.com/thevickypedia/RuTorrent/commit/2e7e9e8936788e50eee6beceb417439cc651efec) perf: Remove ``target_connector`` and move the logic into ``shuffler`` for vpn module
+- [e3d647b](https://github.com/thevickypedia/RuTorrent/commit/e3d647bceffd93169a9b49d07b1fab9552a98f17) perf: Catch conflicting whitelist/blacklist entries
+- [9bc9f61](https://github.com/thevickypedia/RuTorrent/commit/9bc9f612955c487e267a644d5dacafa8825c4b0a) refactor: Set authenticator to only use the reference to request object
+- [7b02cfd](https://github.com/thevickypedia/RuTorrent/commit/7b02cfdbe2b6799125c70842dad163e3ec9b8f23) perf: Automatically disable lockdown mode when disconnecting from an external host
+- [25de190](https://github.com/thevickypedia/RuTorrent/commit/25de1902ed9b9960b6c06ebcf4ef3c1671032cf4) perf: Fall back to the hash when ``dn`` is missing for name field
+- [57c54d7](https://github.com/thevickypedia/RuTorrent/commit/57c54d78fe05ed3f2d467c109310232ca883416f) perf: Add a per-torrent dir check before using ``remove_dir_all`` to avoid accidentally wiping other dirs
+- [b9db908](https://github.com/thevickypedia/RuTorrent/commit/b9db9088b5392f6739018a2d7796650df812dd36) fix: Remove line breaks and comments from trackers loaded through fileio
+- [5f16e52](https://github.com/thevickypedia/RuTorrent/commit/5f16e523e258f38aeb1e68c580feab492df22321) fix: Avoid ignoring the blacklist for fallback
+- [b08e31f](https://github.com/thevickypedia/RuTorrent/commit/b08e31f500824075642a9d7adcac1f3306e31769) perf: Make ``run_command`` asynchronous for ``mullvad`` cli interactions
+- [45ff5f2](https://github.com/thevickypedia/RuTorrent/commit/45ff5f2f3e52d21725c7c27da7c5db7a635788a9) docs: Update docstrings, type hints and overall formatting
+- [bdb6403](https://github.com/thevickypedia/RuTorrent/commit/bdb6403ef7880938d0eec6fba651e4c0ac1d2dd9) fix: Avoid raising 500 when failing to store qBit success response in DB
+- [86b4241](https://github.com/thevickypedia/RuTorrent/commit/86b42410a1a1dad20a7cd5759d11cf7e506c44a3) perf: Update all API endpoints to raise specific errors instead of generic codes
+
 v0.9.1 (10/21/2026)
 -------------------
 - [8e5d19d](https://github.com/thevickypedia/RuTorrent/commit/8e5d19d0567417bf27ff2c5542d79c6c53cfb298) chore: Release ``v0.9.1``
