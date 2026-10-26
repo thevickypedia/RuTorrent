@@ -1,6 +1,6 @@
 [package]
 name = "rutorrent"
-version = "0.9.1"
+version = "1.0.0"
 description = "RuTorrent is a lightweight API (with an optional WebUI) that can download magnet links and asynchronously transfer files to a remote server over SSH via rsync. The API also has an explore feature protected with tor proxy; and automatic VPN detection using mullvad cli."
 license = "MIT"
 documentation = "https://docs.rs/rutorrent"
