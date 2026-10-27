@@ -1,6 +1,7 @@
 use serde;
 use serde::Deserialize;
 use utoipa::ToSchema;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum VpnError {
@@ -61,4 +62,22 @@ pub enum Features {
     Multihop,
     #[serde(other)]
     Unknown,
+}
+
+/// Mixed objects for `GET /vpn` response based on the `?features=<bool>` flag.
+#[derive(utoipa::ToResponse, utoipa::ToSchema)]
+pub enum GetVpnResponse {
+    #[allow(unused)]
+    Status(MullvadResponse),
+    #[allow(unused)]
+    Features(Vec<Features>),
+}
+
+/// Mixed objects for `GET /categories` response based on the `?nested=<bool>` flag.
+#[derive(utoipa::ToResponse, utoipa::ToSchema)]
+pub enum GetCategoriesResponse {
+    #[allow(unused)]
+    Flattened(HashMap<u16, String>),
+    #[allow(unused)]
+    Nested(HashMap<String, HashMap<u16, String>>),
 }

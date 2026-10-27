@@ -85,7 +85,9 @@ fn authenticator(request: &HttpRequest, config: &config::env::Config) -> bool {
     tag = "Torrent",
     path = "/torrent",
     responses(
-        (status = 200, description = "Torrent list", body = Vec<api::schema::TorrentEntry>)
+        (status = 200, description = "Torrent list", body = Vec<api::schema::TorrentEntry>),
+        (status = 502, description = "mullvad CLI missing or relay list unavailable", body = String),
+        (status = 503, description = "VPN did not reach the requested state", body = String),
     )
 )]
 pub async fn get_torrents(
@@ -850,8 +852,7 @@ pub async fn pause_torrent(
         ("nested" = Option<bool>, Query, description = "Boolean flag to get nested categories")
     ),
     responses(
-        (status = 200, description = "Static category map", body = HashMap<u16, String>),
-        (status = 200, description = "Nested category map", body = HashMap<String, HashMap<u16, String>>)
+        (status = 200, description = "Nested or flattened category map", body = vpn::models::GetCategoriesResponse),
     )
 )]
 pub async fn search_category(
@@ -1023,7 +1024,6 @@ pub async fn search_torrents(
 /// # Returns
 ///
 /// Returns `Vec<vpn::models::Features>` if `?features=true`, otherwise `vpn::models::MullvadResponse` object.
-/// TODO: Multiple response types conflict in the SwaggerUI
 #[utoipa::path(
     get,
     tag = "VPN",
@@ -1032,9 +1032,9 @@ pub async fn search_torrents(
         ("features" = Option<bool>, Query, description = "Boolean flag to get VPN features.")
     ),
     responses(
-        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
-        (status = 200, description = "List of supported features", body = Vec<vpn::models::Features>),
-        (status = 502, description = "mullvad CLI error", body = String)
+        (status = 200, description = "VPNResponse object or a vector of supported features", body = vpn::models::GetVpnResponse),
+        (status = 502, description = "mullvad CLI error", body = String),
+        (status = 503, description = "mullvad CLI missing or relay list unavailable", body = String),
     )
 )]
 pub async fn get_vpn(
