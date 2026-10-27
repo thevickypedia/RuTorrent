@@ -133,6 +133,9 @@ pub async fn toggle_feature(feature: vpn::models::Features, switch: bool) -> Res
             action = if switch { "allow" } else { "block" };
             run_command(&["lan", "set", action]).await?;
         }
+        vpn::models::Features::Unknown => {
+            return Err(VpnError::Invalid(format!("Feature is invalid: {:?}", feature)));
+        }
     }
     get_current().await
 }

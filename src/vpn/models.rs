@@ -59,4 +59,6 @@ pub enum Features {
     QuantumResistance,
     Daita,
     Multihop,
+    #[serde(other)]
+    Unknown,
 }

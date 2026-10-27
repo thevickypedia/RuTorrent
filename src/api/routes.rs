@@ -1260,8 +1260,7 @@ pub async fn disconnect_vpn(
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
         (status = 502, description = "mullvad CLI error", body = String),
-        (status = 503, description = "mullvad CLI missing", body = String),
-        (status = 504, description = "VPN did not reach the requested state", body = String),
+        (status = 503, description = "mullvad CLI missing", body = String)
     )
 )]
 pub async fn vpn_feature(
