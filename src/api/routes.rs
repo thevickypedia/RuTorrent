@@ -993,7 +993,7 @@ pub async fn search_torrents(
 ///
 /// #### Sample Request
 /// ```shell
-/// curl localhost:3000/vpn
+/// curl localhost:3000/vpn?features=false
 /// ```
 ///
 /// #### Sample Response
@@ -1022,22 +1022,39 @@ pub async fn search_torrents(
 ///
 /// # Returns
 ///
-/// Returns the `vpn::models::MullvadResponse` object.
+/// Returns `Vec<vpn::models::Features>` if `?features=true`, otherwise `vpn::models::MullvadResponse` object.
+/// TODO: Multiple response types conflict in the SwaggerUI
 #[utoipa::path(
     get,
     tag = "VPN",
     path = "/vpn",
+    params(
+        ("features" = Option<bool>, Query, description = "Boolean flag to get VPN features.")
+    ),
     responses(
         (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
+        (status = 200, description = "List of supported features", body = Vec<vpn::models::Features>),
         (status = 502, description = "mullvad CLI error", body = String)
     )
 )]
 pub async fn get_vpn(
     request: HttpRequest,
+    query: web::Query<HashMap<String, String>>,
     config: web::Data<config::env::Config>,
 ) -> impl Responder {
     if !authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let features = query.get("features").map(|v| v == "true").unwrap_or(false);
+    if features {
+        log::info!("Query features");
+        let features: Vec<vpn::models::Features> = vec![
+            vpn::models::Features::LanSharing,
+            vpn::models::Features::QuantumResistance,
+            vpn::models::Features::Daita,
+            vpn::models::Features::Multihop,
+        ];
+        return HttpResponse::Ok().json(features);
     }
     api::squire::vpn_response(vpn::connect::get_current().await)
 }
