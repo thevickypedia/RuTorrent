@@ -779,6 +779,22 @@
             display: none !important;
         }
 
+        .modal-header-controls .vpn-features-btn {
+            width: auto;
+            min-height: 0;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.65rem;
+        }
+
+        .vpn-feature-row .toggle-label { flex: 1; }
+        .vpn-feature-row .badge { margin-left: auto; min-width: 2.6rem; text-align: center; }
+
+        .badge-off {
+            color: var(--muted);
+            border-color: rgba(107, 107, 120, 0.4);
+            background: rgba(107, 107, 120, 0.07);
+        }
+
         .modal-title {
             font-family: var(--display);
             font-size: 1rem;
@@ -967,11 +983,22 @@
             display: none !important;
         }
 
-        .vpn-warning {
+        .vpn-alert {
             color: var(--error);
             background: rgba(255, 79, 79, 0.07);
             border: 1px solid rgba(255, 79, 79, 0.3);
             border-left: 3px solid var(--error);
+            padding: 0.7rem 0.85rem;
+            margin-bottom: 1rem;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        .vpn-warning {
+            color: var(--warn);
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-left: 3px solid var(--warn);
             padding: 0.7rem 0.85rem;
             margin-bottom: 1rem;
             font-size: 0.72rem;
@@ -2179,6 +2206,8 @@
         <div class="modal-header">
             <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
             <div class="modal-header-controls">
+                <button aria-pressed="false" class="btn btn-ghost vpn-features-btn" disabled id="vpnFeaturesBtn"
+                        title="VPN features" type="button">Features</button>
                 <button aria-checked="true" aria-label="VPN mode: Connect" class="vpn-mode-toggle" id="vpnModeToggle"
                         role="switch" title="Switch to disconnect mode" type="button"></button>
                 <button aria-label="Close VPN dialog" class="modal-close" id="closeVpnModal" type="button">✕</button>
@@ -2211,7 +2240,7 @@
                 </div>
             </div>
             <div id="vpnDisconnectFields" hidden>
-                <div class="vpn-warning" role="alert">
+                <div class="vpn-alert" role="alert">
                     Turning off the VPN removes encryption for any ongoing downloads and requests made through this
                     WebUI.
                 </div>
@@ -2219,7 +2248,7 @@
                     <input class="toggle" id="vpnLockdownToggle" type="checkbox">
                     <label class="toggle-label" for="vpnLockdownToggle">Lockdown mode</label>
                 </div>
-                <div class="vpn-warning" id="vpnLockdownWarning" role="alert" hidden>
+                <div class="vpn-alert" id="vpnLockdownWarning" role="alert" hidden>
                     Lockdown: Host may become unreachable if you are accessing it via public internet without an
                     internal transit gateway (e.g. nginx running on another machine and forwarding traffic
                     through an internal IP).
@@ -2229,6 +2258,16 @@
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="cancelVpnModal" type="button">Cancel</button>
                 <button class="btn btn-primary" id="submitVpn" type="button">Connect</button>
+            </div>
+        </div>
+
+        <div hidden id="vpnFeaturesContent">
+            <div id="vpnFeaturesList"></div>
+            <div class="vpn-warning" id="vpnFeatureToggleWarning" role="dialog">
+                Toggling VPN features remotely can cause a reconnection
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" id="closeVpnFeatures" type="button">Back</button>
             </div>
         </div>
 
@@ -2969,6 +3008,8 @@
 
     // Shared from the same status payload that drives the header display; no extra request is needed.
     let vpnCurrentConnected = false;
+    let vpnFeatures = [];
+    let vpnActiveFeatures = new Set();
     const LOCKED_DOWN_TEXT = 'Internet connection for host is blocked';
 
     function isLockedDown(data) {
@@ -2978,6 +3019,9 @@
     function setVpnStatus(data) {
         const connected = String(data?.state || '').toLowerCase() === 'connected';
         vpnCurrentConnected = connected;
+        vpnActiveFeatures = new Set(data?.details?.feature_indicators ?? []);
+        const featuresBtn = document.getElementById('vpnFeaturesBtn');
+        if (featuresBtn) featuresBtn.disabled = !connected;
         const modeToggle = document.getElementById('vpnModeToggle');
         if (modeToggle) modeToggle.disabled = !vpnCurrentConnected;
         const location = getVpnLocation(data);
@@ -3024,6 +3068,7 @@
     let vpnDisconnectMode = false;
 
     function updateVpnMode(disconnect) {
+        showVpnFeatures(false);
         vpnDisconnectMode = Boolean(disconnect);
         const toggle = document.getElementById('vpnModeToggle');
         const fields = document.getElementById('vpnFormFields');
@@ -3043,6 +3088,7 @@
         document.getElementById('vpnLockdownToggle').checked = false;
         document.getElementById('vpnLockdownWarning').hidden = true;
         document.getElementById('vpnModeToggle').hidden = false;
+        document.getElementById('vpnFeaturesBtn').hidden = false;
         document.getElementById('vpnFormContent').hidden = false;
         document.getElementById('vpnResultContent').hidden = true;
         const error = document.getElementById('vpnError');
@@ -3083,6 +3129,99 @@
     document.getElementById('vpnLockdownToggle').addEventListener('change', e => {
         document.getElementById('vpnLockdownWarning').hidden = !e.target.checked;
     });
+    function showVpnFeatures(show) {
+        document.getElementById('vpnFeaturesContent').hidden = !show;
+        document.getElementById('vpnFormContent').hidden = show;
+        document.getElementById('vpnFeaturesBtn').setAttribute('aria-pressed', String(show));
+    }
+
+    const featureLabel = name => name.replace(/([a-z])([A-Z])/g, '$1 $2');
+
+    function renderVpnFeatures() {
+        const list = document.getElementById('vpnFeaturesList');
+        list.replaceChildren();
+        if (!vpnFeatures.length) {
+            list.textContent = 'No features available.';
+            return;
+        }
+        vpnFeatures.forEach(name => {
+            const on = vpnActiveFeatures.has(name);
+            const row = document.createElement('div');
+            row.className = 'toggle-field vpn-feature-row';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'toggle';
+            cb.id = `vpnFeature-${name}`;
+            cb.checked = on;
+            cb.addEventListener('change', () => toggleVpnFeature(name, cb));
+
+            const label = document.createElement('label');
+            label.className = 'toggle-label';
+            label.htmlFor = cb.id;
+            label.textContent = featureLabel(name);
+
+            const state = document.createElement('span');
+            state.className = `badge ${on ? 'badge-completed' : 'badge-off'}`;
+            state.textContent = on ? 'On' : 'Off';
+
+            row.append(cb, label, state);
+            list.appendChild(row);
+        });
+    }
+
+    async function openVpnFeatures() {
+        showVpnFeatures(true);
+        const list = document.getElementById('vpnFeaturesList');
+        list.textContent = 'Loading…';
+        try {
+            // Refresh feature_indicators (GET /vpn) alongside the feature list
+            const [resp] = await Promise.all([
+                fetch('/vpn?features=true', {headers: authHeaders(), signal: AbortSignal.timeout(5000)}),
+                fetchVpnStatus()
+            ]);
+            if (resp.status === 401) {
+                closeVpnModal();
+                handleUnauth();
+                return;
+            }
+            if (!resp.ok) throw new Error((await resp.text()) || `${resp.statusText} [${resp.status}]`);
+            vpnFeatures = await resp.json();
+            renderVpnFeatures();
+        } catch (err) {
+            list.textContent = err.message || 'Failed to load features.';
+        }
+    }
+
+    async function toggleVpnFeature(name, cb) {
+        const target = cb.checked;
+        cb.disabled = true;
+        try {
+            const resp = await fetch(`/vpn?feature=${encodeURIComponent(name)}&switch=${target}`, {
+                method: 'PATCH',
+                headers: authHeaders(),
+                signal: AbortSignal.timeout(30000)   // the mullvad CLI call can take up to 30s
+            });
+            if (resp.status === 401) {
+                closeVpnModal();
+                handleUnauth();
+                return;
+            }
+            if (!resp.ok) throw new Error((await resp.text()) || `${resp.statusText} [${resp.status}]`);
+            setVpnStatus(await resp.json());   // refreshes vpnActiveFeatures and the header
+            toast(`${featureLabel(name)}: ${target ? 'on' : 'off'}`, 'success');
+        } catch (err) {
+            toast(err.message || `Failed to toggle ${featureLabel(name)}`, 'error');
+        } finally {
+            renderVpnFeatures();   // rebuilds from server state, so a failed toggle reverts
+        }
+    }
+
+    document.getElementById('vpnFeaturesBtn').addEventListener('click', () => {
+        if (document.getElementById('vpnFeaturesContent').hidden) openVpnFeatures();
+        else showVpnFeatures(false);
+    });
+    document.getElementById('closeVpnFeatures').addEventListener('click', () => showVpnFeatures(false));
     document.getElementById('closeVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('cancelVpnModal').addEventListener('click', closeVpnModal);
     document.getElementById('doneVpnModal').addEventListener('click', closeVpnModal);
@@ -3160,6 +3299,7 @@
             document.getElementById('vpnFormContent').hidden = true;
             document.getElementById('vpnResultContent').hidden = false;
             document.getElementById('vpnModeToggle').hidden = true;
+            document.getElementById('vpnFeaturesBtn').hidden = true;
             setVpnStatus(data);
 
             if (disconnecting) {
