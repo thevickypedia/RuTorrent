@@ -46,6 +46,13 @@ pub struct Location {
     pub hostname: Option<String>,
 }
 
+#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct ToggleFeatureQuery {
+    pub feature: Features,
+    pub switch: bool,
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema, Eq, PartialEq)]
 pub enum Features {
     LanSharing,

@@ -739,6 +739,11 @@ async fn redownload_torrent(
 
 /// API endpoint to PAUSE OR RESUME a torrent in qBittorrent.
 ///
+/// #### Sample Request
+/// ```shell
+/// curl -X PATCH localhost:3000/torrent?hash=2C..85&pause=true
+/// ```
+///
 /// # Arguments
 ///
 /// * `request` - Reference to the `HttpRequest` object.
@@ -1001,7 +1006,12 @@ pub async fn search_torrents(
 ///       "country": "Spain",
 ///       "ipv4": null,
 ///       "hostname": "es-mad-wg-203"
-///     }
+///     },
+///     "locked_down": null,
+///     "feature_indicators": [
+///       "QuantumResistance",
+///       "LanSharing"
+///     ]
 ///   }
 /// }
 /// ```
@@ -1049,7 +1059,12 @@ pub async fn get_vpn(
 /// #### Sample Request
 /// ```shell
 /// curl -X POST localhost:3000/vpn \
-///   -H "Content-Type: application/json" -d '{}'
+///   -H "Content-Type: application/json" \
+///   -d '{
+///     "blacklist":"us,il,cl,cz",
+///     "hostname":"",
+///     "whitelist":"ch,se,ie,it,tyo"
+///   }'
 /// ```
 ///
 /// #### Sample Response
@@ -1062,7 +1077,11 @@ pub async fn get_vpn(
 ///       "country": "Spain",
 ///       "ipv4": null,
 ///       "hostname": "es-mad-wg-203"
-///     }
+///     },
+///     "locked_down": null,
+///     "feature_indicators": [
+///       "LanSharing"
+///     ]
 ///   }
 /// }
 /// ```
@@ -1173,4 +1192,76 @@ pub async fn disconnect_vpn(
         lockdown
     );
     api::squire::vpn_response(vpn::connect::disconnect(lockdown).await)
+}
+
+/// API endpoint to disconnect mullvad vpn.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl -X PATCH localhost:3000/vpn?feature=LanSharing&switch=true
+/// ```
+///
+/// #### Sample Response
+/// ```json
+/// {
+///   "state": "connected",
+///   "details": {
+///     "location": {
+///       "city": "Gothenburg",
+///       "country": "Sweden",
+///       "ipv4": "185.213.154.207",
+///       "hostname": "se-got-wg-101"
+///     },
+///     "locked_down": null,
+///     "feature_indicators": [
+///       "Multihop",
+///       "LanSharing"
+///     ]
+///   }
+/// }
+/// ```
+///
+/// #### Status
+/// * `200`: Response from mullvad.
+/// * `502`: Mullvad CLI error.
+/// * `503`: Mullvad CLI missing relay.
+/// * `504`: VPN did not reach requested state.
+///
+/// # Returns
+///
+/// Returns the `vpn::models::MullvadResponse` object.
+#[utoipa::path(
+    patch,
+    tag = "VPN",
+    path = "/vpn",
+    params(vpn::models::ToggleFeatureQuery),
+    responses(
+        (status = 200, description = "Response message from mullvad cli", body = vpn::models::MullvadResponse),
+        (status = 502, description = "mullvad CLI error", body = String),
+        (status = 503, description = "mullvad CLI missing", body = String),
+        (status = 504, description = "VPN did not reach the requested state", body = String),
+    )
+)]
+pub async fn vpn_feature(
+    request: HttpRequest,
+    query: web::Query<vpn::models::ToggleFeatureQuery>,
+    config: web::Data<config::env::Config>,
+) -> impl Responder {
+    if !authenticator(&request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    let query = query.into_inner();
+    log::info!(
+        "Received request to toggle {:?} feature to {}",
+        query.feature,
+        query.switch
+    );
+    api::squire::vpn_response(
+        vpn::connect::toggle_feature(query.feature, query.switch).await
+    )
 }

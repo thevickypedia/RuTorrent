@@ -92,6 +92,51 @@ pub async fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
         .map_err(|e| VpnError::Failed(format!("Unexpected output from 'mullvad status': {e}")))
 }
 
+/// Toggle mullvad vpn features.
+///
+/// # Arguments:
+///
+/// * `feature` - Feature enumeration.
+/// * `switch` - Boolean flag to control the toggle.
+///
+/// ## Allowed toggles:
+///     mullvad relay set multihop on/off
+///     mullvad tunnel set daita on/off
+///     mullvad tunnel set quantum-resistant on/off
+///     mullvad lan set allow/block
+///
+/// # Returns:
+///
+/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
+pub async fn toggle_feature(feature: vpn::models::Features, switch: bool) -> Result<vpn::models::MullvadResponse, VpnError> {
+    if let Some(details) = get_current().await?.details
+        && let Some(features) = details.feature_indicators {
+            if features.contains(&feature) && switch {
+                return Err(VpnError::Invalid(format!("Feature is already enabled: {:?}", feature)));
+            }
+            if !features.contains(&feature) && !switch {
+                return Err(VpnError::Invalid(format!("Feature is already disabled: {:?}", feature)));
+            }
+        }
+    let mut action = if switch { "on" } else { "off" };
+    match feature {
+        vpn::models::Features::Multihop => {
+            run_command(&["relay", "set", "multihop", action]).await?;
+        }
+        vpn::models::Features::Daita => {
+            run_command(&["tunnel", "set", "daita", action]).await?;
+        }
+        vpn::models::Features::QuantumResistance => {
+            run_command(&["tunnel", "set", "quantum-resistant", action]).await?;
+        }
+        vpn::models::Features::LanSharing => {
+            action = if switch { "allow" } else { "block" };
+            run_command(&["lan", "set", action]).await?;
+        }
+    }
+    get_current().await
+}
+
 /// Waits for the connection to get to the given state.
 ///
 /// Makes 5 attempts with 3s intervals between each attempt.

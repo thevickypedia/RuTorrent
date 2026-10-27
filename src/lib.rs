@@ -91,6 +91,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/vpn", web::get().to(api::routes::get_vpn))
             .route("/vpn", web::post().to(api::routes::connect_vpn))
             .route("/vpn", web::delete().to(api::routes::disconnect_vpn))
+            .route("/vpn", web::patch().to(api::routes::vpn_feature))
             // UI
             .route("/swagger", web::get().to(swagger::openapi::redirector))
             .route("/ui", web::get().to(swagger::openapi::redirector))
