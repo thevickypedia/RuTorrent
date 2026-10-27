@@ -35,6 +35,7 @@ pub struct MullvadResponse {
 pub struct Details {
     pub location: Option<Location>,
     pub locked_down: Option<bool>,
+    pub feature_indicators: Option<Vec<Features>>
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
@@ -43,4 +44,12 @@ pub struct Location {
     pub country: String,
     pub ipv4: Option<String>,
     pub hostname: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema, Eq, PartialEq)]
+pub enum Features {
+    LanSharing,
+    QuantumResistance,
+    Daita,
+    Multihop,
 }
