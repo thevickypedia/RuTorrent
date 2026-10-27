@@ -786,8 +786,15 @@
             font-size: 0.65rem;
         }
 
-        .vpn-feature-row .toggle-label { flex: 1; }
-        .vpn-feature-row .badge { margin-left: auto; min-width: 2.6rem; text-align: center; }
+        .vpn-feature-row .toggle-label {
+            flex: 1;
+        }
+
+        .vpn-feature-row .badge {
+            margin-left: auto;
+            min-width: 2.6rem;
+            text-align: center;
+        }
 
         .badge-off {
             color: var(--muted);
@@ -2207,7 +2214,8 @@
             <div class="modal-title" id="vpnModalTitle">VPN Connection</div>
             <div class="modal-header-controls">
                 <button aria-pressed="false" class="btn btn-ghost vpn-features-btn" disabled id="vpnFeaturesBtn"
-                        title="VPN features" type="button">Features</button>
+                        title="VPN features" type="button">Features
+                </button>
                 <button aria-checked="true" aria-label="VPN mode: Connect" class="vpn-mode-toggle" id="vpnModeToggle"
                         role="switch" title="Switch to disconnect mode" type="button"></button>
                 <button aria-label="Close VPN dialog" class="modal-close" id="closeVpnModal" type="button">✕</button>
@@ -2241,7 +2249,7 @@
             </div>
             <div id="vpnDisconnectFields" hidden>
                 <div class="vpn-alert" role="alert">
-                    Turning off the VPN removes encryption for any ongoing downloads and requests made through this
+                    🚨 Turning off the VPN disables encryption for ongoing downloads and requests made through this
                     WebUI.
                 </div>
                 <div class="toggle-field">
@@ -2249,7 +2257,7 @@
                     <label class="toggle-label" for="vpnLockdownToggle">Lockdown mode</label>
                 </div>
                 <div class="vpn-alert" id="vpnLockdownWarning" role="alert" hidden>
-                    Lockdown: Host may become unreachable if you are accessing it via public internet without an
+                    🚨 Lockdown: Host may become unreachable if you are accessing it via public internet without an
                     internal transit gateway (e.g. nginx running on another machine and forwarding traffic
                     through an internal IP).
                 </div>
@@ -2264,7 +2272,7 @@
         <div hidden id="vpnFeaturesContent">
             <div id="vpnFeaturesList"></div>
             <div class="vpn-warning" id="vpnFeatureToggleWarning" role="dialog">
-                Toggling VPN features remotely can cause a reconnection
+                ⚠️ Toggling VPN features can trigger a reconnection.
             </div>
             <div class="modal-footer">
                 <button class="btn btn-ghost" id="closeVpnFeatures" type="button">Back</button>
@@ -2593,6 +2601,7 @@
         btn.disabled = selectedHashes.size === 0;
         btn.textContent = btn.disabled ? `Delete Selected` : `Delete Selected (${selectedHashes.size})`;
     }
+
     let pollTimer = null;
     let pollPaused = false;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
@@ -3129,6 +3138,7 @@
     document.getElementById('vpnLockdownToggle').addEventListener('change', e => {
         document.getElementById('vpnLockdownWarning').hidden = !e.target.checked;
     });
+
     function showVpnFeatures(show) {
         document.getElementById('vpnFeaturesContent').hidden = !show;
         document.getElementById('vpnFormContent').hidden = show;
