@@ -1,10 +1,19 @@
 use crate::vpn;
 use rand::prelude::*;
 use reqwest;
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct RelayLocation {
+    pub city: String,
+    pub country: String,
+    pub city_code: String,
+    pub country_code: String,
+}
 
 /// Get the list of active relays.
 ///
@@ -29,19 +38,19 @@ async fn list_active_relays() -> Result<Vec<Value>, Box<dyn Error>> {
 /// A nested map of country codes to city codes to relay lists: `{country_code: {city_code: [relays]}}`
 pub async fn generate_relay_map(
     cache: Option<PathBuf>,
-) -> Result<Vec<vpn::models::RelayLocation>, Box<dyn Error>> {
+) -> Result<Vec<RelayLocation>, Box<dyn Error>> {
     if let Some(relays_cached) = vpn::cache::load_relay_locations(cache) {
         log::debug!("Relays generated from cache: {}", relays_cached.len());
         return Ok(relays_cached);
     }
     log::info!("Failed to get relays from cache, requesting mullvad API.");
-    let mut relays: Vec<vpn::models::RelayLocation> = Vec::new();
+    let mut relays: Vec<RelayLocation> = Vec::new();
     for relay in list_active_relays().await?.iter() {
         let country_name = relay["country_name"].as_str().unwrap_or("");
         let country_code = relay["country_code"].as_str().unwrap_or("");
         let city_name = relay["city_name"].as_str().unwrap_or("");
         let city_code = relay["city_code"].as_str().unwrap_or("");
-        let relay_connector = vpn::models::RelayLocation {
+        let relay_connector = RelayLocation {
             city: city_name.to_string(),
             country: country_name.to_string(),
             city_code: city_code.to_string(),
@@ -68,12 +77,12 @@ pub async fn generate_relay_map(
 ///
 /// # Returns
 ///
-/// Returns a `Vec<vpn::models::RelayLocation>` object of all eligible objects.
+/// Returns a `Vec<RelayLocation>` object of all eligible objects.
 pub fn eligible_relays(
-    relay_map: Vec<vpn::models::RelayLocation>,
+    relay_map: Vec<RelayLocation>,
     whitelist: &[String],
     blacklist: &[String],
-) -> Vec<vpn::models::RelayLocation> {
+) -> Vec<RelayLocation> {
     let mut seen = HashSet::new();
     let mut relays: Vec<_> = relay_map
         .into_iter()
@@ -94,19 +103,19 @@ pub fn eligible_relays(
 ///
 /// # Arguments
 ///
-/// * `relays` - Reference to an array of `vpn::models::RelayLocation` objects.
+/// * `relays` - Reference to an array of `RelayLocation` objects.
 /// * `whitelist` - Reference to an array of whitelisted city codes or country codes.
 /// * `blacklist` - Reference to an array of blacklisted city codes or country codes.
 ///
 /// # Returns
 ///
 /// * `Ok(())` - All validations were done with no errors.
-/// * `Err(vpn::models::VpnError)` - VpnError object with the appropriate error message.
+/// * `Err(vpn::connect::VpnError)` - VpnError object with the appropriate error message.
 pub fn validate_codes(
-    relays: &[vpn::models::RelayLocation],
+    relays: &[RelayLocation],
     whitelist: &[String],
     blacklist: &[String],
-) -> Result<(), vpn::models::VpnError> {
+) -> Result<(), vpn::connect::VpnError> {
     let whitelist_set: HashSet<&String> = whitelist.iter().collect();
     let conflicts: Vec<String> = blacklist
         .iter()
@@ -114,7 +123,7 @@ pub fn validate_codes(
         .cloned()
         .collect();
     if !conflicts.is_empty() {
-        return Err(vpn::models::VpnError::Invalid(format!(
+        return Err(vpn::connect::VpnError::Invalid(format!(
             "Conflicting whitelist and blacklist entries were found: {}",
             conflicts.join(", ")
         )));
@@ -132,7 +141,7 @@ pub fn validate_codes(
     if invalid.is_empty() {
         Ok(())
     } else {
-        Err(vpn::models::VpnError::Invalid(format!(
+        Err(vpn::connect::VpnError::Invalid(format!(
             "Unknown country/city code(s): {}",
             invalid.join(", ")
         )))

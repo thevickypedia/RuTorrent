@@ -1,5 +1,4 @@
-use crate::config::defaults;
-use crate::search;
+use crate::{config, search};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -40,18 +39,18 @@ pub struct PutTorrentRequest {
     pub hash: Option<String>,
     pub trackers: Option<Vec<String>>,
 
-    #[serde(default = "defaults::default_save_path")]
+    #[serde(default = "config::defaults::default_save_path")]
     pub save_path: String,
 
-    #[serde(default = "defaults::default_host")]
+    #[serde(default = "config::defaults::default_host")]
     pub remote_host: String,
-    #[serde(default = "defaults::default_username")]
+    #[serde(default = "config::defaults::default_username")]
     pub remote_username: String,
-    #[serde(default = "defaults::default_path")]
+    #[serde(default = "config::defaults::default_path")]
     pub remote_path: String,
-    #[serde(default = "defaults::default_timeout")]
+    #[serde(default = "config::defaults::default_timeout")]
     pub rsync_timeout: u8,
-    #[serde(default = "defaults::default_delete_after_copy")]
+    #[serde(default = "config::defaults::default_delete_after_copy")]
     pub delete_after_copy: bool,
 }
 
@@ -67,15 +66,15 @@ pub struct RetryTorrentRequest {
     /// resumes the rsync transfer using the existing local files.
     #[serde(default)]
     pub redownload: bool,
-    #[serde(default = "defaults::default_host")]
+    #[serde(default = "config::defaults::default_host")]
     pub remote_host: String,
-    #[serde(default = "defaults::default_username")]
+    #[serde(default = "config::defaults::default_username")]
     pub remote_username: String,
-    #[serde(default = "defaults::default_path")]
+    #[serde(default = "config::defaults::default_path")]
     pub remote_path: String,
-    #[serde(default = "defaults::default_timeout")]
+    #[serde(default = "config::defaults::default_timeout")]
     pub rsync_timeout: u8,
-    #[serde(default = "defaults::default_delete_after_copy")]
+    #[serde(default = "config::defaults::default_delete_after_copy")]
     pub delete_after_copy: bool,
 }
 
@@ -84,11 +83,11 @@ pub struct RetryTorrentRequest {
 /// Represents query params on an incoming request to rotate vpn connection with optional specs.
 #[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ConnectVPNRequest {
-    #[serde(default = "defaults::default_vpn_whitelist")]
+    #[serde(default = "config::defaults::default_vpn_whitelist")]
     pub whitelist: String,
-    #[serde(default = "defaults::default_vpn_blacklist")]
+    #[serde(default = "config::defaults::default_vpn_blacklist")]
     pub blacklist: String,
-    #[serde(default = "defaults::default_vpn_hostname")]
+    #[serde(default = "config::defaults::default_vpn_hostname")]
     pub hostname: String,
 }
 
@@ -107,13 +106,13 @@ pub struct ToggleFeatureRequest {
 #[into_params(style = Form, parameter_in = Query)]
 pub struct SearchTorrentRequest {
     pub query: String,
-    #[serde(default = "defaults::default_search_category")]
+    #[serde(default = "config::defaults::default_search_category")]
     #[param(required = false)]
     pub category: u16,
-    #[serde(default = "defaults::default_hydrate_categories")]
+    #[serde(default = "config::defaults::default_hydrate_categories")]
     #[param(required = false)]
     pub hydrate_categories: bool,
-    #[serde(default = "defaults::default_use_tor")]
+    #[serde(default = "config::defaults::default_use_tor")]
     #[param(required = false)]
     pub use_tor: bool,
 }

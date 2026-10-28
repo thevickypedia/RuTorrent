@@ -398,15 +398,15 @@ pub async fn redownload_torrent(
 ///
 /// # Arguments
 ///
-/// * `result` - Result as `Result<api::schema::MullvadResponse, vpn::models::VpnError>` object.
+/// * `result` - Result as `Result<api::schema::MullvadResponse, vpn::connect::VpnError>` object.
 ///
 /// # Returns
 ///
 /// Returns the final `HttpResponse` object.
 pub fn vpn_response(
-    result: Result<api::schema::MullvadResponse, vpn::models::VpnError>,
+    result: Result<api::schema::MullvadResponse, vpn::connect::VpnError>,
 ) -> HttpResponse {
-    use vpn::models::VpnError::*;
+    use vpn::connect::VpnError::*;
     match result {
         Ok(r) => HttpResponse::Ok().json(r),
         Err(e) => {

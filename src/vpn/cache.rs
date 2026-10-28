@@ -1,4 +1,4 @@
-use crate::vpn::models::RelayLocation;
+use crate::vpn;
 use std::{fs::File, io::BufReader, path::PathBuf};
 
 /// Get default cache location allocated based on the operating system.
@@ -59,7 +59,7 @@ fn resolve_path(filepath: Option<PathBuf>) -> Option<PathBuf> {
 /// # Returns
 ///
 /// Returns an `Option<Vec<RelayLocation>>` object.
-pub fn load_relay_locations(filepath: Option<PathBuf>) -> Option<Vec<RelayLocation>> {
+pub fn load_relay_locations(filepath: Option<PathBuf>) -> Option<Vec<vpn::relay::RelayLocation>> {
     let path = match resolve_path(filepath) {
         Some(path) => path,
         None => {
@@ -146,7 +146,7 @@ pub fn load_relay_locations(filepath: Option<PathBuf>) -> Option<Vec<RelayLocati
             }
         };
 
-        relay_locations.push(RelayLocation {
+        relay_locations.push(vpn::relay::RelayLocation {
             city,
             country,
             city_code: city_code.to_string(),

@@ -3,7 +3,20 @@ use std::io;
 use tokio::process::Command;
 use tokio::time::{Duration, sleep};
 
-use crate::vpn::models::VpnError;
+#[derive(Debug)]
+pub enum VpnError {
+    Invalid(String),     // 400 - bad user input
+    Unavailable(String), // 503 - mullvad CLI missing / relay list unreachable
+    Failed(String),      // 502 - mullvad CLI returned an error
+    Timeout(String),     // 504 - state never reached
+}
+
+impl std::fmt::Display for VpnError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (Self::Invalid(m) | Self::Unavailable(m) | Self::Failed(m) | Self::Timeout(m)) = self;
+        write!(f, "{m}")
+    }
+}
 
 const GETTER: &[&str] = &["status", "--json"];
 const SETTER: &[&str] = &["relay", "set", "location"];
