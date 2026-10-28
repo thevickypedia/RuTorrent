@@ -3205,12 +3205,15 @@
 
     async function toggleVpnFeature(name, cb) {
         const target = cb.checked;
+        const label = featureLabel(name);
         cb.disabled = true;
+        setSearchLoading(true, `${target ? 'Enabling' : 'Disabling'} ${label}…`);
         try {
             const resp = await fetch(`/vpn?feature=${encodeURIComponent(name)}&switch=${target}`, {
                 method: 'PATCH',
                 headers: authHeaders(),
-                signal: AbortSignal.timeout(30000)   // the mullvad CLI call can take up to 30s
+                // The backend now waits for the "connected" state, which can take a while.
+                signal: AbortSignal.timeout(120000)
             });
             if (resp.status === 401) {
                 closeVpnModal();
@@ -3219,10 +3222,11 @@
             }
             if (!resp.ok) throw new Error((await resp.text()) || `${resp.statusText} [${resp.status}]`);
             setVpnStatus(await resp.json());   // refreshes vpnActiveFeatures and the header
-            toast(`${featureLabel(name)}: ${target ? 'on' : 'off'}`, 'success');
+            toast(`${label}: ${target ? 'on' : 'off'}`, 'success');
         } catch (err) {
-            toast(err.message || `Failed to toggle ${featureLabel(name)}`, 'error');
+            toast(err.message || `Failed to toggle ${label}`, 'error');
         } finally {
+            setSearchLoading(false);
             renderVpnFeatures();   // rebuilds from server state, so a failed toggle reverts
         }
     }

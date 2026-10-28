@@ -150,7 +150,7 @@ pub async fn toggle_feature(feature: api::schema::Features, switch: bool) -> Res
             return Err(VpnError::Invalid(format!("Feature is invalid: {:?}", feature)));
         }
     }
-    get_current().await
+    await_connection("connected").await
 }
 
 /// Waits for the connection to get to the given state.
