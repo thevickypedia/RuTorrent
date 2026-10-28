@@ -75,8 +75,8 @@ fn format_size(bytes: i64) -> String {
 ///
 /// # Returns
 ///
-/// Returns a `BaseTorrent` if the object contains a valid title and is not an error or empty-result entry; otherwise, returns `None`.
-fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
+/// Returns a `SearchTorrentResponse` if the object contains a valid title and is not an error or empty-result entry; otherwise, returns `None`.
+fn parse_torrent(row: &Value) -> Option<api::schema::SearchTorrentResponse> {
     let title = string_field(row, "name")?;
 
     if title.eq_ignore_ascii_case("no results returned") || title.eq_ignore_ascii_case("error") {
@@ -114,7 +114,7 @@ fn parse_torrent(row: &Value) -> Option<api::schema::BaseTorrent> {
         magnet
     });
 
-    Some(api::schema::BaseTorrent {
+    Some(api::schema::SearchTorrentResponse {
         title: Some(title),
         category: string_field(row, "category"),
         size,
@@ -161,7 +161,7 @@ pub async fn search(
     hydrate_categories: bool,
     config: &config::env::Config,
     metadata: &config::constant::MetaData,
-) -> api::schema::Result<Vec<api::schema::BaseTorrent>> {
+) -> api::schema::Result<Vec<api::schema::SearchTorrentResponse>> {
     // Mark 1: Checks if the client has requested to use tor network
     let client: Client = if use_tor {
         log::info!("Connecting to Tor network...");
@@ -196,7 +196,7 @@ pub async fn search(
             "apibay returned an unexpected payload",
         ));
     };
-    let mut torrents: Vec<api::schema::BaseTorrent> =
+    let mut torrents: Vec<api::schema::SearchTorrentResponse> =
         rows.iter().filter_map(parse_torrent).collect();
     if torrents.is_empty() {
         return Err(api::schema::HttpError::boxed(

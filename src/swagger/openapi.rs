@@ -1,5 +1,4 @@
-use crate::vpn;
-use crate::{api, config};
+use crate::{api};
 use actix_web::HttpResponse;
 use utoipa::Modify;
 use utoipa::OpenApi;
@@ -8,19 +7,21 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::routes::get_vpn,
-        api::routes::connect_vpn,
-        api::routes::disconnect_vpn,
-        api::routes::vpn_feature,
-        api::routes::get_torrents,
-        api::routes::search_torrents,
-        api::routes::search_category,
-        api::routes::put_torrent,
-        api::routes::pause_torrent,
-        api::routes::delete_torrent,
-        api::routes::retry_torrent
+        api::search::torrents,
+        api::search::category,
+
+        api::torrent::get,
+        api::torrent::put,
+        api::torrent::pause,
+        api::torrent::delete,
+        api::torrent::retry,
+
+        api::vpn::get,
+        api::vpn::connect,
+        api::vpn::disconnect,
+        api::vpn::feature,
     ),
-    components(schemas(config::settings::PutItem, config::settings::PutResponse, config::settings::RetryOptions, api::schema::TorrentEntry, api::schema::BaseTorrent, vpn::models::MullvadResponse)),
+    components(schemas(api::schema::PutTorrentRequest, api::schema::PutTorrentResponse, api::schema::RetryTorrentRequest, api::schema::GetTorrentResponse, api::schema::SearchTorrentResponse, api::schema::MullvadResponse)),
     security(
         ("apikey" = [])
     ),

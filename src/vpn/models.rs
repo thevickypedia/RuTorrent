@@ -1,7 +1,5 @@
 use serde;
 use serde::Deserialize;
-use utoipa::ToSchema;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum VpnError {
@@ -24,60 +22,4 @@ pub struct RelayLocation {
     pub country: String,
     pub city_code: String,
     pub country_code: String,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, ToSchema)]
-pub struct MullvadResponse {
-    pub state: String,
-    pub details: Option<Details>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
-pub struct Details {
-    pub location: Option<Location>,
-    pub locked_down: Option<bool>,
-    pub feature_indicators: Option<Vec<Features>>
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
-pub struct Location {
-    pub city: String,
-    pub country: String,
-    pub ipv4: Option<String>,
-    pub hostname: Option<String>,
-}
-
-#[derive(Debug, serde::Deserialize, utoipa::IntoParams)]
-#[into_params(parameter_in = Query)]
-pub struct ToggleFeatureQuery {
-    pub feature: Features,
-    pub switch: bool,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema, Eq, PartialEq)]
-pub enum Features {
-    LanSharing,
-    QuantumResistance,
-    Daita,
-    Multihop,
-    #[serde(other)]
-    Unknown,
-}
-
-/// Mixed objects for `GET /vpn` response based on the `?features=<bool>` flag.
-#[derive(utoipa::ToResponse, utoipa::ToSchema)]
-pub enum GetVpnResponse {
-    #[allow(unused)]
-    Status(MullvadResponse),
-    #[allow(unused)]
-    Features(Vec<Features>),
-}
-
-/// Mixed objects for `GET /categories` response based on the `?nested=<bool>` flag.
-#[derive(utoipa::ToResponse, utoipa::ToSchema)]
-pub enum GetCategoriesResponse {
-    #[allow(unused)]
-    Flattened(HashMap<u16, String>),
-    #[allow(unused)]
-    Nested(HashMap<String, HashMap<u16, String>>),
 }

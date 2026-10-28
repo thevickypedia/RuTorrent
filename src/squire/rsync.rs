@@ -4,7 +4,7 @@ use tokio::{
     time::{Duration, sleep},
 };
 
-use crate::{config, database};
+use crate::{api, config, database};
 
 /// Delay between consecutive retry attempts for the same transfer.
 const RETRY_BACKOFF: Duration = Duration::from_secs(30);
@@ -20,7 +20,7 @@ const MAX_COPY_ATTEMPTS: u32 = 10;
 /// * `db_connection` - Database connection used to persist status transitions.
 /// * `hash` - Unique identifier for the transfer entry in the state.
 /// * `name` - Human-readable name of the item being transferred (used for logging).
-/// * `put_item` - Reference to the `PutItem` object.
+/// * `put_item` - Reference to the `PutTorrentRequest` object.
 ///
 /// # Notes
 ///
@@ -34,7 +34,7 @@ pub async fn run(
     db_connection: config::settings::DBConnection,
     hash: String,
     name: String,
-    put_item: config::settings::PutItem,
+    put_item: api::schema::PutTorrentRequest,
 ) {
     let mut attempt = 0;
     loop {
@@ -107,7 +107,7 @@ fn escape_remote_path(input: &str) -> String {
         .to_string()
 }
 
-async fn run_once(name: &str, put_item: &config::settings::PutItem) -> bool {
+async fn run_once(name: &str, put_item: &api::schema::PutTorrentRequest) -> bool {
     let raw_basename = std::path::Path::new(put_item.save_path.trim())
         .file_name()
         .and_then(|n| n.to_str())

@@ -1,4 +1,4 @@
-use crate::{config, database, notifier, squire};
+use crate::{api, config, database, notifier, squire};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::time::{Duration, sleep};
@@ -111,7 +111,7 @@ async fn resolve_new_torrents(
                 "Auto-tracking torrent found in QBit (not in DB): {}",
                 torrent.name
             );
-            config::settings::PutItem {
+            api::schema::PutTorrentRequest {
                 url: torrent.magnet_uri,
                 name: Some(torrent.name.clone()),
                 hash: Some(torrent.hash.clone()),

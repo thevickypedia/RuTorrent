@@ -1,13 +1,11 @@
-use crate::config::defaults;
-use serde::Deserialize;
+use crate::api;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use utoipa::{IntoParams, ToSchema};
 
 /// ### PendingMap
 /// Shared map for storing pending torrent metadata before resolution.
-pub type PendingMap = Arc<RwLock<HashMap<String, PutItem>>>;
+pub type PendingMap = Arc<RwLock<HashMap<String, api::schema::PutTorrentRequest>>>;
 
 /// ### DBConnection
 /// Shared `ruslite` connection object.
@@ -32,7 +30,7 @@ pub enum Status {
 pub struct RsyncTrack {
     pub name: String,
     pub status: Status,
-    pub put_item: PutItem,
+    pub put_item: api::schema::PutTorrentRequest,
 
     /// Whether this torrent's hash is still known to qBittorrent.
     ///
@@ -48,90 +46,4 @@ pub struct RsyncTrack {
     /// re-download can recover this torrent.
     pub files_deleted: bool,
     pub added_at: f64,
-}
-
-/// ### PutItem
-/// Represents an incoming request to add a new torrent with optional rsync target details.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PutItem {
-    pub url: String,
-
-    pub name: Option<String>,
-    pub hash: Option<String>,
-    pub trackers: Option<Vec<String>>,
-
-    #[serde(default = "defaults::default_save_path")]
-    pub save_path: String,
-
-    #[serde(default = "defaults::default_host")]
-    pub remote_host: String,
-    #[serde(default = "defaults::default_username")]
-    pub remote_username: String,
-    #[serde(default = "defaults::default_path")]
-    pub remote_path: String,
-    #[serde(default = "defaults::default_timeout")]
-    pub rsync_timeout: u8,
-    #[serde(default = "defaults::default_delete_after_copy")]
-    pub delete_after_copy: bool,
-}
-
-/// ### PutResponse
-/// Represents the outgoing response for adding a new torrent.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PutResponse {
-    pub name: String,
-    pub state: String,
-}
-
-/// ### RetryOptions
-/// Represents an incoming request to retry a failed copy, or trigger a fresh
-/// re-download followed by a fresh rsync transfer.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RetryOptions {
-    pub hash: String,
-    /// When `true`, deletes any existing local files (if present) and starts
-    /// a brand-new download from the original torrent URL, followed by a
-    /// fresh rsync transfer once it completes. When `false` (default),
-    /// resumes the rsync transfer using the existing local files.
-    #[serde(default)]
-    pub redownload: bool,
-    #[serde(default = "defaults::default_host")]
-    pub remote_host: String,
-    #[serde(default = "defaults::default_username")]
-    pub remote_username: String,
-    #[serde(default = "defaults::default_path")]
-    pub remote_path: String,
-    #[serde(default = "defaults::default_timeout")]
-    pub rsync_timeout: u8,
-    #[serde(default = "defaults::default_delete_after_copy")]
-    pub delete_after_copy: bool,
-}
-
-/// ### SearchTorrents
-/// Represents query params on an incoming request to explore torrents with optional specs.
-#[derive(Debug, Deserialize, IntoParams)]
-#[into_params(style = Form, parameter_in = Query)]
-pub struct SearchTorrents {
-    pub query: String,
-    #[serde(default = "defaults::default_search_category")]
-    #[param(required = false)]
-    pub category: u16,
-    #[serde(default = "defaults::default_hydrate_categories")]
-    #[param(required = false)]
-    pub hydrate_categories: bool,
-    #[serde(default = "defaults::default_use_tor")]
-    #[param(required = false)]
-    pub use_tor: bool,
-}
-
-/// ### ConnectVPN
-/// Represents query params on an incoming request to rotate vpn connection with optional specs.
-#[derive(ToSchema, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ConnectVPN {
-    #[serde(default = "defaults::default_vpn_whitelist")]
-    pub whitelist: String,
-    #[serde(default = "defaults::default_vpn_blacklist")]
-    pub blacklist: String,
-    #[serde(default = "defaults::default_vpn_hostname")]
-    pub hostname: String,
 }

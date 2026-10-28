@@ -1,4 +1,4 @@
-use crate::{config, notifier, vpn};
+use crate::{api, config, notifier, vpn};
 use std::io;
 use tokio::process::Command;
 use tokio::time::{Duration, sleep};
@@ -67,8 +67,8 @@ async fn run_command(args: &[&str]) -> Result<String, VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn disconnect(lockdown: bool) -> Result<vpn::models::MullvadResponse, VpnError> {
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
+pub async fn disconnect(lockdown: bool) -> Result<api::schema::MullvadResponse, VpnError> {
     if lockdown {
         log::info!("Enabling lockdown mode");
         run_command(LOCKDOWN_ON).await?;
@@ -85,8 +85,8 @@ pub async fn disconnect(lockdown: bool) -> Result<vpn::models::MullvadResponse, 
 ///
 /// # Returns
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
+pub async fn get_current() -> Result<api::schema::MullvadResponse, VpnError> {
     let out = run_command(GETTER).await?;
     serde_json::from_str(&out)
         .map_err(|e| VpnError::Failed(format!("Unexpected output from 'mullvad status': {e}")))
@@ -107,8 +107,8 @@ pub async fn get_current() -> Result<vpn::models::MullvadResponse, VpnError> {
 ///
 /// # Returns:
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn toggle_feature(feature: vpn::models::Features, switch: bool) -> Result<vpn::models::MullvadResponse, VpnError> {
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
+pub async fn toggle_feature(feature: api::schema::Features, switch: bool) -> Result<api::schema::MullvadResponse, VpnError> {
     if let Some(details) = get_current().await?.details
         && let Some(features) = details.feature_indicators {
             if features.contains(&feature) && switch {
@@ -120,20 +120,20 @@ pub async fn toggle_feature(feature: vpn::models::Features, switch: bool) -> Res
         }
     let mut action = if switch { "on" } else { "off" };
     match feature {
-        vpn::models::Features::Multihop => {
+        api::schema::Features::Multihop => {
             run_command(&["relay", "set", "multihop", action]).await?;
         }
-        vpn::models::Features::Daita => {
+        api::schema::Features::Daita => {
             run_command(&["tunnel", "set", "daita", action]).await?;
         }
-        vpn::models::Features::QuantumResistance => {
+        api::schema::Features::QuantumResistance => {
             run_command(&["tunnel", "set", "quantum-resistant", action]).await?;
         }
-        vpn::models::Features::LanSharing => {
+        api::schema::Features::LanSharing => {
             action = if switch { "allow" } else { "block" };
             run_command(&["lan", "set", action]).await?;
         }
-        vpn::models::Features::Unknown => {
+        api::schema::Features::Unknown => {
             return Err(VpnError::Invalid(format!("Feature is invalid: {:?}", feature)));
         }
     }
@@ -150,8 +150,8 @@ pub async fn toggle_feature(feature: vpn::models::Features, switch: bool) -> Res
 ///
 /// # Returns
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadResponse, VpnError> {
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
+pub async fn await_connection(state: &str) -> Result<api::schema::MullvadResponse, VpnError> {
     let mut last_state = String::from("unknown");
     for attempt in 0..5 {
         sleep(Duration::from_secs(3)).await;
@@ -170,7 +170,7 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
             ));
         }
         if last_state == state {
-            let response = serde_json::from_value::<vpn::models::MullvadResponse>(response)
+            let response = serde_json::from_value::<api::schema::MullvadResponse>(response)
                 .map_err(|e| VpnError::Failed(format!("Unexpected mullvad status payload: {e}")))?;
             if state == "connected" && response.details.is_none() {
                 return Err(VpnError::Failed(
@@ -189,8 +189,8 @@ pub async fn await_connection(state: &str) -> Result<vpn::models::MullvadRespons
 ///
 /// # Returns
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
-pub async fn connect_by_hostname(hostname: &str) -> Result<vpn::models::MullvadResponse, VpnError> {
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
+pub async fn connect_by_hostname(hostname: &str) -> Result<api::schema::MullvadResponse, VpnError> {
     if hostname.starts_with('-')
         || !hostname
             .chars()
@@ -244,12 +244,12 @@ async fn set_and_connect(selection: &[&str]) -> Result<(), VpnError> {
 ///
 /// # Returns
 ///
-/// Returns the `Result<vpn::models::MullvadResponse, VpnError>` object.
+/// Returns the `Result<api::schema::MullvadResponse, VpnError>` object.
 pub async fn shuffler(
     whitelist: Option<Vec<String>>,
     blacklist: Option<Vec<String>>,
     config: &config::env::Config,
-) -> Result<vpn::models::MullvadResponse, VpnError> {
+) -> Result<api::schema::MullvadResponse, VpnError> {
     let whitelisted = whitelist.unwrap_or_default();
     let blacklisted = blacklist.unwrap_or_default();
     if !whitelisted.is_empty() || !blacklisted.is_empty() {

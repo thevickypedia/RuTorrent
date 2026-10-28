@@ -1,4 +1,4 @@
-use crate::{config, squire};
+use crate::{api, config, squire};
 use rusqlite::{Connection, params};
 use std::collections::HashMap;
 
@@ -94,8 +94,8 @@ pub fn upsert(conn: &Connection, hash: &str, entry: &config::settings::RsyncTrac
 ///
 /// * `conn` - Active SQLite database connection.
 /// * `tag` - Unique identifier for the pending item.
-/// * `item` - The `PutItem` data to store as pending.
-pub fn upsert_pending(conn: &Connection, tag: &str, item: &config::settings::PutItem) {
+/// * `item` - The `PutTorrentRequest` data to store as pending.
+pub fn upsert_pending(conn: &Connection, tag: &str, item: &api::schema::PutTorrentRequest) {
     match conn.execute(
         "INSERT OR REPLACE INTO pending
             (tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy)
@@ -141,15 +141,15 @@ pub fn remove_pending(conn: &Connection, tag: &str) {
 ///
 /// # Returns
 ///
-/// Returns a `HashMap<String, PutItem>` mapping each pending tag to its associated `PutItem`.
-pub fn load_pending(conn: &Connection) -> HashMap<String, config::settings::PutItem> {
+/// Returns a `HashMap<String, PutTorrentRequest>` mapping each pending tag to its associated `PutTorrentRequest`.
+pub fn load_pending(conn: &Connection) -> HashMap<String, api::schema::PutTorrentRequest> {
     let mut stmt = conn
         .prepare("SELECT tag, url, save_path, remote_host, remote_user, remote_path, rsync_timeout, delete_after_copy FROM pending")
         .expect("Failed to prepare load_pending query");
 
     stmt.query_map([], |row| {
         let tag: String = row.get(0)?;
-        let item = config::settings::PutItem {
+        let item = api::schema::PutTorrentRequest {
             url: row.get(1)?,
             name: None,
             hash: None,
@@ -211,7 +211,7 @@ fn row_to_entry(row: &rusqlite::Row) -> rusqlite::Result<(String, config::settin
     let added_at: f64 = row.get(13)?;
 
     let status = decode_status(&status_str, progress);
-    let put_item = config::settings::PutItem {
+    let put_item = api::schema::PutTorrentRequest {
         url,
         name: None,
         hash: None,
