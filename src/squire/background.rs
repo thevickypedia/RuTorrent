@@ -169,7 +169,7 @@ pub fn spawn_worker(
     db_connection: config::settings::DBConnection,
 ) {
     let mut n = 0;
-    let max_auth_errors = 30;
+    let mut max_auth_errors = 30;
     let interval = Duration::from_secs(5);
 
     tokio::spawn(async move {
@@ -193,7 +193,10 @@ pub fn spawn_worker(
             } else {
                 log::error!("Failed to get info from QBitAPI");
                 client = match squire::qb::client(&config).await {
-                    Ok(c) => c,
+                    Ok(c) => {
+                        max_auth_errors = 0;
+                        c
+                    }
                     Err(e) => {
                         log::error!(
                             "Failed to authenticate qBittorrent: {:?} on {}-th attempt",
