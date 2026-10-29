@@ -204,6 +204,17 @@ pub fn spawn_worker(
                             n
                         );
                         if n > max_auth_errors {
+                            // MARK: This should only happen if qBit password is updated during runtime
+                            notifier::notify(
+                                format!("RuTorrent: qBit authentication failed [HTTP error code: {}]", e.status()),
+                                format!(
+                                    "Unrecoverable errors [{}/{}] in background task\n{:?}",
+                                    max_auth_errors,
+                                    n,
+                                    e.body()
+                                ),
+                                config,
+                            );
                             return;
                         } else {
                             continue;
