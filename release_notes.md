@@ -1,6 +1,21 @@
 Release Notes
 =============
 
+v1.1.0 (10/28/2026)
+-------------------
+- [62ea761](https://github.com/thevickypedia/RuTorrent/commit/62ea7610e6f7feb9316fe3a2ee081fb4919da505) chore: Release ``v1.1.0``
+- [9bb2aec](https://github.com/thevickypedia/RuTorrent/commit/9bb2aecd3094c64f3ac2b4cd616bb0b6851c42cf) feat: Await ``connected`` state when features are toggled; Show a spinner for the UI until connected
+- [72ff707](https://github.com/thevickypedia/RuTorrent/commit/72ff707870c99f71432da5a0eecfabc041e35289) refactor: Remove func level imports
+- [b7b5deb](https://github.com/thevickypedia/RuTorrent/commit/b7b5deb3bd9ced10c74f2b90bb81c428eb42eca5) refactor: Categorically modularize the entire project
+- [f7ed660](https://github.com/thevickypedia/RuTorrent/commit/f7ed660f8b995decea6329ee7dc7b6561bed52ef) feat: Support mixed response object in the SwaggerUI for ``GET /vpn`` and ``GET /categories`` endpoints
+- [3260599](https://github.com/thevickypedia/RuTorrent/commit/3260599792e8f0b84b44a3a6e93302e0456ebf8a) style: Add emojipedia icons for VPN alerts/warnings in the UI
+- [8232d74](https://github.com/thevickypedia/RuTorrent/commit/8232d743b7e6b6285fabf98b9a2e8eb5e0f2e54a) feat: Add an option to display and toggle vpn features from the UI
+- [4efe636](https://github.com/thevickypedia/RuTorrent/commit/4efe6369021fd932047c4cb3e4b5719eda79ad6e) fix: Handle additional features in vpn status response
+- [17061b1](https://github.com/thevickypedia/RuTorrent/commit/17061b10b79de7fd8438bf9df22a47c60acf35c4) feat: Update ``GET /vpn`` endpoint to ONLY return features when queried with ``?features=true``
+- [4bd6694](https://github.com/thevickypedia/RuTorrent/commit/4bd6694f5f807cfcd4ac0ff8ea7f39d854f1c543) feat: Add a ``PATCH /vpn`` route to toggle features
+- [84071bf](https://github.com/thevickypedia/RuTorrent/commit/84071bfdc78ce4091ec9126f4316a6bf1c127e6b) feat: Include features in ``GET /vpn`` response
+- [275b832](https://github.com/thevickypedia/RuTorrent/commit/275b8324bc285e9395f2090a80726f00fbb5a4e3) chore: Update release notes for v1.0.0
+
 v1.0.0 (10/25/2026)
 -------------------
 - [d3237b6](https://github.com/thevickypedia/RuTorrent/commit/d3237b6d1b2138a309973c011eb4f21b7fb16b9f) chore: Release ``v1.0.0``
