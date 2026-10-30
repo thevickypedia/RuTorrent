@@ -29,33 +29,34 @@ async fn main() -> std::io::Result<()> {
 
 ### Environment Variables
 
-| Key                  | Description                                                         | Default                 |
-|----------------------|---------------------------------------------------------------------|-------------------------|
-| `HOST`               | Hostname to run `rutorrent`                                         | `127.0.0.1`             |
-| `PORT`               | Port to run `rutorrent`                                             | `3000`                  |
-| `USERNAME`           | Username to host/authenticate the UI                                | -                       |
-| `PASSWORD`           | Password to host/authenticate the UI                                | -                       |
-| `APIKEY`             | A random string to authenticate requests through the API interface  | MANDATORY               |
-| `WORKERS`            | Number of Actix workers to run the API                              | `2`                     |
-| `QBIT_URL`           | Base URL for qbittorrent API                                        | `http://localhost:8080` |
-| `QBIT_USERNAME`      | Username for qbittorrent API                                        | —                       |
-| `QBIT_PASSWORD`      | Password for qbittorrent API                                        | —                       |
-| `QBIT_TIMEOUT`       | Timeout for qbittorrent API                                         | `3`                     |
-| `UTC_LOGGER`         | Boolean flag to set UTC timestamps in logs                          | `true`                  |
-| `LOG`                | Enum value to log to a `file` or `stdout`                           | `stdout`                |
-| `LOG_LEVEL`          | Log level to set across `actix-web`, `actix-server` and `rurorrent` | `info`                  |
-| `NTFY_URL`           | Ntfy server URL for notifications                                   | —                       |
-| `NTFY_TOPIC`         | Subscribed ntfy topic for notifications                             | —                       |
-| `NTFY_USERNAME`      | Username to authenticate ntfy notifications                         | —                       |
-| `NTFY_PASSWORD`      | Password to authenticate ntfy notifications                         | —                       |
-| `NTFY_TIMEOUT`       | Timeout for the Ntfy request                                        | —                       |
-| `TELEGRAM_CHAT_ID`   | Chat ID where Telegram notifications have to be sent                | —                       |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token                                                  | —                       |
-| `TELEGRAM_TIMEOUT`   | Timeout for the Telegram request                                    | —                       |
-| `TOR_URL`            | URL to connect to `tor` network. Allows `socks5` and `socks5h`      | -                       |
-| `TOR_TIMEOUT`        | Maximum timeout through Tor network, in seconds                     | `10`                    |
-| `TRACKERS_FILE`      | Filepath to custom trackers list with each tracker in a new line    | -                       |
-| `MAX_TRACKERS`       | Number of trackers to fetch and/or use                              | `10`                    |
+| Key                   | Description                                                         | Default                 |
+|-----------------------|---------------------------------------------------------------------|-------------------------|
+| `HOST`                | Hostname to run `rutorrent`                                         | `127.0.0.1`             |
+| `PORT`                | Port to run `rutorrent`                                             | `3000`                  |
+| `USERNAME`            | Username to host/authenticate the UI                                | -                       |
+| `PASSWORD`            | Password to host/authenticate the UI                                | -                       |
+| `APIKEY`              | A random string to authenticate requests through the API interface  | MANDATORY               |
+| `WORKERS`             | Number of Actix workers to run the API                              | `1`                     |
+| `QBIT_URL`            | Base URL for qbittorrent API                                        | `http://localhost:8080` |
+| `QBIT_USERNAME`       | Username for qbittorrent API                                        | —                       |
+| `QBIT_PASSWORD`       | Password for qbittorrent API                                        | —                       |
+| `QBIT_TIMEOUT`        | Timeout for qbittorrent API                                         | `3`                     |
+| `UTC_LOGGER`          | Boolean flag to set UTC timestamps in logs                          | `true`                  |
+| `LOG`                 | Enum value to log to a `file` or `stdout`                           | `stdout`                |
+| `LOG_LEVEL`           | Log level to set across `actix-web`, `actix-server` and `rurorrent` | `info`                  |
+| `NTFY_URL`            | Ntfy server URL for notifications                                   | —                       |
+| `NTFY_TOPIC`          | Subscribed ntfy topic for notifications                             | —                       |
+| `NTFY_USERNAME`       | Username to authenticate ntfy notifications                         | —                       |
+| `NTFY_PASSWORD`       | Password to authenticate ntfy notifications                         | —                       |
+| `NTFY_TIMEOUT`        | Timeout for the Ntfy request                                        | `3`                     |
+| `TELEGRAM_CHAT_ID`    | Chat ID where Telegram notifications have to be sent                | —                       |
+| `TELEGRAM_BOT_TOKEN`  | Telegram bot token                                                  | —                       |
+| `TELEGRAM_TIMEOUT`    | Timeout for the Telegram request                                    | `3`                     |
+| `TOR_URL`             | URL to connect to `tor` network. Allows `socks5` and `socks5h`      | -                       |
+| `TOR_TIMEOUT`         | Maximum timeout through Tor network, in seconds                     | `10`                    |
+| `TRACKERS_FILE`       | Filepath to custom trackers list with each tracker in a new line    | -                       |
+| `MAX_TRACKERS`        | Number of trackers to fetch and/or use                              | `10`                    |
+| `MULLVAD_RELAY_CACHE` | Directory path for the mullvad relay cache                          | [$MULLVAD_CACHE_DIR]    |
 
 #### Environment variables that can be overridden with API calls
 
@@ -261,3 +262,4 @@ Licensed under the [MIT License][license]
 [gh-logo]: https://github.com/thevickypedia/RuTorrent/actions/workflows/rust.yml/badge.svg
 [build]: https://github.com/thevickypedia/RuTorrent/actions/workflows/rust.yml
 [license]: https://github.com/thevickypedia/RuTorrent/blob/main/LICENSE
+[$MULLVAD_CACHE_DIR]: https://github.com/mullvad/mullvadvpn-app#cache
