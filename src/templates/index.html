@@ -45,6 +45,12 @@
             --display: 'Syne', sans-serif;
         }
 
+        /* One rule for every element toggled via the `hidden` attribute,
+           regardless of any display value set by its class. */
+        [hidden] {
+            display: none !important;
+        }
+
         html, body {
             height: 100%;
             background: var(--bg);
@@ -71,7 +77,7 @@
             display: flex;
         }
 
-        /* Dashboard and Explore share one authenticated app shell and footer. */
+        /* Dashboard and Explore share one authenticated shell: header, view, footer. */
         #appShell {
             display: none;
             flex-direction: column;
@@ -86,6 +92,7 @@
         #exploreView {
             flex: 1;
             min-height: 0;
+            flex-direction: column;
         }
 
         /* ══════════════════════════════
@@ -163,10 +170,6 @@
             margin-bottom: 1.25rem;
         }
 
-        .field.inline {
-            margin-bottom: 0;
-        }
-
         label {
             display: block;
             font-size: 1em;
@@ -176,9 +179,11 @@
             margin-bottom: 0.4rem;
         }
 
-        input[type="text"],
-        input[type="password"],
-        input[type="number"] {
+        .required {
+            color: var(--error);
+        }
+
+        :is(input[type="text"], input[type="password"], input[type="number"]) {
             width: 100%;
             background: var(--bg);
             border: 1px solid var(--border);
@@ -191,10 +196,14 @@
             -webkit-appearance: none;
         }
 
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        input[type="number"]:focus {
+        :is(input[type="text"], input[type="password"], input[type="number"]):focus {
             border-color: var(--accent);
+        }
+
+        input[readonly] {
+            opacity: 0.5;
+            cursor: default;
+            border-color: var(--border) !important;
         }
 
         input::placeholder {
@@ -215,12 +224,8 @@
         }
 
         /* ══════════════════════════════
-           DASHBOARD VIEW
+           APP HEADER (shared by Dashboard + Explore)
         ══════════════════════════════ */
-        #dashView {
-            flex-direction: column;
-        }
-
         header {
             display: flex;
             align-items: center;
@@ -236,6 +241,7 @@
             font-weight: 800;
             color: var(--accent);
             letter-spacing: -0.02em;
+            cursor: pointer;
         }
 
         .header-connection-tools {
@@ -282,10 +288,6 @@
             opacity: 1;
         }
 
-        .vpn-globe[hidden] {
-            display: none !important;
-        }
-
         .vpn-open-btn {
             flex-shrink: 0;
             white-space: nowrap;
@@ -297,14 +299,15 @@
             align-items: center;
         }
 
+        /* ══════════════════════════════
+           DASHBOARD VIEW
+        ══════════════════════════════ */
         main {
             padding: 2rem;
             flex: 1;
             overflow-y: auto;
         }
 
-        /* ── Toolbar: 3-column grid.
-           First definition wins — the old flex version has been removed. ── */
         .toolbar {
             display: grid;
             grid-template-columns: minmax(150px, 1fr) minmax(260px, 1.5fr) minmax(150px, 1fr);
@@ -373,6 +376,15 @@
 
         .torrent-table td:first-child {
             text-align: center;
+        }
+
+        .cell-muted {
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+
+        .nowrap {
+            white-space: nowrap;
         }
 
         input[type="checkbox"].torrent-check {
@@ -466,7 +478,8 @@
             background: rgba(71, 255, 179, 0.07);
         }
 
-        .badge-failed {
+        .badge-failed,
+        .badge-copy-error {
             color: var(--error);
             border-color: rgba(255, 79, 79, 0.3);
             background: rgba(255, 79, 79, 0.07);
@@ -478,13 +491,14 @@
             background: rgba(192, 132, 252, 0.07);
         }
 
-        .badge-copy-error {
-            color: var(--error);
-            border-color: rgba(255, 79, 79, 0.3);
-            background: rgba(255, 79, 79, 0.07);
+        /* Also used for "Paused" */
+        .badge-off {
+            color: var(--muted);
+            border-color: rgba(107, 107, 120, 0.4);
+            background: rgba(107, 107, 120, 0.07);
         }
 
-        /* ── Icon buttons (retry / pause / info) ── */
+        /* ── Round icon buttons (retry / transfer / pause / info) ── */
         .retry-icon {
             font-size: 12px;
             line-height: 12px;
@@ -492,15 +506,18 @@
         }
 
         .retry-btn {
+            --tone: var(--error);
+            --tone-border: rgba(255, 79, 79, 0.4);
+            --tone-bg: rgba(255, 79, 79, 0.12);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 79, 79, 0.4);
+            border: 1px solid var(--tone-border);
             background: transparent;
-            color: var(--error);
+            color: var(--tone);
             cursor: pointer;
             margin-left: 0.5rem;
             transition: background 0.15s, border-color 0.15s, transform 0.2s;
@@ -509,11 +526,34 @@
         }
 
         .retry-btn:hover {
-            background: rgba(255, 79, 79, 0.12);
-            border-color: var(--error);
+            background: var(--tone-bg);
+            border-color: var(--tone);
         }
 
-        .retry-btn.spinning svg {
+        .retry-btn.purple {
+            --tone: #c084fc;
+            --tone-border: rgba(192, 132, 252, 0.4);
+            --tone-bg: rgba(192, 132, 252, 0.12);
+        }
+
+        .retry-btn.warn {
+            --tone: var(--warn);
+            --tone-border: rgba(255, 179, 71, 0.4);
+            --tone-bg: rgba(255, 179, 71, 0.12);
+        }
+
+        .retry-btn.info {
+            --tone: #7eb8ff;
+            --tone-border: rgba(126, 184, 255, 0.4);
+            --tone-bg: rgba(126, 184, 255, 0.12);
+        }
+
+        .retry-btn.info .retry-icon {
+            font-style: italic;
+            font-weight: 700;
+        }
+
+        .retry-btn.spinning .retry-icon {
             animation: spin 0.8s linear infinite;
         }
 
@@ -576,8 +616,6 @@
             animation: pulse 2s infinite;
         }
 
-        /* refresh-controls lives in the grid's third column; justify-self
-           pushes it to the right edge inside that cell. */
         .refresh-controls {
             display: flex;
             align-items: center;
@@ -721,85 +759,11 @@
             gap: 0.75rem;
         }
 
-        /* Unlabeled, non-persistent mode switch: on = connect, off = disconnect. */
-        .vpn-mode-toggle {
-            appearance: none;
-            width: 32px;
-            height: 18px;
-            padding: 0;
-            border: 0;
-            border-radius: 9px;
-            background: var(--border);
-            cursor: pointer;
-            position: relative;
-            flex-shrink: 0;
-            transition: background 0.2s;
-        }
-
-        .vpn-mode-toggle::after {
-            content: '';
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--muted);
-            transition: transform 0.2s, background 0.2s;
-        }
-
-        .vpn-mode-toggle[aria-checked="true"] {
-            background: rgba(232, 255, 71, 0.2);
-        }
-
-        .vpn-mode-toggle[aria-checked="true"]::after {
-            transform: translateX(14px);
-            background: var(--accent);
-        }
-
-        .vpn-mode-toggle[aria-checked="false"] {
-            background: rgba(255, 79, 79, 0.16);
-        }
-
-        .vpn-mode-toggle[aria-checked="false"]::after {
-            background: var(--error);
-        }
-
-        .vpn-mode-toggle:focus-visible {
-            outline: 1px solid var(--accent);
-            outline-offset: 3px;
-        }
-
-        .vpn-mode-toggle:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
-
-        .vpn-mode-toggle[hidden] {
-            display: none !important;
-        }
-
         .modal-header-controls .vpn-features-btn {
             width: auto;
             min-height: 0;
             padding: 0.3rem 0.7rem;
             font-size: 0.65rem;
-        }
-
-        .vpn-feature-row .toggle-label {
-            flex: 1;
-        }
-
-        .vpn-feature-row .badge {
-            margin-left: auto;
-            min-width: 2.6rem;
-            text-align: center;
-        }
-
-        .badge-off {
-            color: var(--muted);
-            border-color: rgba(107, 107, 120, 0.4);
-            background: rgba(107, 107, 120, 0.07);
         }
 
         .modal-title {
@@ -858,19 +822,24 @@
             padding: 0.55rem 0;
         }
 
-        .toggle {
+        /* Shared switch base: .toggle (checkbox) and .vpn-mode-toggle (button) */
+        .toggle,
+        .vpn-mode-toggle {
             appearance: none;
             width: 32px;
             height: 18px;
+            padding: 0;
+            border: 0;
             background: var(--border);
             border-radius: 9px;
             cursor: pointer;
             position: relative;
-            transition: background 0.2s;
             flex-shrink: 0;
+            transition: background 0.2s;
         }
 
-        .toggle::after {
+        .toggle::after,
+        .vpn-mode-toggle::after {
             content: '';
             position: absolute;
             top: 3px;
@@ -882,13 +851,34 @@
             transition: transform 0.2s, background 0.2s;
         }
 
-        .toggle:checked {
+        .toggle:checked,
+        .vpn-mode-toggle[aria-checked="true"] {
             background: rgba(232, 255, 71, 0.2);
         }
 
-        .toggle:checked::after {
+        .toggle:checked::after,
+        .vpn-mode-toggle[aria-checked="true"]::after {
             transform: translateX(14px);
             background: var(--accent);
+        }
+
+        /* VPN mode switch: on = connect, off = disconnect (red). */
+        .vpn-mode-toggle[aria-checked="false"] {
+            background: rgba(255, 79, 79, 0.16);
+        }
+
+        .vpn-mode-toggle[aria-checked="false"]::after {
+            background: var(--error);
+        }
+
+        .vpn-mode-toggle:focus-visible {
+            outline: 1px solid var(--accent);
+            outline-offset: 3px;
+        }
+
+        .vpn-mode-toggle:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         .toggle-label {
@@ -969,10 +959,15 @@
             border-top: 1px solid var(--border);
         }
 
-        #vpnFormContent[hidden],
-        #vpnFormFields[hidden],
-        #vpnResultContent[hidden] {
-            display: none !important;
+        /* ── VPN modal ── */
+        .vpn-feature-row .toggle-label {
+            flex: 1;
+        }
+
+        .vpn-feature-row .badge {
+            margin-left: auto;
+            min-width: 2.6rem;
+            text-align: center;
         }
 
         .vpn-result-message {
@@ -981,20 +976,18 @@
             margin-bottom: 1.25rem;
         }
 
-        #vpnFormContent[hidden],
-        #vpnFormFields[hidden],
-        #vpnDisconnectFields[hidden],
-        #vpnLockdownWarning[hidden],
-        #vpnResultGrid[hidden],
-        #vpnResultContent[hidden] {
-            display: none !important;
+        .vpn-result-message.disconnected {
+            color: var(--error);
         }
 
-        .vpn-alert {
-            color: var(--error);
-            background: rgba(255, 79, 79, 0.07);
-            border: 1px solid rgba(255, 79, 79, 0.3);
-            border-left: 3px solid var(--error);
+        .vpn-alert,
+        .vpn-warning {
+            --tone: var(--error);
+            --tone-rgb: 255, 79, 79;
+            color: var(--tone);
+            background: rgba(var(--tone-rgb), 0.07);
+            border: 1px solid rgba(var(--tone-rgb), 0.3);
+            border-left: 3px solid var(--tone);
             padding: 0.7rem 0.85rem;
             margin-bottom: 1rem;
             font-size: 0.72rem;
@@ -1002,18 +995,8 @@
         }
 
         .vpn-warning {
-            color: var(--warn);
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            border-left: 3px solid var(--warn);
-            padding: 0.7rem 0.85rem;
-            margin-bottom: 1rem;
-            font-size: 0.72rem;
-            line-height: 1.6;
-        }
-
-        .vpn-result-message.disconnected {
-            color: var(--error);
+            --tone: var(--warn);
+            --tone-rgb: 255, 193, 7;
         }
 
         .vpn-result-grid {
@@ -1034,6 +1017,27 @@
         .vpn-result-grid dd {
             color: var(--text);
             overflow-wrap: anywhere;
+        }
+
+        /* ── Info modal rows ── */
+        .info-row {
+            display: flex;
+            gap: 1rem;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-row-label {
+            min-width: 140px;
+            color: var(--muted);
+            font-size: 0.62rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding-top: 2px;
+        }
+
+        .info-row-value {
+            word-break: break-all;
         }
 
         /* ══════════════════════════════
@@ -1084,6 +1088,42 @@
         }
 
         /* ══════════════════════════════
+           SHARED: Busy overlay (z-index above the body::before scan-lines)
+        ══════════════════════════════ */
+        .busy-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(10, 10, 11, 0.68);
+            backdrop-filter: blur(2px);
+        }
+
+        .busy-overlay.visible {
+            display: flex;
+        }
+
+        .busy-spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid var(--border-hi);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .busy-label {
+            color: var(--muted);
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        /* ══════════════════════════════
            SEARCH BAR
         ══════════════════════════════ */
         .search-wrap {
@@ -1109,17 +1149,13 @@
             background: rgba(255, 255, 255, 0.025);
         }
 
-        /* Invalid state — consolidated so no rule overrides another */
         .search-bar.invalid,
         .search-bar.invalid:focus-within {
             border-color: var(--error);
             box-shadow: 0 0 0 1px rgba(255, 79, 79, 0.12);
         }
 
-        .search-bar.invalid input {
-            color: var(--error);
-        }
-
+        .search-bar.invalid input,
         .search-bar.invalid .search-icon {
             color: var(--error);
         }
@@ -1183,16 +1219,11 @@
             display: block;
         }
 
-        /* Inline validation message */
         .search-validation {
             margin-top: 0.4rem;
             color: var(--error);
             font-size: 0.65rem;
             line-height: 1.5;
-        }
-
-        .search-validation[hidden] {
-            display: none;
         }
 
         /* Autocomplete dropdown */
@@ -1207,10 +1238,6 @@
             border: 1px solid var(--border-hi);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
             z-index: 50;
-        }
-
-        .search-suggestions[hidden] {
-            display: none;
         }
 
         .search-suggestion {
@@ -1262,44 +1289,7 @@
             color: var(--text);
         }
 
-        /* Full-screen search progress overlay — single z-index: 1100
-           so it sits above the body::before scan-line layer (z-index 999). */
-        .search-loading {
-            position: fixed;
-            inset: 0;
-            z-index: 1100;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 1rem;
-            background: rgba(10, 10, 11, 0.68);
-            backdrop-filter: blur(2px);
-        }
-
-        .search-loading.visible {
-            display: flex;
-        }
-
-        .search-spinner {
-            width: 38px;
-            height: 38px;
-            border: 3px solid var(--border-hi);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        .search-loading-label {
-            color: var(--muted);
-            font-size: 0.7rem;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        /* ══════════════════════════════
-           SEARCH INFO MODAL — structured layout
-        ══════════════════════════════ */
+        /* ── Search syntax modal ── */
         .search-info-body {
             font-size: 0.76rem;
             line-height: 1.7;
@@ -1333,13 +1323,15 @@
             border-bottom: 0;
         }
 
-        .search-info-table code {
-            color: var(--accent);
-            font-family: var(--mono);
-        }
-
         .search-info-table td:last-child {
             color: var(--muted);
+        }
+
+        .search-info-table code,
+        .search-info-examples code {
+            color: var(--accent);
+            font-family: var(--mono);
+            font-size: 0.72rem;
         }
 
         .search-info-divider {
@@ -1354,12 +1346,6 @@
             gap: 0.3rem;
         }
 
-        .search-info-examples code {
-            color: var(--accent);
-            font-family: var(--mono);
-            font-size: 0.72rem;
-        }
-
         .search-info-examples .example-note {
             color: var(--muted);
             font-size: 0.65rem;
@@ -1368,10 +1354,6 @@
         /* ══════════════════════════════
            EXPLORE VIEW
         ══════════════════════════════ */
-        #exploreView {
-            flex-direction: column;
-        }
-
         .explore-hero {
             flex: 1;
             display: flex;
@@ -1423,18 +1405,11 @@
         .explore-search-bar input[type="text"] {
             flex: 1;
             min-width: 0;
+            width: auto;
             padding: 0.35rem 0;
             border: 0;
             background: transparent;
-            font-family: var(--mono);
             font-size: 0.82rem;
-            color: var(--text);
-            outline: none;
-        }
-
-        .explore-search-bar input::placeholder {
-            color: var(--muted);
-            opacity: 0.5;
         }
 
         .explore-search-btn {
@@ -1470,21 +1445,6 @@
             font-size: 0.68rem;
             color: var(--muted);
             letter-spacing: 0.07em;
-        }
-
-        .explore-control-group select {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 0.25rem 0.5rem;
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .explore-control-group select:focus {
-            border-color: var(--accent);
         }
 
         /* ── Category expando ── */
@@ -1664,19 +1624,9 @@
         }
 
         .explore-filter-bar input[type="text"] {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-family: var(--mono);
+            width: 180px;
             font-size: 0.7rem;
             padding: 0.3rem 0.6rem;
-            outline: none;
-            width: 180px;
-            transition: border-color 0.15s;
-        }
-
-        .explore-filter-bar input[type="text"]:focus {
-            border-color: var(--accent);
         }
 
         .explore-filter-label {
@@ -1706,12 +1656,10 @@
             border-color: var(--accent);
         }
 
-        .explore-empty {
-            padding: 4rem;
-            text-align: center;
-            color: var(--muted);
-            font-size: 0.75rem;
-            letter-spacing: 0.1em;
+        .magnet-btn.download {
+            margin-left: 0.3rem;
+            border-color: rgba(71, 255, 179, 0.25);
+            color: var(--ok);
         }
 
         /* ══════════════════════════════
@@ -1752,12 +1700,6 @@
                 overflow-wrap: anywhere;
             }
 
-            .vpn-open-btn {
-                width: auto;
-                min-height: 40px;
-                padding: 0.55rem 0.85rem;
-            }
-
             .header-actions {
                 width: 100%;
                 display: grid;
@@ -1778,14 +1720,13 @@
             .vpn-open-btn {
                 width: auto;
                 min-height: 40px;
+                padding: 0.55rem 0.85rem;
             }
 
             main {
                 padding: 1rem;
             }
 
-            /* Consolidated mobile toolbar — single rule replaces the two
-               that were previously split across two @media blocks. */
             .toolbar {
                 display: flex;
                 flex-direction: column;
@@ -1793,17 +1734,17 @@
                 gap: 0.85rem;
             }
 
+            .search-wrap,
             .search-bar {
                 width: 100%;
+            }
+
+            .search-bar {
                 height: 44px;
             }
 
             .search-bar input[type="text"] {
                 font-size: 16px;
-            }
-
-            .search-wrap {
-                width: 100%;
             }
 
             .search-suggestions {
@@ -1833,14 +1774,6 @@
             .torrent-table th {
                 padding: 0.75rem 0.5rem;
                 font-size: 0.62rem;
-            }
-
-            .sortable {
-                cursor: pointer;
-            }
-
-            .sortable.active {
-                color: var(--accent);
             }
 
             .sort-indicator {
@@ -1933,9 +1866,7 @@
                 grid-template-columns: 1fr;
             }
 
-            input[type="text"],
-            input[type="password"],
-            input[type="number"] {
+            :is(input[type="text"], input[type="password"], input[type="number"]) {
                 min-height: 46px;
                 font-size: 16px;
             }
@@ -2000,29 +1931,34 @@
 
 <div id="appShell">
     <!-- ══════════════════════════════
+         SHARED HEADER (actions swap per view)
+    ══════════════════════════════ -->
+    <header>
+        <div class="header-logo" id="headerLogo">RuTorrent</div>
+        <div class="header-connection-tools">
+            <div aria-live="polite" class="vpn-connection-status" role="status">
+                <span aria-hidden="true" class="vpn-globe" hidden>🌐</span>
+                <span aria-hidden="true" class="refresh-dot vpn-status-pulse" hidden></span>
+                <span class="vpn-connection-text">NOT CONNECTED</span>
+            </div>
+            <button class="btn btn-ghost vpn-open-btn" id="vpnOpenBtn" type="button">VPN</button>
+        </div>
+        <div class="header-actions" id="dashActions">
+            <button class="btn btn-ghost" id="exploreBtn">Explore</button>
+            <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
+            <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
+            <button class="btn btn-ghost logout-btn">Logout</button>
+        </div>
+        <div class="header-actions" hidden id="exploreActions">
+            <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
+            <button class="btn btn-ghost logout-btn">Logout</button>
+        </div>
+    </header>
+
+    <!-- ══════════════════════════════
          DASHBOARD VIEW
     ══════════════════════════════ -->
     <div class="view" id="dashView">
-        <header>
-            <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-                RuTorrent
-            </div>
-            <div class="header-connection-tools">
-                <div aria-live="polite" class="vpn-connection-status" role="status">
-                    <span aria-hidden="true" class="vpn-globe" hidden>🌐</span>
-                    <span aria-hidden="true" class="refresh-dot vpn-status-pulse" hidden></span>
-                    <span class="vpn-connection-text">NOT CONNECTED</span>
-                </div>
-                <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-ghost" id="exploreBtn">Explore</button>
-                <button class="btn btn-danger" disabled id="deleteBtn">Delete Selected</button>
-                <button class="btn btn-primary" id="addBtn">+ Add Torrent</button>
-                <button class="btn btn-ghost" id="logoutBtn">Logout</button>
-            </div>
-        </header>
-
         <main>
             <div class="toolbar">
                 <div class="section-title">
@@ -2059,6 +1995,7 @@
                         >×
                         </button>
                     </form>
+                    <div class="search-validation" hidden id="searchValidation" role="status"></div>
                     <div
                             aria-label="Search filter suggestions"
                             class="search-suggestions"
@@ -2087,53 +2024,24 @@
                     <th style="width:44px;">
                         <input id="selectAll" type="checkbox">
                     </th>
-                    <th class="sortable" id="sortName">
-                        Name
-                        <span class="sort-indicator"></span>
-                    </th>
-                    <th class="sortable" id="sortStatus">
-                        Status
-                        <span class="sort-indicator"></span>
-                    </th>
-                    <th class="sortable" id="sortAdded">
-                        Added
-                        <span class="sort-indicator"></span>
-                    </th>
+                    <th class="sortable" data-sort="name">Name<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="status">Status<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="added">Added<span class="sort-indicator"></span></th>
                 </tr>
                 </thead>
                 <tbody id="torrentBody">
                 <tr>
-                    <!-- colspan=4 matches the four columns: checkbox, Name, Status, Added -->
                     <td class="empty-state" colspan="4">Loading…</td>
                 </tr>
                 </tbody>
             </table>
         </main>
-
     </div>
 
     <!-- ══════════════════════════════
          EXPLORE VIEW
     ══════════════════════════════ -->
     <div class="view" id="exploreView">
-        <header>
-            <div class="header-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-                RuTorrent
-            </div>
-            <div class="header-connection-tools">
-                <div aria-live="polite" class="vpn-connection-status" role="status">
-                    <span aria-hidden="true" class="vpn-globe" hidden>🌐</span>
-                    <span aria-hidden="true" class="refresh-dot vpn-status-pulse" hidden></span>
-                    <span class="vpn-connection-text">NOT CONNECTED</span>
-                </div>
-                <button class="btn btn-ghost vpn-open-btn" type="button">VPN</button>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-ghost" id="exploreHomeBtn">← Home</button>
-                <button class="btn btn-ghost" id="exploreLogoutBtn">Logout</button>
-            </div>
-        </header>
-
         <div class="explore-hero" id="exploreHero">
             <div class="explore-search-wrap">
                 <div class="explore-search-bar">
@@ -2177,21 +2085,19 @@
             <table class="torrent-table" id="exploreTable">
                 <thead>
                 <tr>
-                    <th class="sortable" id="expSortCategory">Category<span class="sort-indicator"></span></th>
-                    <th class="sortable" id="expSortName">Name<span class="sort-indicator"></span></th>
-                    <th class="sortable" id="expSortDate">Uploaded<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="category">Category<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="title">Name<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="date_uploaded">Uploaded<span class="sort-indicator"></span></th>
                     <th>Link</th>
-                    <th class="sortable" id="expSortSize">Size<span class="sort-indicator"></span></th>
-                    <th class="sortable" id="expSortSeeders">SE<span class="sort-indicator"></span></th>
-                    <th class="sortable" id="expSortLeechers">LE<span class="sort-indicator"></span></th>
-                    <th class="sortable" id="expSortUploader">ULed by<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="size_bytes">Size<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="seeders">SE<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="leechers">LE<span class="sort-indicator"></span></th>
+                    <th class="sortable" data-sort="uploader">ULed by<span class="sort-indicator"></span></th>
                 </tr>
                 </thead>
-                <tbody id="exploreBody">
-                </tbody>
+                <tbody id="exploreBody"></tbody>
             </table>
         </div>
-
     </div>
 
     <div class="status-bar" id="appStatusBar">
@@ -2218,7 +2124,7 @@
                 </button>
                 <button aria-checked="true" aria-label="VPN mode: Connect" class="vpn-mode-toggle" id="vpnModeToggle"
                         role="switch" title="Switch to disconnect mode" type="button"></button>
-                <button aria-label="Close VPN dialog" class="modal-close" id="closeVpnModal" type="button">✕</button>
+                <button aria-label="Close VPN dialog" class="modal-close" data-close-modal type="button">✕</button>
             </div>
         </div>
 
@@ -2264,14 +2170,14 @@
             </div>
             <div class="error-msg" id="vpnError" role="alert"></div>
             <div class="modal-footer">
-                <button class="btn btn-ghost" id="cancelVpnModal" type="button">Cancel</button>
+                <button class="btn btn-ghost" data-close-modal type="button">Cancel</button>
                 <button class="btn btn-primary" id="submitVpn" type="button">Connect</button>
             </div>
         </div>
 
         <div hidden id="vpnFeaturesContent">
             <div id="vpnFeaturesList"></div>
-            <div class="vpn-warning" id="vpnFeatureToggleWarning" role="dialog">
+            <div class="vpn-warning" role="dialog">
                 ⚠️ Toggling VPN features can trigger a reconnection.
             </div>
             <div class="modal-footer">
@@ -2290,162 +2196,85 @@
                 <dd id="vpnResultCountry">—</dd>
             </dl>
             <div class="modal-footer">
-                <button class="btn btn-primary" id="doneVpnModal" type="button">Done</button>
+                <button class="btn btn-primary" data-close-modal type="button">Done</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════
-     ADD TORRENT MODAL
+     TRANSFER MODAL
+     One form for: Add Torrent, Download Torrent (from Explore) and Retry.
+     Title, fields and submit behaviour are driven by openTransfer(mode).
 ══════════════════════════════ -->
-<div class="modal-backdrop" id="addModal">
+<div class="modal-backdrop" id="transferModal">
     <div class="modal">
         <div class="modal-header">
-            <div class="modal-title">Add Torrent</div>
-            <button class="modal-close" id="closeModal">✕</button>
+            <div class="modal-title" id="tf-title"></div>
+            <button class="modal-close" data-close-modal>✕</button>
         </div>
 
         <div class="form-grid">
             <div class="field full">
-                <label for="f-url">Magnet URL <span style="color:var(--error)">*</span></label>
-                <input id="f-url" placeholder="magnet:?xt=urn:btih:…" type="text">
+                <label for="tf-source">
+                    <span id="tf-source-label">Magnet URL</span>
+                    <span class="required" id="tf-required">*</span>
+                </label>
+                <input id="tf-source" type="text">
             </div>
-            <div class="field full">
-                <label for="f-save">Local Save Path</label>
-                <input id="f-save" placeholder="Leave blank for default" type="text">
+
+            <!-- Retry only -->
+            <div class="field full" hidden id="tf-mode-field">
+                <label>Mode</label>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input checked id="tf-mode-transfer" name="retryMode" type="radio" value="transfer">
+                        <span>Re-transfer</span>
+                    </label>
+                    <label class="radio-option danger">
+                        <input id="tf-mode-redownload" name="retryMode" type="radio" value="redownload">
+                        <span>Re-download</span>
+                    </label>
+                </div>
+                <div class="field-hint" id="tf-mode-hint"></div>
+            </div>
+
+            <!-- Add + Explore -->
+            <div class="field full" id="tf-save-field">
+                <label for="tf-save">Local Save Path</label>
+                <input id="tf-save" placeholder="Leave blank for default" type="text">
                 <div class="field-hint">Overrides the default qBittorrent save path</div>
             </div>
 
             <div class="section-divider">Remote Transfer (optional)</div>
 
             <div class="field">
-                <label for="f-host">Remote Host</label>
-                <input id="f-host" placeholder="192.168.1.100" type="text">
+                <label for="tf-host">Remote Host</label>
+                <input id="tf-host" placeholder="192.168.1.100" type="text">
             </div>
             <div class="field">
-                <label for="f-user">Remote Username</label>
-                <input id="f-user" placeholder="admin" type="text">
+                <label for="tf-user">Remote Username</label>
+                <input id="tf-user" placeholder="admin" type="text">
             </div>
             <div class="field full">
-                <label for="f-path">Remote Path</label>
-                <input id="f-path" placeholder="/home/admin/Movies" type="text">
+                <label for="tf-path">Remote Path</label>
+                <input id="tf-path" placeholder="/home/admin/Movies" type="text">
+            </div>
+            <div class="field full">
+                <label for="tf-timeout">Connection Timeout</label>
+                <input id="tf-timeout" max="30" min="1" placeholder="3" type="number">
             </div>
             <div class="field full">
                 <div class="toggle-field">
-                    <input class="toggle" id="f-delete" type="checkbox">
-                    <label class="toggle-label" for="f-delete">Delete local files after transfer</label>
+                    <input class="toggle" id="tf-delete" type="checkbox">
+                    <label class="toggle-label" for="tf-delete">Delete local files after transfer</label>
                 </div>
             </div>
         </div>
 
         <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelModal">Cancel</button>
-            <button class="btn btn-primary" id="submitAdd">Queue Torrent →</button>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════
-     RETRY MODAL
-══════════════════════════════ -->
-<div class="modal-backdrop" id="retryModal">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title" id="retry-modal-title"></div>
-            <button class="modal-close" id="closeRetryModal">&#x2715;</button>
-        </div>
-        <div class="form-grid">
-            <div class="field full">
-                <label for="r-name">Torrent</label>
-                <input id="r-name" readonly style="opacity:0.5; cursor:default; border-color:var(--border);"
-                       type="text">
-            </div>
-            <div class="field full">
-                <label>Mode</label>
-                <div class="radio-group">
-                    <label class="radio-option">
-                        <input checked id="r-mode-transfer" name="retryMode" type="radio" value="transfer">
-                        <span>Re-transfer</span>
-                    </label>
-                    <label class="radio-option danger">
-                        <input id="r-mode-redownload" name="retryMode" type="radio" value="redownload">
-                        <span>Re-download</span>
-                    </label>
-                </div>
-                <div class="field-hint" id="r-mode-hint"></div>
-            </div>
-            <div class="field">
-                <label for="r-host">Remote Host</label>
-                <input id="r-host" placeholder="192.168.1.100" type="text">
-            </div>
-            <div class="field">
-                <label for="r-user">Remote Username</label>
-                <input id="r-user" placeholder="admin" type="text">
-            </div>
-            <div class="field full">
-                <label for="r-path">Remote Path</label>
-                <input id="r-path" placeholder="/home/admin/Movies" type="text">
-            </div>
-            <div class="field full">
-                <label for="r-timeout">Connection Timeout</label>
-                <input id="r-timeout" max="30" min="1" placeholder="3" type="number">
-            </div>
-            <div class="field full">
-                <div class="toggle-field">
-                    <input class="toggle" id="r-delete" type="checkbox">
-                    <label class="toggle-label" for="r-delete">Delete local files after transfer</label>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelRetryModal">Cancel</button>
-            <button class="btn btn-primary" id="submitRetry">Retry &#x2192;</button>
-        </div>
-    </div>
-</div>
-
-<!-- ══════════════════════════════
-     EXPLORE DOWNLOAD MODAL
-══════════════════════════════ -->
-<div class="modal-backdrop" id="exploreDownloadModal">
-    <div class="modal">
-        <div class="modal-header">
-            <div class="modal-title">Download Torrent</div>
-            <button class="modal-close" id="closeExploreDownloadModal">&#x2715;</button>
-        </div>
-        <div class="form-grid">
-            <div class="field full">
-                <label for="ed-url">Magnet URL</label>
-                <input id="ed-url" readonly style="opacity:0.5; cursor:default; border-color:var(--border);"
-                       type="text">
-            </div>
-            <div class="field">
-                <label for="ed-host">Remote Host</label>
-                <input id="ed-host" placeholder="192.168.1.100" type="text">
-            </div>
-            <div class="field">
-                <label for="ed-user">Remote Username</label>
-                <input id="ed-user" placeholder="admin" type="text">
-            </div>
-            <div class="field full">
-                <label for="ed-path">Remote Path</label>
-                <input id="ed-path" placeholder="/home/admin/Movies" type="text">
-            </div>
-            <div class="field full">
-                <label for="ed-timeout">Connection Timeout</label>
-                <input id="ed-timeout" max="30" min="1" placeholder="3" type="number">
-            </div>
-            <div class="field full">
-                <div class="toggle-field">
-                    <input class="toggle" id="ed-delete" type="checkbox">
-                    <label class="toggle-label" for="ed-delete">Delete local files after transfer</label>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelExploreDownloadModal">Cancel</button>
-            <button class="btn btn-primary" id="submitExploreDownload">Download &#x2192;</button>
+            <button class="btn btn-ghost" data-close-modal>Cancel</button>
+            <button class="btn btn-primary" id="tf-submit"></button>
         </div>
     </div>
 </div>
@@ -2457,11 +2286,11 @@
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="info-modal-title"></div>
-            <button class="modal-close" id="closeInfoModal">&#x2715;</button>
+            <button class="modal-close" data-close-modal>&#x2715;</button>
         </div>
         <div id="info-modal-body" style="font-size:0.78rem; line-height:1.8; color:var(--text);"></div>
         <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelInfoModal">Close</button>
+            <button class="btn btn-ghost" data-close-modal>Close</button>
         </div>
     </div>
 </div>
@@ -2473,7 +2302,7 @@
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title">Search &amp; Filter</div>
-            <button class="modal-close" id="closeSearchInfoModal">✕</button>
+            <button class="modal-close" data-close-modal>✕</button>
         </div>
 
         <div class="search-info-body">
@@ -2550,7 +2379,7 @@
         </div>
 
         <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelSearchInfoModal">Close</button>
+            <button class="btn btn-ghost" data-close-modal>Close</button>
         </div>
     </div>
 </div>
@@ -2562,7 +2391,7 @@
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="delete-modal-title">Delete Torrent</div>
-            <button class="modal-close" id="closeDeleteModal">&#x2715;</button>
+            <button class="modal-close" data-close-modal>&#x2715;</button>
         </div>
         <div class="form-grid">
             <div class="field full" id="delete-modal-names"></div>
@@ -2575,44 +2404,337 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-ghost" id="cancelDeleteModal">Cancel</button>
+            <button class="btn btn-ghost" data-close-modal>Cancel</button>
             <button class="btn btn-danger" id="submitDelete">Delete &#x2192;</button>
         </div>
     </div>
 </div>
 
-<!-- Search progress overlay -->
-<div aria-hidden="true" aria-live="polite"
-     class="search-loading" id="searchLoading" role="status">
-    <div class="search-spinner"></div>
-    <div class="search-loading-label">Filtering torrents…</div>
+<!-- Busy overlay (search filtering, VPN changes, …) -->
+<div aria-hidden="true" aria-live="polite" class="busy-overlay" id="busyOverlay" role="status">
+    <div class="busy-spinner"></div>
+    <div class="busy-label" id="busyLabel">Filtering torrents…</div>
 </div>
 
 <div class="toast-area" id="toastArea"></div>
 
 <script>
-    // ── State ─────────────────────────────────────────────────
+    // ══════════════════════════════
+    // CORE: helpers, state, API wrapper
+    // ══════════════════════════════
+    const $ = id => document.getElementById(id);
+    const isDashActive = () => $('dashView').classList.contains('active');
+
     let apikey = sessionStorage.getItem('apikey') || '';
     let selectedHashes = new Set();
     let torrentsData = {};
-
-    function updateDeleteButton() {
-        const btn = document.getElementById('deleteBtn');
-        btn.disabled = selectedHashes.size === 0;
-        btn.textContent = btn.disabled ? `Delete Selected` : `Delete Selected (${selectedHashes.size})`;
-    }
-
     let pollTimer = null;
-    let pollPaused = false;
     let refreshInterval = Number(localStorage.getItem('refreshInterval')) || 30000;
     let sessionCountdown = null;
     let sessionExpiresAt = Number(sessionStorage.getItem('sessionExpiresAt')) || 0;
-    let sortKey = sessionStorage.getItem('sortKey') || 'status';
-    let sortDirection = sessionStorage.getItem('sortDirection') || 'asc';
-    const timeout = 3 * 1000;        // 3 s per request
-    const sessionExpiry = 30 * 60 * 1000;  // 30 min session
+    const timeout = 3 * 1000;               // default per-request timeout
+    const sessionExpiry = 30 * 60 * 1000;   // 30 min session
 
-    // ── Search / filter state ──────────────────────────────────
+    // Sort state for the dashboard and the explore table
+    const dashSort = {
+        key: sessionStorage.getItem('sortKey') || 'status',
+        dir: sessionStorage.getItem('sortDirection') || 'asc'
+    };
+    const exploreSort = {key: 'seeders', dir: 'desc'};
+
+    class AuthError extends Error {
+    }
+
+    function authHeaders() {
+        return {'Content-Type': 'application/json', 'apikey': apikey};
+    }
+
+    // Single place for auth headers, timeout, 401 handling and error messages.
+    // Throws AuthError after handleUnauth() on 401; other failures throw Error with a readable message.
+    async function api(path, {method = 'GET', body, timeout: ms = timeout} = {}) {
+        const resp = await fetch(path, {
+            method,
+            headers: authHeaders(),
+            body: body === undefined ? undefined : JSON.stringify(body),
+            signal: AbortSignal.timeout(ms)
+        });
+        if (resp.status === 401) {
+            handleUnauth();
+            throw new AuthError('Unauthorized');
+        }
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(`${resp.statusText || 'Error'} [${resp.status}]${text ? ': ' + text : ''}`);
+        }
+        return resp;
+    }
+
+    // Toast an error unless it was an auth failure (handleUnauth already redirected to login).
+    function reportError(err, fallback) {
+        if (!(err instanceof AuthError)) toast(err.message || fallback, 'error');
+    }
+
+    function esc(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function toast(msg, type = 'info') {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = msg;
+        $('toastArea').appendChild(el);
+        setTimeout(() => el.remove(), 10000);
+    }
+
+    function formatTimestamp(timestamp) {
+        const date = new Date(timestamp * 1000);
+        const parts = new Intl.DateTimeFormat('en-US', {
+            weekday: 'short', month: 'short', day: '2-digit',
+            year: 'numeric', hour: '2-digit', minute: '2-digit',
+            hourCycle: 'h23', timeZoneName: 'short'
+        }).formatToParts(date);
+        const g = type => parts.find(p => p.type === type)?.value ?? '';
+        return `${g('weekday')} ${g('month')} ${g('day')} ${g('year')} ${g('hour')}:${g('minute')} ${g('timeZoneName')}`;
+    }
+
+    const emptyRow = (cols, msg) => `<tr><td class="empty-state" colspan="${cols}">${msg}</td></tr>`;
+
+    function setBusy(visible, message = 'Filtering torrents…') {
+        const overlay = $('busyOverlay');
+        $('busyLabel').textContent = message;
+        overlay.classList.toggle('visible', visible);
+        overlay.setAttribute('aria-hidden', String(!visible));
+    }
+
+    // ── Sorting helpers (shared by dashboard + explore) ───────
+    function nextSort(state, key, defaultDir = 'asc') {
+        if (state.key === key) {
+            state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            state.key = key;
+            state.dir = defaultDir;
+        }
+    }
+
+    function markSortHeaders(scope, state) {
+        document.querySelectorAll(`${scope} .sortable`).forEach(th => {
+            const on = th.dataset.sort === state.key;
+            th.classList.toggle('active', on);
+            th.classList.toggle('asc', on && state.dir === 'asc');
+            th.classList.toggle('desc', on && state.dir === 'desc');
+        });
+    }
+
+    // ══════════════════════════════
+    // MODALS (one open/close path for all of them)
+    // ══════════════════════════════
+    const modalCloseHooks = {};
+
+    function openModal(id) {
+        stopPolling();
+        $(id).classList.add('open');
+    }
+
+    function closeModal(id) {
+        $(id).classList.remove('open');
+        modalCloseHooks[id]?.();
+        resumePollingAfterModal();
+    }
+
+    // Backdrop click and any [data-close-modal] button close their modal.
+    document.querySelectorAll('.modal-backdrop').forEach(modal => {
+        modal.addEventListener('click', e => {
+            if (e.target === modal) closeModal(modal.id);
+        });
+        modal.querySelectorAll('[data-close-modal]').forEach(btn =>
+            btn.addEventListener('click', () => closeModal(modal.id)));
+    });
+
+    // ══════════════════════════════
+    // POLLING + SESSION
+    // ══════════════════════════════
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(fetchTorrents, refreshInterval);
+    }
+
+    // Only the dashboard polls; Explore and the login view never restart it.
+    function resumePollingAfterModal() {
+        if (apikey && isDashActive() && !document.querySelector('.modal-backdrop.open')) startPolling();
+    }
+
+    // Re-fetch shortly after an action, if the dashboard is what the user is looking at.
+    const refreshSoon = () => setTimeout(() => {
+        if (isDashActive()) fetchTorrents();
+    }, 2000);
+
+    function startSessionTimer() {
+        clearInterval(sessionCountdown);
+        sessionCountdown = null;
+        if (!sessionExpiresAt || sessionExpiresAt < Date.now()) {
+            handleUnauth();
+            return;
+        }
+        updateSessionRemaining();
+        sessionCountdown = setInterval(() => {
+            updateSessionRemaining();
+            if (Date.now() >= sessionExpiresAt) handleUnauth();
+        }, 1000);
+    }
+
+    function updateSessionRemaining() {
+        const totalSeconds = Math.floor(Math.max(0, sessionExpiresAt - Date.now()) / 1000);
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+        const seconds = String(totalSeconds % 60).padStart(2, '0');
+        $('sessionRemaining').textContent = `Session: ${minutes}:${seconds}`;
+    }
+
+    function endSession() {
+        stopPolling();
+        clearInterval(sessionCountdown);
+        sessionCountdown = null;
+        apikey = '';
+        sessionStorage.removeItem('apikey');
+        sessionStorage.removeItem('sessionExpiresAt');
+        selectedHashes.clear();
+        updateDeleteButton();
+        showView('loginView');
+    }
+
+    function showLoginError(msg) {
+        const el = $('loginError');
+        el.textContent = msg;
+        el.classList.add('visible');
+    }
+
+    function handleUnauth() {
+        endSession();
+        showLoginError('Session expired. Please log in again.');
+    }
+
+    function logout() {
+        endSession();
+        $('loginError').classList.remove('visible');
+        toast('Logged out', 'success');
+    }
+
+    document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', logout));
+
+    // ══════════════════════════════
+    // VIEWS
+    // ══════════════════════════════
+    function showView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+        const isAppView = id === 'dashView' || id === 'exploreView';
+        $('appShell').classList.toggle('active', isAppView);
+        $('dashActions').hidden = id !== 'dashView';
+        $('exploreActions').hidden = id !== 'exploreView';
+        $('footerTitle').textContent = id === 'exploreView' ? 'RuTorrent · Explore' : 'RuTorrent';
+    }
+
+    $('headerLogo').addEventListener('click', () => {
+        window.location.href = '/';
+    });
+
+    // On load: if we have a valid stored session, go straight to the dashboard
+    if (apikey) {
+        if (sessionExpiresAt > Date.now()) {
+            showView('dashView');
+            startSessionTimer();
+            startDashboard();
+        } else {
+            handleUnauth();
+        }
+    }
+
+    // ── Login ─────────────────────────────────────────────────
+    $('loginBtn').addEventListener('click', async () => {
+        const btn = $('loginBtn');
+        const username = $('username').value.trim();
+        const password = $('password').value;
+
+        btn.disabled = true;
+        btn.textContent = 'Authenticating…';
+        $('loginError').classList.remove('visible');
+
+        try {
+            const resp = await fetch('/authenticator', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Basic ' + btoa(username + ':' + password)
+                },
+                signal: AbortSignal.timeout(timeout)
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                apikey = data.apikey;
+                sessionExpiresAt = Date.now() + sessionExpiry;
+                sessionStorage.setItem('apikey', apikey);
+                sessionStorage.setItem('sessionExpiresAt', `${sessionExpiresAt}`);
+                startSessionTimer();
+                showView('dashView');
+                startDashboard();
+            } else {
+                showLoginError('Authentication failed. Check your credentials.');
+            }
+        } catch {
+            showLoginError('Network error. Is the server running?');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Authenticate →';
+        }
+    });
+
+    ['username', 'password'].forEach(id => {
+        $(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') $('loginBtn').click();
+        });
+    });
+
+    // ── Dashboard bootstrap ───────────────────────────────────
+    function startDashboard() {
+        fetchVersion();
+        fetchVpnStatus();
+        markSortHeaders('#dashView', dashSort);
+        fetchTorrents();
+        startPolling();
+        $('refreshInterval').value = String(refreshInterval);
+    }
+
+    $('refreshInterval').addEventListener('change', e => {
+        refreshInterval = Number(e.target.value);
+        localStorage.setItem('refreshInterval', String(refreshInterval));
+        startPolling();
+        toast('Refresh interval updated', 'success');
+    });
+
+    async function fetchVersion() {
+        try {
+            const data = await (await api('/version')).json();
+            $('versionText').textContent = `v${data.version}`;
+        } catch (err) {
+            console.error(err);
+            reportError(err, 'Failed to fetch version');
+            $('versionText').textContent = 'v?';
+        }
+    }
+
+    // ══════════════════════════════
+    // SEARCH / FILTER (dashboard)
+    // ══════════════════════════════
     let activeSearchQuery = '';
 
     const SEARCH_FIELDS = {
@@ -2647,36 +2769,18 @@
         files_deleted: 'Local files deleted'
     };
 
-    const searchInput = document.getElementById('torrentSearch');
-    const searchForm = document.getElementById('searchForm');
-    const suggestionsBox = document.getElementById('searchSuggestions');
-    const clearSearchBtn = document.getElementById('clearSearchBtn');
-
+    const searchInput = $('torrentSearch');
+    const searchForm = $('searchForm');
+    const suggestionsBox = $('searchSuggestions');
+    const clearSearchBtn = $('clearSearchBtn');
     let activeSuggestionIndex = -1;
 
-    // ── Search — clear button (registered once at module level) ──
-    clearSearchBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        clearSearchBtn.classList.remove('visible');
-        validateSearchWhileTyping();
-        renderSearchSuggestions();
-        applySearch();
-    });
-
-    // ── Search — suggestions ──────────────────────────────────
-    function getCurrentFilterFragment(query) {
+    // ── suggestions ──
+    function getSearchSuggestions(query) {
         const fragment = query.split(',').pop() ?? '';
         const colon = fragment.indexOf(':');
-        return {
-            fragment,
-            keyPart: (colon === -1 ? fragment : fragment.slice(0, colon)).trim().toLowerCase(),
-            hasColon: colon !== -1
-        };
-    }
-
-    function getSearchSuggestions(query) {
-        const {keyPart, hasColon} = getCurrentFilterFragment(query);
-        if (hasColon) return [];
+        if (colon !== -1) return [];
+        const keyPart = fragment.trim().toLowerCase();
 
         const options = [
             {key: '', label: 'Global search', description: 'Search all fields'},
@@ -2686,9 +2790,7 @@
                 description: SEARCH_FIELD_HINTS[key] || key
             }))
         ];
-
-        if (!keyPart) return options;
-        return options.filter(o => o.label.toLowerCase().includes(keyPart));
+        return keyPart ? options.filter(o => o.label.toLowerCase().includes(keyPart)) : options;
     }
 
     function hideSearchSuggestions() {
@@ -2710,24 +2812,13 @@
         suggestions.forEach(option => {
             const item = document.createElement('button');
             item.type = 'button';
-            item.className = 'search-suggestion';
+            item.className = 'search-suggestion' + (option.key === '' ? ' global-option' : '');
             item.setAttribute('role', 'option');
             item.setAttribute('aria-selected', 'false');
-            if (option.key === '') item.classList.add('global-option');
-
-            const key = document.createElement('span');
-            key.className = 'suggestion-key';
-            key.textContent = option.key || option.label;
-
-            const desc = document.createElement('span');
-            desc.className = 'suggestion-description';
-            desc.textContent = option.description;
-
-            item.append(key, desc);
-
+            item.innerHTML = `<span class="suggestion-key">${esc(option.key || option.label)}</span>
+                              <span class="suggestion-description">${esc(option.description)}</span>`;
             item.addEventListener('mousedown', e => e.preventDefault());
             item.addEventListener('click', () => selectSearchSuggestion(option));
-
             suggestionsBox.appendChild(item);
         });
 
@@ -2741,9 +2832,7 @@
         const prefix = commaIndex === -1 ? '' : query.slice(0, commaIndex + 1);
         const separator = prefix && !prefix.endsWith(' ') ? ' ' : '';
 
-        searchInput.value = option.key
-            ? prefix + separator + option.key + ': '
-            : prefix + separator;
+        searchInput.value = option.key ? prefix + separator + option.key + ': ' : prefix + separator;
 
         hideSearchSuggestions();
         validateSearchWhileTyping();
@@ -2764,39 +2853,27 @@
         return true;
     }
 
-    // ── Search — validation ───────────────────────────────────
+    // ── validation ──
     function validateSearchWhileTyping() {
-        const query = searchInput.value;
         let error = '';
-
         try {
-            parseSearchQuery(query);
+            parseSearchQuery(searchInput.value);
         } catch (err) {
             error = err.message;
         }
-
         searchForm.classList.toggle('invalid', !!error);
-
-        let message = document.getElementById('searchValidation');
-        if (!message) {
-            message = document.createElement('div');
-            message.id = 'searchValidation';
-            message.className = 'search-validation';
-            message.setAttribute('role', 'status');
-            searchForm.insertAdjacentElement('afterend', message);
-        }
+        const message = $('searchValidation');
         message.textContent = error;
         message.hidden = !error;
     }
 
-    // ── Search — input events ─────────────────────────────────
+    // ── events ──
     searchInput.addEventListener('focus', renderSearchSuggestions);
     searchInput.addEventListener('click', renderSearchSuggestions);
 
     searchInput.addEventListener('input', () => {
         validateSearchWhileTyping();
         renderSearchSuggestions();
-        // Toggle clear button visibility while typing
         clearSearchBtn.classList.toggle('visible', searchInput.value.length > 0);
     });
 
@@ -2809,7 +2886,7 @@
             hideSearchSuggestions();
         } else if (event.key === 'Enter' && !suggestionsBox.hidden && activeSuggestionIndex >= 0) {
             event.preventDefault();
-            [...suggestionsBox.querySelectorAll('.search-suggestion')][activeSuggestionIndex]?.click();
+            suggestionsBox.querySelectorAll('.search-suggestion')[activeSuggestionIndex]?.click();
         }
     });
 
@@ -2817,19 +2894,22 @@
         if (!event.target.closest('.search-wrap')) hideSearchSuggestions();
     });
 
-    // ── Search — form submit ──────────────────────────────────
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearchBtn.classList.remove('visible');
+        validateSearchWhileTyping();
+        renderSearchSuggestions();
+        applySearch();
+    });
+
     searchForm.addEventListener('submit', event => {
         event.preventDefault();
         applySearch();
     });
 
-    // Clear stale validation on typing (does NOT trigger a search)
-    document.getElementById('torrentSearch')
-        .addEventListener('input', () => {
-            searchForm.classList.remove('invalid');
-        });
+    $('searchInfoBtn').addEventListener('click', () => openModal('searchInfoModal'));
 
-    // ── Search — parse & match ────────────────────────────────
+    // ── parse & match ──
     function parseSearchQuery(query) {
         if (!query.trim()) return [];
 
@@ -2851,44 +2931,26 @@
         });
     }
 
-    function searchValue(value) {
-        if (value === null || value === undefined) return '';
-        return String(value);
-    }
+    const searchValue = value => (value === null || value === undefined) ? '' : String(value);
 
     function matchesSearch(entry, filters) {
         return filters.every(filter => {
             if (filter.key) {
-                return searchValue(SEARCH_FIELDS[filter.key](entry))
-                    .toLocaleLowerCase()
-                    .includes(filter.value);
+                return searchValue(SEARCH_FIELDS[filter.key](entry)).toLocaleLowerCase().includes(filter.value);
             }
             // Global search across all fields
             return Object.entries(entry).some(([key, value]) => {
                 const getter = SEARCH_FIELDS[key];
-                return searchValue(getter ? getter(entry) : value)
-                    .toLocaleLowerCase()
-                    .includes(filter.value);
+                return searchValue(getter ? getter(entry) : value).toLocaleLowerCase().includes(filter.value);
             });
         });
     }
 
-    // ── Search — apply ────────────────────────────────────────
-    function setSearchLoading(visible, message = 'Filtering torrents…') {
-        const overlay = document.getElementById('searchLoading');
-        const label = overlay.querySelector('.search-loading-label');
-        if (visible) label.textContent = message;
-        else label.textContent = 'Filtering torrents…';
-        overlay.classList.toggle('visible', visible);
-        overlay.setAttribute('aria-hidden', String(!visible));
-    }
-
     async function applySearch() {
         const query = searchInput.value.trim();
-        let filters;
 
         try {
-            filters = parseSearchQuery(query);
+            parseSearchQuery(query);
         } catch (err) {
             validateSearchWhileTyping();
             toast(err.message, 'error');
@@ -2896,16 +2958,11 @@
             return;
         }
 
-        searchForm.classList.remove('invalid');
+        validateSearchWhileTyping();
         hideSearchSuggestions();
-
-        const validation = document.getElementById('searchValidation');
-        if (validation) validation.hidden = true;
-
-        // Sync clear-button visibility with the committed query
         clearSearchBtn.classList.toggle('visible', query.length > 0);
 
-        setSearchLoading(true);
+        setBusy(true);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         try {
@@ -2913,160 +2970,485 @@
             await fetchTorrents();
             toast(query ? `Search applied: ${query}` : 'Search cleared', 'success');
         } finally {
-            setSearchLoading(false);
+            setBusy(false);
         }
     }
 
-    // ── Search info modal ─────────────────────────────────────
-    function closeSearchInfo() {
-        document.getElementById('searchInfoModal').classList.remove('open');
-        resumePollingAfterModal();
+    // ══════════════════════════════
+    // TORRENT LIST
+    // ══════════════════════════════
+    function updateDeleteButton() {
+        const btn = $('deleteBtn');
+        btn.disabled = selectedHashes.size === 0;
+        btn.textContent = btn.disabled ? 'Delete Selected' : `Delete Selected (${selectedHashes.size})`;
     }
 
-    document.getElementById('searchInfoBtn').addEventListener('click', () => {
-        pausePollingForModal();
-        document.getElementById('searchInfoModal').classList.add('open');
-    });
-
-    document.getElementById('closeSearchInfoModal').addEventListener('click', closeSearchInfo);
-    document.getElementById('cancelSearchInfoModal').addEventListener('click', closeSearchInfo);
-    document.getElementById('searchInfoModal').addEventListener('click', event => {
-        if (event.target === event.currentTarget) closeSearchInfo();
-    });
-
-    // ── Views ─────────────────────────────────────────────────
-    function showView(id) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-
-        const appShell = document.getElementById('appShell');
-        const isAppView = id === 'dashView' || id === 'exploreView';
-        appShell.classList.toggle('active', isAppView);
-        document.getElementById('footerTitle').textContent =
-            id === 'exploreView' ? 'RuTorrent · Explore' : 'RuTorrent';
+    function statusWeight(status) {
+        const s = status.toLowerCase();
+        if (s === 'copyerror') return 0;
+        if (s === 'failed') return 1;
+        if (s.startsWith('downloading')) return 2 + parseInt(status.match(/\d+/)?.[0] || '0', 10) / 100;
+        if (s === 'copying') return 4;
+        if (s === 'downloaded') return 5;
+        if (s === 'completed') return 6;
+        if (s === 'transferred') return 7;
+        return 3;
     }
 
-    // On load: if we have a stored apikey, go straight to dashboard
-    if (apikey) {
-        if (!sessionExpiresAt) {
-            handleUnauth();
-        } else {
-            showView('dashView');
-            startSessionTimer();
-            startDashboard();
-        }
+    function sortEntries(entries) {
+        const {key, dir} = dashSort;
+        return [...entries].sort((a, b) => {
+            let result = 0;
+            if (key === 'name') result = a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+            else if (key === 'status') result = statusWeight(a.status) - statusWeight(b.status);
+            else if (key === 'added') result = (a.added_at ?? 0) - (b.added_at ?? 0);
+            return dir === 'asc' ? result : -result;
+        });
     }
 
-    // ── Login ─────────────────────────────────────────────────
-    document.getElementById('loginBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('loginBtn');
-        const errorMsg = document.getElementById('loginError');
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
-
-        btn.disabled = true;
-        btn.textContent = 'Authenticating…';
-        errorMsg.classList.remove('visible');
-
-        try {
-            const resp = await fetch('/authenticator', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + btoa(username + ':' + password)
-                },
-                signal: AbortSignal.timeout(timeout)
-            });
-
-            if (resp.ok) {
-                const data = await resp.json();
-                apikey = data.apikey;
-                sessionExpiresAt = Date.now() + sessionExpiry;
-                sessionStorage.setItem('apikey', apikey);
-                sessionStorage.setItem('sessionExpiresAt', `${sessionExpiresAt}`);
-                startSessionTimer();
-                showView('dashView');
-                startDashboard();
-            } else {
-                errorMsg.classList.add('visible');
-            }
-        } catch {
-            errorMsg.textContent = 'Network error. Is the server running?';
-            errorMsg.classList.add('visible');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Authenticate →';
-        }
-    });
-
-    ['username', 'password'].forEach(id => {
-        document.getElementById(id).addEventListener('keydown', e => {
-            if (e.key === 'Enter') document.getElementById('loginBtn').click();
+    document.querySelectorAll('#dashView .sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            nextSort(dashSort, th.dataset.sort);
+            sessionStorage.setItem('sortKey', dashSort.key);
+            sessionStorage.setItem('sortDirection', dashSort.dir);
+            markSortHeaders('#dashView', dashSort);
+            fetchTorrents();
         });
     });
 
-    // ── Dashboard ─────────────────────────────────────────────
-    function authHeaders() {
-        return {'Content-Type': 'application/json', 'apikey': apikey};
+    // ── selection ──
+    function setSelected(row, checked) {
+        row.querySelector('.torrent-check').checked = checked;
+        row.classList.toggle('selected', checked);
+        checked ? selectedHashes.add(row.dataset.hash) : selectedHashes.delete(row.dataset.hash);
     }
 
-    // ── VPN connection status and controls ────────────────────
-    function getVpnLocation(data) {
-        return data?.details?.location || data?.location || {};
+    function syncSelectAll() {
+        const rows = [...document.querySelectorAll('#torrentBody tr[data-hash]')];
+        $('selectAll').checked = rows.length > 0 && rows.every(r => selectedHashes.has(r.dataset.hash));
     }
 
-    // Shared from the same status payload that drives the header display; no extra request is needed.
+    $('selectAll').addEventListener('change', e => {
+        document.querySelectorAll('#torrentBody tr[data-hash]').forEach(row => setSelected(row, e.target.checked));
+        updateDeleteButton();
+    });
+
+    // One delegated handler covers row selection and every per-row action button.
+    const ROW_ACTIONS = {
+        retry: (btn, row) => openRetry(btn, row),
+        pause: (btn, row) => togglePause(btn, row, true),
+        resume: (btn, row) => togglePause(btn, row, false),
+        info: (btn, row) => openInfo(row)
+    };
+
+    $('torrentBody').addEventListener('click', e => {
+        const row = e.target.closest('tr[data-hash]');
+        if (!row) return;
+
+        const actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            e.preventDefault();
+            ROW_ACTIONS[actionBtn.dataset.action]?.(actionBtn, row);
+            return;
+        }
+
+        const cb = row.querySelector('.torrent-check');
+        if (e.target !== cb) cb.checked = !cb.checked;
+        setSelected(row, cb.checked);
+        updateDeleteButton();
+        syncSelectAll();
+    });
+
+    // ── render helpers ──
+    const iconBtn = (action, title, icon, tone = '') =>
+        `<button class="retry-btn ${tone}" data-action="${action}" title="${title}"><span class="retry-icon">${icon}</span></button>`;
+
+    function badge(entry) {
+        const s = entry.status.toLowerCase();
+        const qs = (entry.qbit_state || '').toLowerCase();
+        const isPaused = ['pauseddl', 'stoppeddl', 'pausedup', 'stoppedup'].includes(qs);
+        const isActive = s.startsWith('downloading') || ['downloading', 'stalleddl', 'forceddl', 'metadl'].includes(qs);
+        const span = (cls, text) => `<span class="badge ${cls}">${esc(text)}</span>`;
+
+        let html;
+        if (isPaused) html = span('badge-off', 'Paused');
+        else if (s.includes('→ copy queued') || s.startsWith('downloading')) html = span('badge-downloading', entry.status);
+        else if (s === 'copying') html = span('badge-copying', 'Copying');
+        else if (s === 'downloaded') html = span('badge-downloaded', 'Downloaded') + iconBtn('retry', 'Start Transfer', '⧉', 'purple');
+        else if (s === 'completed') html = span('badge-completed', 'Completed');
+        else if (s === 'transferred') {
+            html = span('badge-completed', 'Transferred') +
+                iconBtn('retry', entry.files_deleted ? 'Re-download' : 'Restart Rsync', '⧉', 'purple');
+        } else if (s === 'failed') html = span('badge-failed', 'Failed') + iconBtn('retry', 'Retry', '↻');
+        else if (s === 'copyerror') html = span('badge-copy-error', 'Copy Error') + iconBtn('retry', 'Retry', '↻');
+        else html = span('', entry.status);
+
+        // Pause / resume for live qBit torrents
+        if (isPaused) html += ' ' + iconBtn('resume', 'Resume', '▶', 'warn');
+        else if (isActive) html += ' ' + iconBtn('pause', 'Pause', '⏸', 'warn');
+
+        return html + ' ' + iconBtn('info', 'Info', 'i', 'info');
+    }
+
+    function torrentRow(e) {
+        const selected = selectedHashes.has(e.hash);
+        return `
+            <tr class="${selected ? 'selected' : ''}" data-name="${esc(e.name)}" data-hash="${esc(e.hash)}">
+                <td><input class="torrent-check" type="checkbox" value="${esc(e.hash)}" ${selected ? 'checked' : ''}></td>
+                <td>${esc(e.name)}</td>
+                <td>${badge(e)}</td>
+                <td class="cell-muted nowrap">${e.added_at ? formatTimestamp(e.added_at) : '—'}</td>
+            </tr>`;
+    }
+
+    async function fetchTorrents() {
+        if (document.querySelector('.modal-backdrop.open')) return;
+        try {
+            const rawData = await (await api('/torrent')).json();
+            $('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+            const allEntries = sortEntries(rawData);
+            torrentsData = Object.fromEntries(allEntries.map(e => [e.hash, e]));
+
+            const entries = allEntries.filter(entry => matchesSearch(entry, parseSearchQuery(activeSearchQuery)));
+
+            $('torrentCount').textContent = activeSearchQuery
+                ? `(${entries.length}/${allEntries.length})`
+                : `(${entries.length})`;
+
+            // Drop selections that are no longer visible
+            const validHashes = new Set(entries.map(e => e.hash));
+            selectedHashes.forEach(hash => {
+                if (!validHashes.has(hash)) selectedHashes.delete(hash);
+            });
+
+            $('torrentBody').innerHTML = entries.length
+                ? entries.map(torrentRow).join('')
+                : emptyRow(4, allEntries.length && activeSearchQuery ? 'No torrents match your search' : 'No active torrents');
+
+            updateDeleteButton();
+            syncSelectAll();
+        } catch (err) {
+            console.error(err);
+            reportError(err, 'Failed to fetch torrents');
+        }
+    }
+
+    // ── Info modal ──
+    function openInfo(row) {
+        const e = torrentsData[row.dataset.hash] || {};
+        $('info-modal-title').textContent = row.dataset.name;
+
+        const rows = [
+            ['URL', e.url],
+            ['Save Path', e.save_path],
+            ['Remote Host', e.remote_host],
+            ['Remote User', e.remote_username],
+            ['Remote Path', e.remote_path],
+            ['Timeout', e.rsync_timeout ? `${e.rsync_timeout}s` : ''],
+            ['Delete After Copy', e.delete_after_copy ? 'Yes' : 'No'],
+            ['Files Deleted', e.files_deleted ? 'Yes' : 'No']
+        ];
+
+        $('info-modal-body').innerHTML = rows.map(([label, val]) => `
+            <div class="info-row">
+                <span class="info-row-label">${label}</span>
+                <span class="info-row-value">${esc(val || '—')}</span>
+            </div>`).join('');
+
+        openModal('infoModal');
+    }
+
+    // ── Pause / Resume ──
+    async function togglePause(btn, row, pause) {
+        const {name, hash} = row.dataset;
+        btn.disabled = true;
+        try {
+            await api(`/torrent?hash=${encodeURIComponent(hash)}&pause=${pause}`, {method: 'PATCH'});
+            toast(`${pause ? 'Paused' : 'Resumed'}: ${name}`, 'success');
+            refreshSoon();
+        } catch (err) {
+            reportError(err, 'Pause/resume failed');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ── Delete modal ──
+    let _deleteHashes = [];
+    modalCloseHooks.deleteModal = () => {
+        _deleteHashes = [];
+    };
+
+    $('deleteBtn').addEventListener('click', () => {
+        if (selectedHashes.size === 0) return;
+        _deleteHashes = [...selectedHashes];
+
+        $('delete-modal-title').textContent =
+            _deleteHashes.length === 1 ? 'Delete Torrent' : `Delete ${_deleteHashes.length} Torrents`;
+        $('delete-modal-names').innerHTML = `
+            <div style="max-height:150px; overflow-y:auto;">
+                <ul style="list-style-type:disc; padding-left:40px;">
+                    ${_deleteHashes.map(hash => `<li>${esc(torrentsData[hash]?.name || hash)}</li>`).join('')}
+                </ul>
+            </div>`;
+
+        $('d-include-files').checked = true;
+        openModal('deleteModal');
+    });
+
+    $('submitDelete').addEventListener('click', async () => {
+        const hashes = _deleteHashes;
+        if (hashes.length === 0) return;
+        const includeFiles = $('d-include-files').checked;
+        const btn = $('submitDelete');
+        btn.disabled = true;
+        btn.textContent = 'Deleting…';
+
+        try {
+            await Promise.all(hashes.map(async hash => {
+                const name = torrentsData[hash]?.name || hash;
+                try {
+                    const resp = await api(
+                        `/torrent?hash=${encodeURIComponent(hash)}&delete-files=${includeFiles}`,
+                        {method: 'DELETE'}
+                    );
+                    toast(await resp.text(), resp.status === 200 ? 'success' : 'warning');
+                } catch (err) {
+                    if (err instanceof AuthError) throw err;
+                    throw new Error(`${name}: ${err.message}`);
+                }
+            }));
+            selectedHashes.clear();
+            updateDeleteButton();
+            closeModal('deleteModal');
+            refreshSoon();
+        } catch (err) {
+            reportError(err, 'Delete failed');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Delete →';
+        }
+    });
+
+    // ══════════════════════════════
+    // TRANSFER MODAL — Add / Download (Explore) / Retry
+    // ══════════════════════════════
+    const TRANSFER_MODES = {
+        add: {
+            title: 'Add Torrent', sourceLabel: 'Magnet URL', sourceReadonly: false,
+            savePath: true, retryMode: false, submit: 'Queue Torrent →', busy: 'Queueing…'
+        },
+        explore: {
+            title: 'Download Torrent', sourceLabel: 'Magnet URL', sourceReadonly: true,
+            savePath: true, retryMode: false, submit: 'Download →', busy: 'Queueing…'
+        },
+        retry: {
+            title: 'Retry', sourceLabel: 'Torrent', sourceReadonly: true,
+            savePath: false, retryMode: true
+        }
+    };
+
+    let transferMode = null;
+    let transferHash = null;
+    let transferRetryBtn = null;
+
+    modalCloseHooks.transferModal = () => {
+        transferMode = transferHash = transferRetryBtn = null;
+    };
+
+    function resetTransferSubmitLabel() {
+        const cfg = TRANSFER_MODES[transferMode];
+        if (!cfg) return;
+        $('tf-submit').textContent = cfg.retryMode
+            ? ($('tf-mode-redownload').checked ? 'Re-download →' : 'Re-transfer →')
+            : cfg.submit;
+    }
+
+    function updateRetryMode() {
+        const transferDisabled = $('tf-mode-transfer').disabled;
+        const isRedownload = $('tf-mode-redownload').checked;
+        $('tf-mode-hint').textContent = transferDisabled
+            ? 'Local files were deleted after the last transfer — only re-download is available.'
+            : isRedownload
+                ? '💡 Deletes the existing local files and starts a fresh download, then transfers them when complete.'
+                : '💡 Resumes the transfer using the existing local files. If they\'re unavailable, starts a fresh download.';
+        resetTransferSubmitLabel();
+    }
+
+    $('tf-mode-transfer').addEventListener('change', updateRetryMode);
+    $('tf-mode-redownload').addEventListener('change', updateRetryMode);
+
+    // mode: 'add' | 'explore' | 'retry'. `source` is the magnet (add/explore) or torrent name (retry);
+    // `entry` pre-fills the remote fields (retry).
+    function openTransfer(mode, {title, source = '', entry = {}} = {}) {
+        const cfg = TRANSFER_MODES[mode];
+        transferMode = mode;
+
+        $('tf-title').textContent = title || cfg.title;
+        $('tf-source-label').textContent = cfg.sourceLabel;
+        $('tf-required').hidden = cfg.sourceReadonly;
+        const src = $('tf-source');
+        src.value = source;
+        src.readOnly = cfg.sourceReadonly;
+        src.placeholder = cfg.sourceReadonly ? '' : 'magnet:?xt=urn:btih:…';
+
+        $('tf-save-field').hidden = !cfg.savePath;
+        $('tf-mode-field').hidden = !cfg.retryMode;
+
+        $('tf-save').value = '';
+        $('tf-host').value = entry.remote_host || '';
+        $('tf-user').value = entry.remote_username || '';
+        $('tf-path').value = entry.remote_path || '';
+        $('tf-timeout').value = entry.rsync_timeout || '';
+        $('tf-delete').checked = !!entry.delete_after_copy;
+
+        resetTransferSubmitLabel();
+        openModal('transferModal');
+    }
+
+    function openRetry(btn, row) {
+        const entry = torrentsData[row.dataset.hash] || {};
+        const filesGone = !!entry.files_deleted;
+        transferHash = row.dataset.hash;
+        transferRetryBtn = btn;
+
+        const transferRadio = $('tf-mode-transfer');
+        transferRadio.disabled = filesGone;
+        transferRadio.closest('.radio-option').classList.toggle('disabled', filesGone);
+        (filesGone ? $('tf-mode-redownload') : transferRadio).checked = true;
+
+        openTransfer('retry', {title: btn.title, source: row.dataset.name, entry});
+        updateRetryMode();
+    }
+
+    $('addBtn').addEventListener('click', () => openTransfer('add'));
+
+    $('tf-submit').addEventListener('click', async () => {
+        const mode = transferMode;
+        const cfg = TRANSFER_MODES[mode];
+        const btn = $('tf-submit');
+
+        const remote = {
+            remote_host: $('tf-host').value.trim(),
+            remote_username: $('tf-user').value.trim(),
+            remote_path: $('tf-path').value.trim(),
+            rsync_timeout: parseInt($('tf-timeout').value.trim(), 10) || 0,
+            delete_after_copy: $('tf-delete').checked
+        };
+
+        let request, busyLabel, successMsg, failPrefix;
+
+        if (cfg.retryMode) {
+            const redownload = $('tf-mode-redownload').checked;
+            const name = $('tf-source').value;
+            if (redownload && !confirm(
+                `Re-download "${name}"?\n\nThis deletes any existing local files for this torrent and starts a fresh download from the original link.`
+            )) return;
+
+            // Retry always sends every field so blank values can clear stored ones.
+            request = {method: 'POST', body: {hash: transferHash, redownload, ...remote}};
+            busyLabel = redownload ? 'Re-downloading…' : 'Retrying…';
+            failPrefix = redownload ? 'Re-download' : 'Retry';
+            successMsg = `${failPrefix} queued: ${name}`;
+            transferRetryBtn?.classList.add('spinning');
+            if (transferRetryBtn) transferRetryBtn.disabled = true;
+        } else {
+            const url = $('tf-source').value.trim();
+            if (!url) {
+                toast('Magnet URL is required', 'error');
+                return;
+            }
+            // Add / explore only send the fields that were filled in.
+            const payload = {url, delete_after_copy: remote.delete_after_copy};
+            const savePath = $('tf-save').value.trim();
+            if (savePath) payload.save_path = savePath;
+            ['remote_host', 'remote_username', 'remote_path', 'rsync_timeout'].forEach(k => {
+                if (remote[k]) payload[k] = remote[k];
+            });
+            request = {method: 'PUT', body: [payload], timeout: 10000};
+            busyLabel = cfg.busy;
+        }
+
+        btn.disabled = true;
+        btn.textContent = busyLabel;
+
+        try {
+            const resp = await api('/torrent', request);
+
+            if (cfg.retryMode) {
+                toast(successMsg, 'success');
+            } else {
+                // Only one torrent is submitted at a time, so index 0 is safe
+                const {name, state} = (await resp.json())[0];
+                if (!state.startsWith('OK')) {
+                    toast(`${name}: ${state}`, 'error');
+                    return;
+                }
+                toast(`Queued: ${name}`, 'success');
+            }
+            closeModal('transferModal');
+            refreshSoon();
+        } catch (err) {
+            reportError(err, cfg.retryMode ? `${failPrefix} failed` : 'Download failed');
+        } finally {
+            btn.disabled = false;
+            // closeModal() clears transferMode on success; only relabel if the modal is still open
+            resetTransferSubmitLabel();
+            if (transferRetryBtn) {
+                transferRetryBtn.classList.remove('spinning');
+                transferRetryBtn.disabled = false;
+            }
+        }
+    });
+
+    // ══════════════════════════════
+    // VPN CONNECTION STATUS + CONTROLS
+    // ══════════════════════════════
+    const LOCKED_DOWN_TEXT = 'Internet connection for host is blocked';
     let vpnCurrentConnected = false;
     let vpnFeatures = [];
     let vpnActiveFeatures = new Set();
-    const LOCKED_DOWN_TEXT = 'Internet connection for host is blocked';
+    let vpnDisconnectMode = false;
 
-    function isLockedDown(data) {
-        return data?.details?.locked_down === true;
-    }
+    const getVpnLocation = data => data?.details?.location || data?.location || {};
+    const isLockedDown = data => data?.details?.locked_down === true;
+    const featureLabel = name => name.replace(/([a-z])([A-Z])/g, '$1 $2');
+    const isBlank = v => v === null || v === undefined || String(v).trim() === '';
 
     function setVpnStatus(data) {
         const connected = String(data?.state || '').toLowerCase() === 'connected';
         vpnCurrentConnected = connected;
         vpnActiveFeatures = new Set(data?.details?.feature_indicators ?? []);
-        const featuresBtn = document.getElementById('vpnFeaturesBtn');
-        if (featuresBtn) featuresBtn.disabled = !connected;
-        const modeToggle = document.getElementById('vpnModeToggle');
-        if (modeToggle) modeToggle.disabled = !vpnCurrentConnected;
+        $('vpnFeaturesBtn').disabled = !connected;
+        $('vpnModeToggle').disabled = !connected;
+
         const location = getVpnLocation(data);
         const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4;
         const place = [location.city, location.region || location.region_name || location.state, location.country]
-            .filter(value => value !== null && value !== undefined && String(value).trim())
-            .map(value => String(value).trim())
+            .filter(v => !isBlank(v))
+            .map(v => String(v).trim())
             .join(', ');
+        const lockedDown = isLockedDown(data);
+        const ipText = isBlank(ip) ? 'IP unavailable' : String(ip);
 
-        document.querySelectorAll('.vpn-connection-status').forEach(status => {
-            const globe = status.querySelector('.vpn-globe');
-            const pulse = status.querySelector('.vpn-status-pulse');
-            const text = status.querySelector('.vpn-connection-text');
-            globe.hidden = !connected;
-            pulse.hidden = false;
-            pulse.classList.toggle('vpn-status-disconnected', !connected);
-            const lockedDown = isLockedDown(data);
-            const ipText = ip === null || ip === undefined || String(ip).trim() === '' ? 'IP unavailable' : String(ip);
-            text.textContent = !data ? 'NOT CONNECTED'
-                : connected ? `Connected with ${ipText} to ${place || 'location unavailable'}`
-                    : lockedDown ? LOCKED_DOWN_TEXT
-                        : `Exposed with ${ipText} at ${place || 'location unavailable'}`;
-            status.title = (connected || lockedDown) ? text.textContent : 'NOT CONNECTED';
-        });
+        const status = document.querySelector('.vpn-connection-status');
+        status.querySelector('.vpn-globe').hidden = !connected;
+        const pulse = status.querySelector('.vpn-status-pulse');
+        pulse.hidden = false;
+        pulse.classList.toggle('vpn-status-disconnected', !connected);
+
+        const text = status.querySelector('.vpn-connection-text');
+        text.textContent = !data ? 'NOT CONNECTED'
+            : connected ? `Connected with ${ipText} to ${place || 'location unavailable'}`
+                : lockedDown ? LOCKED_DOWN_TEXT
+                    : `Exposed with ${ipText} at ${place || 'location unavailable'}`;
+        status.title = (connected || lockedDown) ? text.textContent : 'NOT CONNECTED';
     }
 
     async function fetchVpnStatus() {
         try {
-            const resp = await fetch('/vpn', {
-                method: 'GET',
-                headers: authHeaders(),
-                signal: AbortSignal.timeout(5000)
-            });
-            if (!resp.ok) throw new Error(`VPN status request failed: ${resp.status}`);
-            const data = await resp.json();
-            setVpnStatus(data);
+            setVpnStatus(await (await api('/vpn', {timeout: 5000})).json());
         } catch (err) {
             // Status failures are intentionally quiet; the header only shows NOT CONNECTED.
             setVpnStatus(null);
@@ -3074,81 +3456,64 @@
         }
     }
 
-    let vpnDisconnectMode = false;
+    function clearVpnError() {
+        const error = $('vpnError');
+        error.textContent = '';
+        error.classList.remove('visible');
+    }
 
     function updateVpnMode(disconnect) {
         showVpnFeatures(false);
         vpnDisconnectMode = Boolean(disconnect);
-        const toggle = document.getElementById('vpnModeToggle');
-        const fields = document.getElementById('vpnFormFields');
-        const submit = document.getElementById('submitVpn');
+        const toggle = $('vpnModeToggle');
 
         toggle.setAttribute('aria-checked', String(!vpnDisconnectMode));
         toggle.setAttribute('aria-label', `VPN mode: ${vpnDisconnectMode ? 'Disconnect' : 'Connect'}`);
         toggle.title = vpnDisconnectMode ? 'Switch to connect mode' : 'Switch to disconnect mode';
         toggle.disabled = !vpnCurrentConnected;
-        fields.hidden = vpnDisconnectMode;
-        document.getElementById('vpnDisconnectFields').hidden = !vpnDisconnectMode;
-        submit.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
+        $('vpnFormFields').hidden = vpnDisconnectMode;
+        $('vpnDisconnectFields').hidden = !vpnDisconnectMode;
+        $('submitVpn').textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
     }
 
     function resetVpnModalView() {
         updateVpnMode(false);
-        document.getElementById('vpnLockdownToggle').checked = false;
-        document.getElementById('vpnLockdownWarning').hidden = true;
-        document.getElementById('vpnModeToggle').hidden = false;
-        document.getElementById('vpnFeaturesBtn').hidden = false;
-        document.getElementById('vpnFormContent').hidden = false;
-        document.getElementById('vpnResultContent').hidden = true;
-        const error = document.getElementById('vpnError');
-        error.textContent = '';
-        error.classList.remove('visible');
-        const resultMessage = document.getElementById('vpnResultMessage');
+        $('vpnLockdownToggle').checked = false;
+        $('vpnLockdownWarning').hidden = true;
+        $('vpnModeToggle').hidden = false;
+        $('vpnFeaturesBtn').hidden = false;
+        $('vpnFormContent').hidden = false;
+        $('vpnResultContent').hidden = true;
+        clearVpnError();
+        const resultMessage = $('vpnResultMessage');
         resultMessage.textContent = 'VPN connection established.';
         resultMessage.classList.remove('disconnected');
-        document.getElementById('vpnResultGrid').hidden = false;
+        $('vpnResultGrid').hidden = false;
     }
 
-    function openVpnModal() {
+    $('vpnOpenBtn').addEventListener('click', () => {
         resetVpnModalView();
-        pausePollingForModal();
-        document.getElementById('vpnModal').classList.add('open');
-        document.getElementById('vpnHostname').focus();
-    }
-
-    function closeVpnModal() {
-        document.getElementById('vpnModal').classList.remove('open');
-        // Explore intentionally pauses dashboard polling, so only resume it on Home.
-        if (document.getElementById('dashView').classList.contains('active')) {
-            resumePollingAfterModal();
-        } else {
-            stopPolling();
-        }
-    }
-
-    document.querySelectorAll('.vpn-open-btn').forEach(button => {
-        button.addEventListener('click', openVpnModal);
+        openModal('vpnModal');
+        $('vpnHostname').focus();
     });
-    document.getElementById('vpnModeToggle').addEventListener('click', () => {
+
+    $('vpnModeToggle').addEventListener('click', () => {
         updateVpnMode(!vpnDisconnectMode);
-        const error = document.getElementById('vpnError');
-        error.textContent = '';
-        error.classList.remove('visible');
+        clearVpnError();
     });
-    document.getElementById('vpnLockdownToggle').addEventListener('change', e => {
-        document.getElementById('vpnLockdownWarning').hidden = !e.target.checked;
+
+    $('vpnLockdownToggle').addEventListener('change', e => {
+        $('vpnLockdownWarning').hidden = !e.target.checked;
     });
 
     function showVpnFeatures(show) {
-        document.getElementById('vpnFeaturesContent').hidden = !show;
-        document.getElementById('vpnFormContent').hidden = show;
-        document.getElementById('vpnFeaturesBtn').setAttribute('aria-pressed', String(show));
+        $('vpnFeaturesContent').hidden = !show;
+        $('vpnFormContent').hidden = show;
+        $('vpnFeaturesBtn').setAttribute('aria-pressed', String(show));
     }
 
-    const featureLabel = name => name.replace(/([a-z])([A-Z])/g, '$1 $2');
-
     function renderVpnFeatures() {
-        const list = document.getElementById('vpnFeaturesList');
+        const list = $('vpnFeaturesList');
         list.replaceChildren();
         if (!vpnFeatures.length) {
             list.textContent = 'No features available.';
@@ -3158,47 +3523,27 @@
             const on = vpnActiveFeatures.has(name);
             const row = document.createElement('div');
             row.className = 'toggle-field vpn-feature-row';
-
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.className = 'toggle';
-            cb.id = `vpnFeature-${name}`;
-            cb.checked = on;
+            row.innerHTML = `
+                <input class="toggle" type="checkbox" id="vpnFeature-${esc(name)}" ${on ? 'checked' : ''}>
+                <label class="toggle-label" for="vpnFeature-${esc(name)}">${esc(featureLabel(name))}</label>
+                <span class="badge ${on ? 'badge-completed' : 'badge-off'}">${on ? 'On' : 'Off'}</span>`;
+            const cb = row.querySelector('input');
             cb.addEventListener('change', () => toggleVpnFeature(name, cb));
-
-            const label = document.createElement('label');
-            label.className = 'toggle-label';
-            label.htmlFor = cb.id;
-            label.textContent = featureLabel(name);
-
-            const state = document.createElement('span');
-            state.className = `badge ${on ? 'badge-completed' : 'badge-off'}`;
-            state.textContent = on ? 'On' : 'Off';
-
-            row.append(cb, label, state);
             list.appendChild(row);
         });
     }
 
     async function openVpnFeatures() {
         showVpnFeatures(true);
-        const list = document.getElementById('vpnFeaturesList');
+        const list = $('vpnFeaturesList');
         list.textContent = 'Loading…';
         try {
             // Refresh feature_indicators (GET /vpn) alongside the feature list
-            const [resp] = await Promise.all([
-                fetch('/vpn?features=true', {headers: authHeaders(), signal: AbortSignal.timeout(5000)}),
-                fetchVpnStatus()
-            ]);
-            if (resp.status === 401) {
-                closeVpnModal();
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error((await resp.text()) || `${resp.statusText} [${resp.status}]`);
+            const [resp] = await Promise.all([api('/vpn?features=true', {timeout: 5000}), fetchVpnStatus()]);
             vpnFeatures = await resp.json();
             renderVpnFeatures();
         } catch (err) {
+            if (err instanceof AuthError) return closeModal('vpnModal');
             list.textContent = err.message || 'Failed to load features.';
         }
     }
@@ -3207,78 +3552,51 @@
         const target = cb.checked;
         const label = featureLabel(name);
         cb.disabled = true;
-        setSearchLoading(true, `${target ? 'Enabling' : 'Disabling'} ${label}…`);
+        setBusy(true, `${target ? 'Enabling' : 'Disabling'} ${label}…`);
         try {
-            const resp = await fetch(`/vpn?feature=${encodeURIComponent(name)}&switch=${target}`, {
-                method: 'PATCH',
-                headers: authHeaders(),
-                // The backend now waits for the "connected" state, which can take a while.
-                signal: AbortSignal.timeout(120000)
-            });
-            if (resp.status === 401) {
-                closeVpnModal();
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error((await resp.text()) || `${resp.statusText} [${resp.status}]`);
+            // The backend waits for the "connected" state, which can take a while.
+            const resp = await api(`/vpn?feature=${encodeURIComponent(name)}&switch=${target}`,
+                {method: 'PATCH', timeout: 120000});
             setVpnStatus(await resp.json());   // refreshes vpnActiveFeatures and the header
             toast(`${label}: ${target ? 'on' : 'off'}`, 'success');
         } catch (err) {
-            toast(err.message || `Failed to toggle ${label}`, 'error');
+            if (err instanceof AuthError) closeModal('vpnModal');
+            else toast(err.message || `Failed to toggle ${label}`, 'error');
         } finally {
-            setSearchLoading(false);
+            setBusy(false);
             renderVpnFeatures();   // rebuilds from server state, so a failed toggle reverts
         }
     }
 
-    document.getElementById('vpnFeaturesBtn').addEventListener('click', () => {
-        if (document.getElementById('vpnFeaturesContent').hidden) openVpnFeatures();
+    $('vpnFeaturesBtn').addEventListener('click', () => {
+        if ($('vpnFeaturesContent').hidden) openVpnFeatures();
         else showVpnFeatures(false);
     });
-    document.getElementById('closeVpnFeatures').addEventListener('click', () => showVpnFeatures(false));
-    document.getElementById('closeVpnModal').addEventListener('click', closeVpnModal);
-    document.getElementById('cancelVpnModal').addEventListener('click', closeVpnModal);
-    document.getElementById('doneVpnModal').addEventListener('click', closeVpnModal);
-    document.getElementById('vpnModal').addEventListener('click', event => {
-        if (event.target === event.currentTarget) closeVpnModal();
-    });
+    $('closeVpnFeatures').addEventListener('click', () => showVpnFeatures(false));
 
-    document.getElementById('submitVpn').addEventListener('click', async () => {
-        const submitButton = document.getElementById('submitVpn');
-        const error = document.getElementById('vpnError');
+    $('submitVpn').addEventListener('click', async () => {
+        const submitButton = $('submitVpn');
         const disconnecting = vpnDisconnectMode;
         const payload = {
-            blacklist: document.getElementById('vpnBlacklist').value.trim(),
-            hostname: document.getElementById('vpnHostname').value.trim(),
-            whitelist: document.getElementById('vpnWhitelist').value.trim()
+            blacklist: $('vpnBlacklist').value.trim(),
+            hostname: $('vpnHostname').value.trim(),
+            whitelist: $('vpnWhitelist').value.trim()
         };
+        const failMsg = disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.';
 
-        error.textContent = '';
-        error.classList.remove('visible');
+        clearVpnError();
         submitButton.disabled = true;
         submitButton.textContent = disconnecting ? 'Disconnecting…' : 'Connecting…';
-        setSearchLoading(true, disconnecting ? 'Disconnecting VPN…' : 'Connecting to VPN…');
+        setBusy(true, disconnecting ? 'Disconnecting VPN…' : 'Connecting to VPN…');
 
         try {
-            const lockdown = document.getElementById('vpnLockdownToggle').checked;
-            const method = disconnecting ? "DELETE" : "POST";
-            const url = disconnecting ? `/vpn?lockdown=${lockdown}` : '/vpn';
-            const resp = await fetch(url, {
-                method: method,
-                headers: authHeaders(),
-                body: JSON.stringify(disconnecting ? {} : payload),
-                // VPN connection changes can take longer than ordinary API calls.
-                signal: AbortSignal.timeout(120000)
+            const lockdown = $('vpnLockdownToggle').checked;
+            // VPN connection changes can take longer than ordinary API calls.
+            const resp = await api(disconnecting ? `/vpn?lockdown=${lockdown}` : '/vpn', {
+                method: disconnecting ? 'DELETE' : 'POST',
+                body: disconnecting ? {} : payload,
+                timeout: 120000
             });
-            if (resp.status === 401) {
-                closeVpnModal();
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) {
-                const details = await resp.text();
-                throw new Error(details || `${resp.statusText} [${resp.status}]`);
-            }
 
             const data = await resp.json();
             if (!disconnecting && String(data?.state || '').toLowerCase() !== 'connected') {
@@ -3286,750 +3604,82 @@
             }
 
             const location = getVpnLocation(data);
-            const resultMessage = document.getElementById('vpnResultMessage');
-            const primaryLabel = document.getElementById('vpnResultPrimaryLabel');
-            const primaryValue = document.getElementById('vpnResultPrimaryValue');
             const ip = location.ipv4 ?? data?.details?.ipv4 ?? data?.ipv4 ?? location.ip ?? data?.ip;
-
             const blocked = disconnecting && (isLockedDown(data) || lockdown);
-            document.getElementById('vpnResultGrid').hidden = blocked;
+            const resultMessage = $('vpnResultMessage');
+
+            $('vpnResultGrid').hidden = blocked;
+            resultMessage.classList.toggle('disconnected', disconnecting);
 
             if (disconnecting) {
-                resultMessage.textContent = blocked
-                    ? `VPN was disconnected. ${LOCKED_DOWN_TEXT}.`
-                    : 'VPN was disconnected.';
-                resultMessage.classList.add('disconnected');
-                primaryLabel.textContent = 'IP';
-                primaryValue.textContent = ip === null || ip === undefined || String(ip).trim() === '' ? '—' : String(ip);
+                resultMessage.textContent = blocked ? `VPN was disconnected. ${LOCKED_DOWN_TEXT}.` : 'VPN was disconnected.';
+                $('vpnResultPrimaryLabel').textContent = 'IP';
+                $('vpnResultPrimaryValue').textContent = isBlank(ip) ? '—' : String(ip);
             } else {
                 resultMessage.textContent = 'VPN connection established.';
-                resultMessage.classList.remove('disconnected');
-                primaryLabel.textContent = 'Hostname';
-                primaryValue.textContent = location.hostname || payload.hostname || '—';
+                $('vpnResultPrimaryLabel').textContent = 'Hostname';
+                $('vpnResultPrimaryValue').textContent = location.hostname || payload.hostname || '—';
             }
 
-            document.getElementById('vpnResultCity').textContent = location.city || '—';
-            document.getElementById('vpnResultCountry').textContent = location.country || '—';
-            document.getElementById('vpnFormContent').hidden = true;
-            document.getElementById('vpnResultContent').hidden = false;
-            document.getElementById('vpnModeToggle').hidden = true;
-            document.getElementById('vpnFeaturesBtn').hidden = true;
+            $('vpnResultCity').textContent = location.city || '—';
+            $('vpnResultCountry').textContent = location.country || '—';
+            $('vpnFormContent').hidden = true;
+            $('vpnResultContent').hidden = false;
+            $('vpnModeToggle').hidden = true;
+            $('vpnFeaturesBtn').hidden = true;
             setVpnStatus(data);
 
-            if (disconnecting) {
-                toast(blocked ? `VPN disconnected: ${LOCKED_DOWN_TEXT}` : `VPN disconnected: ${ip || 'IP unavailable'}`, 'success');
-            } else {
-                toast(`VPN connected: ${location.hostname || payload.hostname || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`, 'success');
-            }
+            toast(disconnecting
+                    ? (blocked ? `VPN disconnected: ${LOCKED_DOWN_TEXT}` : `VPN disconnected: ${ip || 'IP unavailable'}`)
+                    : `VPN connected: ${location.hostname || payload.hostname || 'hostname unavailable'}, ${location.city || 'city unavailable'}, ${location.country || 'country unavailable'}`,
+                'success');
         } catch (err) {
-            error.textContent = err.message || (disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.');
-            error.classList.add('visible');
-            toast(err.message || (disconnecting ? 'Failed to disconnect the VPN.' : 'Failed to connect to the VPN.'), 'error');
+            if (err instanceof AuthError) {
+                closeModal('vpnModal');
+            } else {
+                const msg = err.message || failMsg;
+                const error = $('vpnError');
+                error.textContent = msg;
+                error.classList.add('visible');
+                toast(msg, 'error');
+            }
         } finally {
-            setSearchLoading(false);
+            setBusy(false);
             submitButton.disabled = false;
             submitButton.textContent = vpnDisconnectMode ? 'Submit' : 'Connect';
         }
     });
 
-    function stopPolling() {
-        pollPaused = true;
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-        }
-    }
-
-    function startPolling() {
-        if (pollPaused) pollPaused = false;
-        if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(fetchTorrents, refreshInterval);
-    }
-
-    function pausePollingForModal() {
-        stopPolling();
-    }
-
-    function resumePollingAfterModal() {
-        if (!document.querySelector('.modal-backdrop.open')) startPolling();
-    }
-
-    function startSessionTimer() {
-        if (sessionCountdown) {
-            clearInterval(sessionCountdown);
-            sessionCountdown = null;
-        }
-        if (!sessionExpiresAt || sessionExpiresAt < Date.now()) {
-            handleUnauth();
-            return;
-        }
-        updateSessionRemaining();
-        sessionCountdown = setInterval(() => {
-            updateSessionRemaining();
-            if (Date.now() >= sessionExpiresAt) {
-                clearInterval(sessionCountdown);
-                sessionCountdown = null;
-                handleUnauth();
-            }
-        }, 1000);
-    }
-
-    function updateSessionRemaining() {
-        const remaining = Math.max(0, sessionExpiresAt - Date.now());
-        const totalSeconds = Math.floor(remaining / 1000);
-        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-        const seconds = String(totalSeconds % 60).padStart(2, '0');
-        document.getElementById('sessionRemaining').textContent = `Session: ${minutes}:${seconds}`;
-    }
-
-    function startDashboard() {
-        fetchVersion();
-        fetchVpnStatus();
-        updateSortUI();
-        fetchTorrents();
-        startPolling();
-        const dropdown = document.getElementById('refreshInterval');
-        if (dropdown) dropdown.value = String(refreshInterval);
-    }
-
-    document.addEventListener('change', e => {
-        if (e.target.id !== 'refreshInterval') return;
-        refreshInterval = Number(e.target.value);
-        localStorage.setItem('refreshInterval', String(refreshInterval));
-        startDashboard();
-        toast('Refresh interval updated', 'success');
-    });
-
-    function handleUnauth() {
-        clearInterval(pollTimer);
-        clearInterval(sessionCountdown);
-        apikey = '';
-        sessionStorage.removeItem('apikey');
-        sessionStorage.removeItem('sessionExpiresAt');
-        selectedHashes.clear();
-        updateDeleteButton();
-        showView('loginView');
-        document.getElementById('loginError').textContent = 'Session expired. Please log in again.';
-        document.getElementById('loginError').classList.add('visible');
-    }
-
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        clearInterval(pollTimer);
-        clearInterval(sessionCountdown);
-        apikey = '';
-        sessionStorage.removeItem('apikey');
-        sessionStorage.removeItem('sessionExpiresAt');
-        selectedHashes.clear();
-        updateDeleteButton();
-        showView('loginView');
-        toast('Logged out', 'success');
-    });
-
-    // ── Fetch version ─────────────────────────────────────────
-    async function fetchVersion() {
-        try {
-            const resp = await fetch('/version', {signal: AbortSignal.timeout(timeout)});
-            if (!resp.ok) throw new Error(`Failed to fetch version: ${resp.statusText || resp.status}`);
-            const data = await resp.json();
-            document.getElementById('versionText').textContent = `v${data.version}`;
-        } catch (err) {
-            console.error(err);
-            toast(err.message || `Failed to fetch version: ${err.description}`, 'error');
-            document.getElementById('versionText').textContent = 'v?';
-        }
-    }
-
-    // ── Sort ──────────────────────────────────────────────────
-    function getPercent(str) {
-        return parseInt(str.match(/\d+/)?.[0] || '0', 10);
-    }
-
-    function statusWeight(status) {
-        const s = status.toLowerCase();
-        if (s === 'copyerror') return 0;
-        if (s === 'failed') return 1;
-        if (s.startsWith('downloading')) return 2 + getPercent(status) / 100;
-        if (s === 'copying') return 4;
-        if (s === 'downloaded') return 5;
-        if (s === 'completed') return 6;
-        if (s === 'transferred') return 7;
-        return 3;
-    }
-
-    function sortEntries(entries) {
-        return [...entries].sort((a, b) => {
-            let result = 0;
-            if (sortKey === 'name') {
-                result = a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-            } else if (sortKey === 'status') {
-                result = statusWeight(a.status) - statusWeight(b.status);
-            } else if (sortKey === 'added') {
-                result = (a.added_at ?? 0) - (b.added_at ?? 0);
-            }
-            return sortDirection === 'asc' ? result : -result;
-        });
-    }
-
-    function updateSortUI() {
-        document.querySelectorAll('.sortable').forEach(el => el.classList.remove('active', 'asc', 'desc'));
-        const active = sortKey === 'name'
-            ? document.getElementById('sortName')
-            : sortKey === 'added'
-                ? document.getElementById('sortAdded')
-                : document.getElementById('sortStatus');
-        active.classList.add('active', sortDirection);
-    }
-
-    function setSort(key) {
-        if (sortKey === key) {
-            sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            sortKey = key;
-            sortDirection = 'asc';
-        }
-        sessionStorage.setItem('sortKey', sortKey);
-        sessionStorage.setItem('sortDirection', sortDirection);
-        updateSortUI();
-        fetchTorrents();
-    }
-
-    document.getElementById('sortName').addEventListener('click', () => setSort('name'));
-    document.getElementById('sortStatus').addEventListener('click', () => setSort('status'));
-    document.getElementById('sortAdded').addEventListener('click', () => setSort('added'));
-
-    document.getElementById('selectAll').addEventListener('change', e => {
-        const checked = e.target.checked;
-        document.querySelectorAll('#torrentBody tr[data-hash]').forEach(row => {
-            const cb = row.querySelector('.torrent-check');
-            const hash = row.dataset.hash;
-            cb.checked = checked;
-            if (checked) {
-                selectedHashes.add(hash);
-                row.classList.add('selected');
-            } else {
-                selectedHashes.delete(hash);
-                row.classList.remove('selected');
-            }
-        });
-        updateDeleteButton();
-    });
-
-    // ── Fetch torrents ─────────────────────────────────────────
-    async function fetchTorrents() {
-        if (document.querySelector('.modal-backdrop.open')) return;
-        try {
-            const resp = await fetch('/torrent', {
-                method: 'GET',
-                headers: authHeaders(),
-                signal: AbortSignal.timeout(timeout)
-            });
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-
-            document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
-
-            const rawData = await resp.json();
-            const body = document.getElementById('torrentBody');
-
-            if (rawData.length === 0) {
-                document.getElementById('torrentCount').textContent = '(0)';
-                document.getElementById('selectAll').checked = false;
-                body.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="empty-state">No active torrents</td>
-                    </tr>`;
-                selectedHashes.clear();
-                updateDeleteButton();
-                torrentsData = {};
-                return;
-            }
-
-            const allEntries = sortEntries(rawData);
-            torrentsData = {};
-            allEntries.forEach(entry => {
-                torrentsData[entry.hash] = entry;
-            });
-
-            const filters = parseSearchQuery(activeSearchQuery);
-            const entries = allEntries.filter(entry => matchesSearch(entry, filters));
-
-            document.getElementById('torrentCount').textContent = activeSearchQuery
-                ? `(${entries.length}/${allEntries.length})`
-                : `(${entries.length})`;
-
-            const validHashes = new Set(entries.map(e => e.hash));
-            selectedHashes.forEach(hash => {
-                if (!validHashes.has(hash)) selectedHashes.delete(hash);
-            });
-
-            body.innerHTML = entries.length
-                ? entries.map(e => `
-                    <tr class="${selectedHashes.has(e.hash) ? 'selected' : ''}" data-name="${esc(e.name)}" data-hash="${esc(e.hash)}">
-                        <td>
-                            <input class="torrent-check" type="checkbox" value="${esc(e.hash)}"
-                                   ${selectedHashes.has(e.hash) ? 'checked' : ''}>
-                        </td>
-                        <td>${esc(e.name)}</td>
-                        <td>${badge(e)}</td>
-                        <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
-                            ${e.added_at ? formatTimestamp(e.added_at) : '—'}
-                        </td>
-                    </tr>`).join('')
-                : `<tr>
-                       <td class="empty-state" colspan="4">
-                           ${activeSearchQuery ? 'No torrents match your search' : 'No active torrents'}
-                       </td>
-                   </tr>`;
-
-            body.querySelectorAll('tr[data-hash]').forEach(row => {
-                row.addEventListener('click', e => {
-                    if (e.target.tagName !== 'INPUT') {
-                        const cb = row.querySelector('input');
-                        cb.checked = !cb.checked;
-                    }
-                    const cb = row.querySelector('input');
-                    const hash = row.dataset.hash;
-                    if (cb.checked) {
-                        selectedHashes.add(hash);
-                        row.classList.add('selected');
-                    } else {
-                        selectedHashes.delete(hash);
-                        row.classList.remove('selected');
-                    }
-                    updateDeleteButton();
-                });
-            });
-
-            updateDeleteButton();
-            document.getElementById('selectAll').checked = entries.length > 0 && entries.every(e => selectedHashes.has(e.hash));
-        } catch (err) {
-            console.error(err);
-            toast(err.message || `Failed to fetch torrents: ${err.statusText || err.status}`, 'error');
-        }
-    }
-
-    // ── Delete Modal ──────────────────────────────────────────
-    let _deleteHashes = [];
-
-    document.getElementById('deleteBtn').addEventListener('click', () => {
-        if (selectedHashes.size === 0) return;
-        _deleteHashes = [...selectedHashes];
-
-        document.getElementById('delete-modal-title').textContent =
-            _deleteHashes.length === 1 ? 'Delete Torrent' : `Delete ${_deleteHashes.length} Torrents`;
-        document.getElementById('delete-modal-names').innerHTML =
-            `<div style="max-height:150px; overflow-y:auto;">
-                <ul style="list-style-type:disc; padding-left:40px;">
-                    ${_deleteHashes.map(hash => `<li>${esc(torrentsData[hash]?.name || hash)}</li>`).join('')}
-                </ul>
-            </div>`;
-
-        document.getElementById('d-include-files').checked = true;
-        pausePollingForModal();
-        document.getElementById('deleteModal').classList.add('open');
-    });
-
-    function closeDelete() {
-        document.getElementById('deleteModal').classList.remove('open');
-        _deleteHashes = [];
-        resumePollingAfterModal();
-    }
-
-    document.getElementById('closeDeleteModal').addEventListener('click', closeDelete);
-    document.getElementById('cancelDeleteModal').addEventListener('click', closeDelete);
-    document.getElementById('deleteModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('deleteModal')) closeDelete();
-    });
-
-    document.getElementById('submitDelete').addEventListener('click', async () => {
-        const hashes = _deleteHashes;
-        if (hashes.length === 0) return;
-        const includeFiles = document.getElementById('d-include-files').checked;
-        const btn = document.getElementById('submitDelete');
-        btn.disabled = true;
-        btn.textContent = 'Deleting…';
-
-        try {
-            await Promise.all(hashes.map(async hash => {
-                const name = torrentsData[hash]?.name || hash;
-                const resp = await fetch(
-                    `/torrent?hash=${encodeURIComponent(hash)}&delete-files=${includeFiles}`,
-                    {method: 'DELETE', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
-                );
-                if (resp.status === 401) {
-                    handleUnauth();
-                    return;
-                }
-                if (!resp.ok) throw new Error(`${name}: ${await resp.text()}`);
-                toast(await resp.text(), resp.status === 200 ? 'success' : 'warning');
-            }));
-            selectedHashes.clear();
-            updateDeleteButton();
-            closeDelete();
-            setTimeout(fetchTorrents, 2000);
-        } catch (err) {
-            toast(err.message || `Delete failed: ${err.description}`, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Delete →';
-        }
-    });
-
-    // ── Add Torrent Modal ──────────────────────────────────────
-    document.getElementById('addBtn').addEventListener('click', () => {
-        pausePollingForModal();
-        document.getElementById('addModal').classList.add('open');
-    });
-    document.getElementById('closeModal').addEventListener('click', closeAdd);
-    document.getElementById('cancelModal').addEventListener('click', closeAdd);
-    document.getElementById('addModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('addModal')) closeAdd();
-    });
-
-    function closeAdd() {
-        document.getElementById('addModal').classList.remove('open');
-        resumePollingAfterModal();
-        ['f-url', 'f-save', 'f-host', 'f-user', 'f-path'].forEach(id => {
-            document.getElementById(id).value = '';
-        });
-        document.getElementById('f-delete').checked = false;
-    }
-
-    document.getElementById('submitAdd').addEventListener('click', async () => {
-        const url = document.getElementById('f-url').value.trim();
-        if (!url) {
-            toast('Magnet URL is required', 'error');
-            return;
-        }
-
-        const basePayload = {url, delete_after_copy: document.getElementById('f-delete').checked};
-        const savePath = document.getElementById('f-save').value.trim();
-        const remoteHost = document.getElementById('f-host').value.trim();
-        const remoteUser = document.getElementById('f-user').value.trim();
-        const remotePath = document.getElementById('f-path').value.trim();
-
-        if (savePath) basePayload.save_path = savePath;
-        if (remoteHost) basePayload.remote_host = remoteHost;
-        if (remoteUser) basePayload.remote_username = remoteUser;
-        if (remotePath) basePayload.remote_path = remotePath;
-
-        const btn = document.getElementById('submitAdd');
-        btn.disabled = true;
-        btn.textContent = 'Queueing…';
-
-        try {
-            const resp = await fetch('/torrent', {
-                method: 'PUT',
-                headers: authHeaders(),
-                body: JSON.stringify([basePayload]),
-                signal: AbortSignal.timeout(timeout)
-            });
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-
-            const data = await resp.json();
-            // Only one torrent request is submitted at a time, so it is safe to use index 0
-            const name = data[0].name
-            const status = data[0].state
-            if (status.startsWith('OK')) {
-                toast(`Queued: ${name}`, 'success');
-                closeAdd();
-                setTimeout(fetchTorrents, 2000);
-            } else {
-                toast(`${name}: ${status}`, 'error');
-            }
-        } catch (err) {
-            toast(err.message || `Network error: ${err.description}`, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Queue Torrent →';
-        }
-    });
-
-    // ── Helpers ───────────────────────────────────────────────
-    function badge(entry) {
-        const s = entry.status.toLowerCase();
-        const qs = (entry.qbit_state || '').toLowerCase();
-        const isPaused = qs === 'pauseddl' || qs === 'stoppeddl' || qs === 'pausedup' || qs === 'stoppedup';
-        const isActive = s.startsWith('downloading') || qs === 'downloading' || qs === 'stalleddl' || qs === 'forceddl' || qs === 'metadl';
-
-        let html;
-        if (isPaused) {
-            html = `<span class="badge" style="color:var(--muted); border-color:rgba(107,107,120,0.4); background:rgba(107,107,120,0.07);">Paused</span>`;
-        } else if (s.includes('→ copy queued') || s.startsWith('downloading')) {
-            html = `<span class="badge badge-downloading">${esc(entry.status)}</span>`;
-        } else if (s === 'copying') {
-            html = `<span class="badge badge-copying">Copying</span>`;
-        } else if (s === 'downloaded') {
-            html = `<span class="badge badge-downloaded">Downloaded</span>
-                    <button class="retry-btn" title="Start Transfer" onclick="doRetry(this, event)"
-                            style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-                        <span class="retry-icon">⧉</span>
-                    </button>`;
-        } else if (s === 'completed') {
-            html = `<span class="badge badge-completed">Completed</span>`;
-        } else if (s === 'transferred') {
-            const title = entry.files_deleted ? 'Re-download' : 'Restart Rsync';
-            html = `<span class="badge badge-completed">Transferred</span>
-                    <button class="retry-btn" title="${title}" onclick="doRetry(this, event)"
-                            style="border-color:rgba(192,132,252,0.4); color:#c084fc;">
-                        <span class="retry-icon">⧉</span>
-                    </button>`;
-        } else if (s === 'failed') {
-            html = `<span class="badge badge-failed">Failed</span>
-                    <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
-                        <span class="retry-icon">↻</span>
-                    </button>`;
-        } else if (s === 'copyerror') {
-            html = `<span class="badge badge-copy-error">Copy Error</span>
-                    <button class="retry-btn" title="Retry" onclick="doRetry(this, event)">
-                        <span class="retry-icon">↻</span>
-                    </button>`;
-        } else {
-            html = `<span class="badge">${esc(entry.status)}</span>`;
-        }
-
-        // Pause / resume button for live qBit torrents
-        if (isPaused) {
-            html += ` <button class="retry-btn" title="Resume" onclick="doPauseResume(this, event)"
-                              style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
-                          <span class="retry-icon">▶</span>
-                      </button>`;
-        } else if (isActive) {
-            html += ` <button class="retry-btn" title="Pause" onclick="doPauseResume(this, event)"
-                              style="border-color:rgba(255,179,71,0.4); color:var(--warn);">
-                          <span class="retry-icon">⏸</span>
-                      </button>`;
-        }
-
-        html += ` <button class="retry-btn" title="Info" onclick="doInfo(this, event)"
-                          style="border-color:rgba(126,184,255,0.4); color:#7eb8ff;">
-                      <span class="retry-icon" style="font-style:italic; font-weight:700;">i</span>
-                  </button>`;
-        return html;
-    }
-
-    // ── Retry Modal ───────────────────────────────────────────
-    let _retryBtn = null;
-    let _retryHash = null;
-
-    function updateRetryMode() {
-        const transferRadio = document.getElementById('r-mode-transfer');
-        const isRedownload = document.getElementById('r-mode-redownload').checked;
-        const hint = document.getElementById('r-mode-hint');
-
-        if (transferRadio.disabled) {
-            hint.textContent = 'Local files were deleted after the last transfer — only re-download is available.';
-        } else {
-            hint.textContent = isRedownload
-                ? '💡 Deletes the existing local files and starts a fresh download, then transfers them when complete.'
-                : '💡 Resumes the transfer using the existing local files. If they\'re unavailable, starts a fresh download.';
-        }
-        document.getElementById('submitRetry').textContent = isRedownload ? 'Re-download →' : 'Re-transfer →';
-    }
-
-    document.getElementById('r-mode-transfer').addEventListener('change', updateRetryMode);
-    document.getElementById('r-mode-redownload').addEventListener('change', updateRetryMode);
-
-    function doRetry(btn, event) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        const name = btn.closest('tr').dataset.name;
-        const hash = btn.closest('tr').dataset.hash;
-        const entry = torrentsData[hash] || {};
-        const filesGone = !!entry.files_deleted;
-        _retryBtn = btn;
-        _retryHash = hash;
-
-        document.getElementById('r-name').value = name;
-
-        const transferRadio = document.getElementById('r-mode-transfer');
-        const redownloadRadio = document.getElementById('r-mode-redownload');
-        transferRadio.disabled = filesGone;
-        transferRadio.closest('.radio-option').classList.toggle('disabled', filesGone);
-        if (filesGone) {
-            redownloadRadio.checked = true;
-        } else {
-            transferRadio.checked = true;
-        }
-
-        document.getElementById('r-host').value = entry.remote_host || '';
-        document.getElementById('r-user').value = entry.remote_username || '';
-        document.getElementById('r-path').value = entry.remote_path || '';
-        document.getElementById('r-timeout').value = entry.rsync_timeout || '';
-        document.getElementById('r-delete').checked = !!entry.delete_after_copy;
-
-        updateRetryMode();
-        document.getElementById('retry-modal-title').innerHTML = btn.title;
-        pausePollingForModal();
-        document.getElementById('retryModal').classList.add('open');
-    }
-
-    function closeRetry() {
-        document.getElementById('retryModal').classList.remove('open');
-        _retryBtn = null;
-        _retryHash = null;
-        resumePollingAfterModal();
-    }
-
-    document.getElementById('closeRetryModal').addEventListener('click', closeRetry);
-    document.getElementById('cancelRetryModal').addEventListener('click', closeRetry);
-    document.getElementById('retryModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('retryModal')) closeRetry();
-    });
-
-    document.getElementById('submitRetry').addEventListener('click', async () => {
-        const name = document.getElementById('r-name').value;
-        const redownload = document.getElementById('r-mode-redownload').checked;
-
-        if (redownload && !confirm(
-            `Re-download "${name}"?\n\nThis deletes any existing local files for this torrent and starts a fresh download from the original link.`
-        )) return;
-
-        const btn = document.getElementById('submitRetry');
-        btn.disabled = true;
-        btn.textContent = redownload ? 'Re-downloading…' : 'Retrying…';
-        if (_retryBtn) {
-            _retryBtn.classList.add('spinning');
-            _retryBtn.disabled = true;
-        }
-
-        const payload = {
-            hash: _retryHash,
-            redownload,
-            remote_host: document.getElementById('r-host').value.trim(),
-            remote_username: document.getElementById('r-user').value.trim(),
-            remote_path: document.getElementById('r-path').value.trim(),
-            rsync_timeout: parseInt(document.getElementById('r-timeout').value.trim(), 10) || 0,
-            delete_after_copy: document.getElementById('r-delete').checked
-        };
-
-        try {
-            const resp = await fetch('/torrent', {
-                method: 'POST',
-                headers: authHeaders(),
-                body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(timeout)
-            });
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (resp.ok) {
-                toast(`${redownload ? 'Re-download' : 'Retry'} queued: ${name}`, 'success');
-                closeRetry();
-                setTimeout(fetchTorrents, 2000);
-            } else {
-                toast(`${redownload ? 'Re-download' : 'Retry'} failed: ${resp.statusText} [${resp.status}] — ${await resp.text()}`, 'error');
-            }
-        } catch (err) {
-            toast(err.message || `Network error: ${err.description}`, 'error');
-        } finally {
-            btn.disabled = false;
-            updateRetryMode();
-            if (_retryBtn) {
-                _retryBtn.classList.remove('spinning');
-                _retryBtn.disabled = false;
-            }
-        }
-    });
-
-    // ── Info Modal ────────────────────────────────────────────
-    function doInfo(btn, event) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        const name = btn.closest('tr').dataset.name;
-        const hash = btn.closest('tr').dataset.hash;
-        const e = torrentsData[hash] || {};
-
-        document.getElementById('info-modal-title').textContent = name;
-
-        const rows = [
-            ['URL', e.url || '—'],
-            ['Save Path', e.save_path || '—'],
-            ['Remote Host', e.remote_host || '—'],
-            ['Remote User', e.remote_username || '—'],
-            ['Remote Path', e.remote_path || '—'],
-            ['Timeout', e.rsync_timeout ? `${e.rsync_timeout}s` : '—'],
-            ['Delete After Copy', e.delete_after_copy ? 'Yes' : 'No'],
-            ['Files Deleted', e.files_deleted ? 'Yes' : 'No']
-        ];
-
-        document.getElementById('info-modal-body').innerHTML = rows.map(([label, val]) => `
-            <div style="display:flex; gap:1rem; padding:0.3rem 0; border-bottom:1px solid var(--border);">
-                <span style="min-width:140px; color:var(--muted); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase; padding-top:2px;">${label}</span>
-                <span style="word-break:break-all;">${esc(String(val))}</span>
-            </div>`).join('');
-
-        pausePollingForModal();
-        document.getElementById('infoModal').classList.add('open');
-    }
-
-    function closeInfo() {
-        document.getElementById('infoModal').classList.remove('open');
-        resumePollingAfterModal();
-    }
-
-    document.getElementById('closeInfoModal').addEventListener('click', closeInfo);
-    document.getElementById('cancelInfoModal').addEventListener('click', closeInfo);
-    document.getElementById('infoModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('infoModal')) closeInfo();
-    });
-
-    // ── Pause / Resume ────────────────────────────────────────
-    async function doPauseResume(btn, event) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        const name = btn.closest('tr').dataset.name;
-        const hash = btn.closest('tr').dataset.hash;
-        const isPaused = btn.title === 'Resume';
-        btn.disabled = true;
-        try {
-            const resp = await fetch(
-                `/torrent?hash=${encodeURIComponent(hash)}&pause=${!isPaused}`,
-                {method: 'PATCH', headers: authHeaders(), signal: AbortSignal.timeout(timeout)}
-            );
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error(await resp.text());
-            toast(`${isPaused ? 'Resumed' : 'Paused'}: ${name}`, 'success');
-            setTimeout(fetchTorrents, 2000);
-        } catch (err) {
-            toast(err.message || 'Pause/resume failed', 'error');
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
     // ══════════════════════════════
     // EXPLORE VIEW
     // ══════════════════════════════
     let exploreResults = [];
-    let exploreSortKey = 'seeders';
-    let exploreSortDir = 'desc';
+    let exploreLastQuery = '';
+
+    $('exploreBtn').addEventListener('click', () => {
+        stopPolling();
+        showView('exploreView');
+        fetchCategories();
+    });
+
+    $('exploreHomeBtn').addEventListener('click', () => {
+        showView('dashView');
+        startPolling();
+    });
+
+    $('exploreSearchBtn').addEventListener('click', runExploreSearch);
+    $('exploreTorrentSearch').addEventListener('keydown', e => {
+        if (e.key === 'Enter') runExploreSearch();
+    });
 
     // ── Category picker ───────────────────────────────────────
-    // categoryMap: { groupName: { id: label, … }, … }
+    // _categoryMap: { groupName: { id: label, … }, … }
     let _categoryMap = null;
     let _selectedCatId = '0';   // '0' = all categories
 
     function buildCategoryDropdown(categoryMap) {
-        const list = document.getElementById('catDropdownList');
-        const picker = document.getElementById('catPicker');
+        const list = $('catDropdownList');
+        const picker = $('catPicker');
         list.replaceChildren();
         picker.querySelectorAll(':scope > .cat-sub-panel').forEach(panel => panel.remove());
 
@@ -4039,7 +3689,7 @@
         const allRow = document.createElement('div');
         allRow.className = 'cat-group-row' + (_selectedCatId === '0' ? ' active' : '');
         allRow.textContent = 'All';
-        allRow.addEventListener('mouseenter', hideCatSubPanels);
+        allRow.addEventListener('mouseenter', () => hideCatSubPanels());
         allRow.addEventListener('click', () => selectCategory('0', 'All'));
         allItem.appendChild(allRow);
         list.appendChild(allItem);
@@ -4073,19 +3723,14 @@
             list.appendChild(groupItem);
             picker.appendChild(subPanel);
         });
-
     }
-
-    // Scrolling changes row positions, so close an open fly-out until a row is hovered again.
-    document.getElementById('catDropdownList').addEventListener('scroll', hideCatSubPanels, {passive: true});
 
     function selectCategory(id, label) {
         _selectedCatId = id;
-        document.getElementById('exploreCategory').value = id;
-        document.getElementById('catLabel').textContent = label;
+        $('exploreCategory').value = id;
+        $('catLabel').textContent = label;
         closeCatDropdown();
-        // Refresh active styling
-        if (_categoryMap) buildCategoryDropdown(_categoryMap);
+        if (_categoryMap) buildCategoryDropdown(_categoryMap);   // refresh active styling
     }
 
     function hideCatSubPanels(except = null) {
@@ -4098,9 +3743,8 @@
         hideCatSubPanels(subPanel);
         subPanel.classList.add('open');
 
-        const picker = document.getElementById('catPicker');
-        const dropdownRect = document.getElementById('catDropdown').getBoundingClientRect();
-        const pickerRect = picker.getBoundingClientRect();
+        const dropdownRect = $('catDropdown').getBoundingClientRect();
+        const pickerRect = $('catPicker').getBoundingClientRect();
         const rowRect = groupRow.getBoundingClientRect();
         const panelWidth = subPanel.offsetWidth;
         const panelHeight = subPanel.offsetHeight;
@@ -4113,233 +3757,145 @@
         subPanel.style.top = `${viewportTop - pickerRect.top}px`;
     }
 
-    function openCatDropdown() {
-        document.getElementById('catDropdown').classList.add('open');
-        document.getElementById('catBtn').classList.add('open');
+    function setCatDropdownOpen(open) {
+        $('catDropdown').classList.toggle('open', open);
+        $('catBtn').classList.toggle('open', open);
+        if (!open) hideCatSubPanels();
     }
 
-    function closeCatDropdown() {
-        document.getElementById('catDropdown').classList.remove('open');
-        document.getElementById('catBtn').classList.remove('open');
-        hideCatSubPanels();
-    }
+    const closeCatDropdown = () => setCatDropdownOpen(false);
 
-    document.getElementById('catBtn').addEventListener('click', e => {
+    $('catBtn').addEventListener('click', e => {
         e.stopPropagation();
-        const isOpen = document.getElementById('catDropdown').classList.contains('open');
-        isOpen ? closeCatDropdown() : openCatDropdown();
+        setCatDropdownOpen(!$('catDropdown').classList.contains('open'));
     });
-
     document.addEventListener('click', e => {
         if (!e.target.closest('#catPicker')) closeCatDropdown();
     });
-
-    document.getElementById('catPicker').addEventListener('mouseleave', () => hideCatSubPanels());
+    // Scrolling changes row positions, so close an open fly-out until a row is hovered again.
+    $('catDropdownList').addEventListener('scroll', () => hideCatSubPanels(), {passive: true});
+    $('catPicker').addEventListener('mouseleave', () => hideCatSubPanels());
     window.addEventListener('resize', () => hideCatSubPanels());
 
     async function fetchCategories() {
         if (_categoryMap) return;   // already loaded
         try {
-            const resp = await fetch('/categories?nested=true', {
-                headers: authHeaders(),
-                signal: AbortSignal.timeout(timeout)
-            });
-            if (!resp.ok) return;   // silently skip — picker stays showing "All"
-            _categoryMap = await resp.json();
+            _categoryMap = await (await api('/categories?nested=true')).json();
             buildCategoryDropdown(_categoryMap);
         } catch {
             // Non-fatal — user can still search with "All"
         }
     }
 
-    const exploreUseTor = document.getElementById('exploreUseTor');
-    document.getElementById('exploreBtn').addEventListener('click', () => {
-        stopPolling();
-        showView('exploreView');
-        fetchCategories();
-    });
-
-    document.getElementById('exploreHomeBtn').addEventListener('click', () => {
-        showView('dashView');
-        startPolling();
-    });
-
-    document.getElementById('exploreLogoutBtn').addEventListener('click', () => {
-        document.getElementById('logoutBtn').click();
-    });
-
-    document.getElementById('exploreSearchBtn').addEventListener('click', runExploreSearch);
-
-    document.getElementById('exploreTorrentSearch').addEventListener('keydown', e => {
-        if (e.key === 'Enter') runExploreSearch();
-    });
-
-    // Sort headers
-    [
-        ['expSortCategory', 'category'],
-        ['expSortName', 'title'],
-        ['expSortDate', 'date_uploaded'],
-        ['expSortSize', 'size_bytes'],
-        ['expSortSeeders', 'seeders'],
-        ['expSortLeechers', 'leechers'],
-        ['expSortUploader', 'uploader'],
-    ].forEach(([id, key]) => {
-        document.getElementById(id).addEventListener('click', () => {
-            if (exploreSortKey === key) {
-                exploreSortDir = exploreSortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                exploreSortKey = key;
-                exploreSortDir = key === 'seeders' ? 'desc' : 'asc';
-            }
-            renderExploreResults(exploreResults);
-        });
-    });
-
-    // Add this variable alongside the other explore state vars at the top:
-    let exploreLastQuery = '';
+    // ── Search + results ──────────────────────────────────────
+    function parseSizeToBytes(sizeStr) {
+        const m = String(sizeStr || '').match(/([\d.]+)\s*(TB|GB|MB|KB|B)/i);
+        if (!m) return 0;
+        const map = {B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4};
+        return parseFloat(m[1]) * (map[m[2].toUpperCase()] || 1);
+    }
 
     async function runExploreSearch() {
-        const query = document.getElementById('exploreTorrentSearch').value.trim();
+        const query = $('exploreTorrentSearch').value.trim();
         if (!query) return;
 
-        exploreLastQuery = query;   // ← cache it
+        exploreLastQuery = query;
+        const category = $('exploreCategory').value;
+        const useTor = $('exploreUseTor').checked;
 
-        const category = document.getElementById('exploreCategory').value;
-        const useTor = exploreUseTor.checked;
-
-        setSearchLoading(true);
+        setBusy(true);
         try {
-            const resp = await fetch(
+            const resp = await api(
                 `/search?query=${encodeURIComponent(query)}&category=${category}&hydrate_categories=true&use_tor=${useTor}`,
-                {headers: authHeaders(), signal: AbortSignal.timeout(30000)}
+                {timeout: 30000}
             );
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-
             const raw = await resp.json();
-            // Filter: skip records missing title, size, or magnet_link
-            exploreResults = (Array.isArray(raw) ? raw : []).filter(r =>
-                r.title && r.size && r.magnet_link
-            ).map(r => ({
-                ...r,
-                size_bytes: parseSizeToBytes(r.size),
-                date_uploaded: r.date_uploaded ? String(r.date_uploaded) : null
-            }));
+            // Skip records missing title, size, or magnet_link
+            exploreResults = (Array.isArray(raw) ? raw : [])
+                .filter(r => r.title && r.size && r.magnet_link)
+                .map(r => ({
+                    ...r,
+                    size_bytes: parseSizeToBytes(r.size),
+                    date_uploaded: r.date_uploaded ? String(r.date_uploaded) : null
+                }));
 
-            document.getElementById('exploreHero').classList.add('has-results');
-            document.getElementById('exploreResultsArea').hidden = false;
+            $('exploreHero').classList.add('has-results');
+            $('exploreResultsArea').hidden = false;
 
-            // Build the header + filter input ONCE on a fresh search
-            const header = document.getElementById('exploreResultsHeader');
-            header.innerHTML = `
+            // Build the header + filter input once per fresh search
+            $('exploreResultsHeader').innerHTML = `
                 <span id="exploreResultsCount"></span>
                 <div class="explore-filter-bar">
                     <span class="explore-filter-label">Filter</span>
                     <input type="text" id="exploreFilterInput" placeholder="Filter results…">
                 </div>`;
-            document.getElementById('exploreFilterInput').addEventListener('input', () =>
-                renderExploreResults(exploreResults));
+            $('exploreFilterInput').addEventListener('input', renderExploreResults);
 
-            renderExploreResults(exploreResults);
+            renderExploreResults();
         } catch (err) {
-            toast(err.message || 'Explore search failed', 'error');
+            reportError(err, 'Explore search failed');
         } finally {
-            setSearchLoading(false);
+            setBusy(false);
         }
     }
 
-    function parseSizeToBytes(sizeStr) {
-        if (!sizeStr) return 0;
-        const m = String(sizeStr).match(/([\d.]+)\s*(TB|GB|MB|KB|B)/i);
-        if (!m) return 0;
-        const n = parseFloat(m[1]);
-        const u = m[2].toUpperCase();
-        const map = {B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4};
-        return n * (map[u] || 1);
-    }
-
-    function renderExploreResults(results) {
-        // Update sort UI
-        document.querySelectorAll('#exploreTable .sortable').forEach(el =>
-            el.classList.remove('active', 'asc', 'desc'));
-        const keyToId = {
-            category: 'expSortCategory', title: 'expSortName',
-            date_uploaded: 'expSortDate', size_bytes: 'expSortSize',
-            seeders: 'expSortSeeders', leechers: 'expSortLeechers', uploader: 'expSortUploader'
-        };
-        const activeEl = document.getElementById(keyToId[exploreSortKey]);
-        if (activeEl) activeEl.classList.add('active', exploreSortDir);
-
-        // Apply filter — read from the persistent input, don't rebuild it
-        const filterVal = (document.getElementById('exploreFilterInput')?.value || '').trim().toLowerCase();
-        let filtered = results;
-        if (filterVal) {
-            filtered = results.filter(r =>
-                Object.values(r).some(v => String(v ?? '').toLowerCase().includes(filterVal))
-            );
-        }
-
-        // Sort
-        const sorted = [...filtered].sort((a, b) => {
-            const av = a[exploreSortKey] ?? '';
-            const bv = b[exploreSortKey] ?? '';
-            let res = 0;
-            if (typeof av === 'number' && typeof bv === 'number') {
-                res = av - bv;
-            } else {
-                res = String(av).localeCompare(String(bv), undefined, {numeric: true, sensitivity: 'base'});
-            }
-            return exploreSortDir === 'asc' ? res : -res;
+    document.querySelectorAll('#exploreTable .sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            nextSort(exploreSort, th.dataset.sort, th.dataset.sort === 'seeders' ? 'desc' : 'asc');
+            renderExploreResults();
         });
+    });
 
-        // Update only the count — never touch the filter input
-        const countEl = document.getElementById('exploreResultsCount');
-        if (countEl) {
-            countEl.innerHTML = `Results for: <strong>${esc(exploreLastQuery)}</strong> &mdash; ${sorted.length} of ${results.length}`;
-        }
-
-        // Rows
-        const body = document.getElementById('exploreBody');
-        if (!sorted.length) {
-            body.innerHTML = `<tr><td class="empty-state" colspan="8">No results</td></tr>`;
-            return;
-        }
-
-        body.innerHTML = sorted.map(r => `
+    function exploreRow(r) {
+        const magnet = esc(r.magnet_link);
+        return `
             <tr>
-                <td style="font-size:0.72rem; color:var(--muted);">${esc(r.category ?? '—')}</td>
+                <td class="cell-muted">${esc(r.category ?? '—')}</td>
                 <td>${esc(r.title)}</td>
-                <td style="font-size:0.72rem; color:var(--muted); white-space:nowrap;">
-                    ${r.date_uploaded ? formatTimestamp(Number(r.date_uploaded)) : '—'}
+                <td class="cell-muted nowrap">${r.date_uploaded ? formatTimestamp(Number(r.date_uploaded)) : '—'}</td>
+                <td class="nowrap">
+                    <button class="magnet-btn" title="Copy magnet link" data-action="copy" data-magnet="${magnet}">🧲</button>
+                    <button class="magnet-btn download" title="Download torrent" data-action="download" data-magnet="${magnet}">⬇️</button>
                 </td>
-                <td style="white-space:nowrap;">
-                    <button class="magnet-btn" title="Copy magnet link"
-                        data-magnet="${esc(r.magnet_link)}"
-                        onclick="copyMagnet(this)">🧲</button>
-                    <button class="magnet-btn" title="Download torrent"
-                        data-magnet="${esc(r.magnet_link)}"
-                        onclick="openExploreDownload(this)"
-                        style="margin-left:0.3rem; border-color:rgba(71,255,179,0.25); color:var(--ok);">⬇️</button>
-                </td>
-                <td style="white-space:nowrap;">${esc(r.size)}</td>
+                <td class="nowrap">${esc(r.size)}</td>
                 <td style="color:var(--ok);">${r.seeders ?? '—'}</td>
                 <td style="color:var(--error);">${r.leechers ?? '—'}</td>
-                <td style="font-size:0.72rem; color:var(--muted);">${esc(r.uploader ?? '—')}</td>
-            </tr>`).join('');
+                <td class="cell-muted">${esc(r.uploader ?? '—')}</td>
+            </tr>`;
     }
 
-    async function copyMagnet(btn) {
-        const magnetLink = btn.dataset.magnet;
+    function renderExploreResults() {
+        markSortHeaders('#exploreTable', exploreSort);
 
-        if (!magnetLink) {
-            toast('Magnet link is missing', 'error');
-            console.error('Missing data-magnet attribute:', btn);
-            return;
+        // Filter — read from the persistent input, never rebuild it
+        const filterVal = ($('exploreFilterInput')?.value || '').trim().toLowerCase();
+        const filtered = filterVal
+            ? exploreResults.filter(r => Object.values(r).some(v => String(v ?? '').toLowerCase().includes(filterVal)))
+            : exploreResults;
+
+        const {key, dir} = exploreSort;
+        const sorted = [...filtered].sort((a, b) => {
+            const av = a[key] ?? '';
+            const bv = b[key] ?? '';
+            const res = (typeof av === 'number' && typeof bv === 'number')
+                ? av - bv
+                : String(av).localeCompare(String(bv), undefined, {numeric: true, sensitivity: 'base'});
+            return dir === 'asc' ? res : -res;
+        });
+
+        const countEl = $('exploreResultsCount');
+        if (countEl) {
+            countEl.innerHTML = `Results for: <strong>${esc(exploreLastQuery)}</strong> &mdash; ${sorted.length} of ${exploreResults.length}`;
         }
 
+        $('exploreBody').innerHTML = sorted.length ? sorted.map(exploreRow).join('') : emptyRow(8, 'No results');
+    }
+
+    async function copyMagnet(magnetLink) {
+        if (!magnetLink) {
+            toast('Magnet link is missing', 'error');
+            return;
+        }
         try {
             await navigator.clipboard.writeText(magnetLink);
             toast('Copied to clipboard', 'success');
@@ -4351,118 +3907,19 @@
             ta.style.opacity = '0';
             document.body.appendChild(ta);
             ta.select();
-
             const copied = document.execCommand('copy');
             ta.remove();
-
-            if (copied) {
-                toast('Copied to clipboard', 'success');
-            } else {
-                toast('Failed to copy magnet link', 'error');
-            }
+            toast(copied ? 'Copied to clipboard' : 'Failed to copy magnet link', copied ? 'success' : 'error');
         }
     }
 
-    // ── Explore Download Modal ────────────────────────────────
-    function openExploreDownload(btn) {
-        document.getElementById('ed-url').value = btn.dataset.magnet;
-        document.getElementById('ed-host').value = '';
-        document.getElementById('ed-user').value = '';
-        document.getElementById('ed-path').value = '';
-        document.getElementById('ed-timeout').value = '';
-        document.getElementById('ed-delete').checked = false;
-        document.getElementById('exploreDownloadModal').classList.add('open');
-    }
-
-    function closeExploreDownload() {
-        document.getElementById('exploreDownloadModal').classList.remove('open');
-    }
-
-    document.getElementById('closeExploreDownloadModal').addEventListener('click', closeExploreDownload);
-    document.getElementById('cancelExploreDownloadModal').addEventListener('click', closeExploreDownload);
-    document.getElementById('exploreDownloadModal').addEventListener('click', e => {
-        if (e.target === document.getElementById('exploreDownloadModal')) closeExploreDownload();
+    // Delegated handler for the copy / download buttons in the results table
+    $('exploreBody').addEventListener('click', e => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        if (btn.dataset.action === 'copy') copyMagnet(btn.dataset.magnet);
+        else if (btn.dataset.action === 'download') openTransfer('explore', {source: btn.dataset.magnet});
     });
-
-    document.getElementById('submitExploreDownload').addEventListener('click', async () => {
-        const url = document.getElementById('ed-url').value.trim();
-        if (!url) return;
-
-        const payload = {
-            url,
-            delete_after_copy: document.getElementById('ed-delete').checked
-        };
-        const host = document.getElementById('ed-host').value.trim();
-        const user = document.getElementById('ed-user').value.trim();
-        const path = document.getElementById('ed-path').value.trim();
-        const rsyncTimeout = parseInt(document.getElementById('ed-timeout').value.trim(), 10);
-        if (host) payload.remote_host = host;
-        if (user) payload.remote_username = user;
-        if (path) payload.remote_path = path;
-        if (!isNaN(rsyncTimeout) && rsyncTimeout > 0) payload.rsync_timeout = rsyncTimeout;
-
-        const btn = document.getElementById('submitExploreDownload');
-        btn.disabled = true;
-        btn.textContent = 'Queueing…';
-
-        try {
-            const resp = await fetch('/torrent', {
-                method: 'PUT',
-                headers: authHeaders(),
-                body: JSON.stringify([payload]),
-                signal: AbortSignal.timeout(10000)
-            });
-            if (resp.status === 401) {
-                handleUnauth();
-                return;
-            }
-            if (!resp.ok) throw new Error(`${resp.statusText} [${resp.status}]: ${await resp.text()}`);
-
-            const data = await resp.json();
-            // Only one torrent request is submitted at a time, so it is safe to use index 0
-            const name = data[0].name
-            const status = data[0].state
-            if (status.startsWith('OK')) {
-                toast(`Queued: ${name}`, 'success');
-                closeExploreDownload();
-            } else {
-                toast(`${name}: ${status}`, 'error');
-            }
-        } catch (err) {
-            toast(err.message || 'Download failed', 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Download →';
-        }
-    });
-
-    // ── Utilities ─────────────────────────────────────────────
-    function formatTimestamp(timestamp) {
-        const date = new Date(timestamp * 1000);
-        const parts = new Intl.DateTimeFormat('en-US', {
-            weekday: 'short', month: 'short', day: '2-digit',
-            year: 'numeric', hour: '2-digit', minute: '2-digit',
-            hourCycle: 'h23', timeZoneName: 'short'
-        }).formatToParts(date);
-        const g = type => parts.find(p => p.type === type)?.value ?? '';
-        return `${g('weekday')} ${g('month')} ${g('day')} ${g('year')} ${g('hour')}:${g('minute')} ${g('timeZoneName')}`;
-    }
-
-    function esc(s) {
-        return String(s)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
-    function toast(msg, type = 'info') {
-        const el = document.createElement('div');
-        el.className = `toast ${type}`;
-        el.textContent = msg;
-        document.getElementById('toastArea').appendChild(el);
-        setTimeout(() => el.remove(), 10000);
-    }
 </script>
 </body>
 </html>
