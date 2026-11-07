@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+v1.1.1 (11/07/2026)
+-------------------
+- [fcd2c85](https://github.com/thevickypedia/RuTorrent/commit/fcd2c85b081a979bb6c578cb43d699f937f9a126) chore: Release ``v1.1.1``
+- [82be5eb](https://github.com/thevickypedia/RuTorrent/commit/82be5eb60596e24d41438c92738aebaaca0dece7) refactor: Remove redundancies in the UI template
+- [dce4131](https://github.com/thevickypedia/RuTorrent/commit/dce4131529457045b94c16392980ae9c20fd1805) refactor: Move ``qbit_get`` func to ``qbit`` module
+- [11b85cf](https://github.com/thevickypedia/RuTorrent/commit/11b85cf86aa026bf06966311866d6b166a9ca8a4) docs: Update README.md
+- [cc87257](https://github.com/thevickypedia/RuTorrent/commit/cc872575442d32bc5825582b0f811c72249f0c3d) feat: Notify the user in case of an unrecoverable error in the background task
+- [910e2f9](https://github.com/thevickypedia/RuTorrent/commit/910e2f900a795867ffbf356c880f2c9c45556668) perf: Reset ``max_auth_errors`` after successful qBit client creation in background tasks
+- [b1b91f0](https://github.com/thevickypedia/RuTorrent/commit/b1b91f091ce90b234f90950bf9148b6ce576ed76) chore: Update release notes for v1.1.0
+
 v1.1.0 (10/28/2026)
 -------------------
 - [62ea761](https://github.com/thevickypedia/RuTorrent/commit/62ea7610e6f7feb9316fe3a2ee081fb4919da505) chore: Release ``v1.1.0``
