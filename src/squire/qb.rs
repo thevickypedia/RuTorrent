@@ -3,6 +3,28 @@ use actix_web::HttpResponse;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use serde_json::Value;
+
+/// Sends a GET request to the qBittorrent API and parses the JSON response.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client used to perform the request
+/// * `url` - The full API endpoint URL
+///
+/// # Returns
+///
+/// * `Some(Value)` - Parsed JSON response if the request succeeds
+/// * `None` - If the request fails or the response cannot be parsed
+pub async fn qb_get(client: &Client, url: String) -> Option<Value> {
+    match client.get(&url).send().await {
+        Ok(r) => r.json().await.ok(),
+        Err(e) => {
+            log::warn!("qB GET error: {}", e);
+            None
+        }
+    }
+}
 
 /// Creates an authenticated HTTP client for interacting with the qBittorrent Web API.
 ///

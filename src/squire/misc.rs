@@ -1,28 +1,6 @@
 use regex::Regex;
-use reqwest::Client;
-use serde_json::Value;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Sends a GET request to the qBittorrent API and parses the JSON response.
-///
-/// # Arguments
-///
-/// * `client` - The HTTP client used to perform the request
-/// * `url` - The full API endpoint URL
-///
-/// # Returns
-///
-/// * `Some(Value)` - Parsed JSON response if the request succeeds
-/// * `None` - If the request fails or the response cannot be parsed
-pub async fn qb_get(client: &Client, url: String) -> Option<Value> {
-    match client.get(&url).send().await {
-        Ok(r) => r.json().await.ok(),
-        Err(e) => {
-            log::warn!("qB GET error: {}", e);
-            None
-        }
-    }
-}
 /// Get case agnostic environment variables.
 ///
 /// # Arguments

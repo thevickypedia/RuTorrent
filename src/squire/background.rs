@@ -181,7 +181,7 @@ pub fn spawn_worker(
 
             /* 1. Fetch all torrents from qBit; auto-insert anything new. */
             if let Some(response) =
-                squire::misc::qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url))
+                squire::qb::qb_get(&client, format!("{}/api/v2/torrents/info", config.qbit_url))
                     .await
             {
                 let Some(array) = response.as_array() else {
@@ -246,7 +246,7 @@ pub fn spawn_worker(
                 db_hashes.join("|")
             );
 
-            let Some(resp) = squire::misc::qb_get(&client, url).await else {
+            let Some(resp) = squire::qb::qb_get(&client, url).await else {
                 continue;
             };
             let Some(arr) = resp.as_array() else { continue };
