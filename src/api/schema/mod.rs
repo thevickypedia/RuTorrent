@@ -235,3 +235,15 @@ pub enum GetCategoriesResponse {
     #[allow(unused)]
     Nested(std::collections::HashMap<String, std::collections::HashMap<u16, String>>),
 }
+
+// Hints
+
+/// ### HintsResponse
+/// Represents the response object for hints.
+#[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
+pub struct HintsResponse {
+    pub save_paths: Option<Vec<String>>,
+    pub remote_hosts: Option<Vec<String>>,
+    pub remote_users: Option<Vec<String>>,
+    pub remote_paths: Option<Vec<String>>,
+}

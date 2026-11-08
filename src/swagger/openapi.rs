@@ -7,7 +7,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::base::hints,
+        api::hints::get,
 
         api::search::torrents,
         api::search::category,
@@ -23,7 +23,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::vpn::disconnect,
         api::vpn::feature,
     ),
-    components(schemas(api::schema::PutTorrentRequest, api::schema::PutTorrentResponse, api::schema::RetryTorrentRequest, api::schema::GetTorrentResponse, api::schema::SearchTorrentResponse, api::schema::MullvadResponse)),
+    components(schemas(api::schema::PutTorrentRequest, api::schema::PutTorrentResponse, api::schema::RetryTorrentRequest, api::schema::GetTorrentResponse, api::schema::SearchTorrentResponse, api::schema::MullvadResponse, api::schema::HintsResponse)),
     security(
         ("apikey" = [])
     ),

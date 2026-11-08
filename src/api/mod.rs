@@ -10,3 +10,5 @@ pub mod squire;
 pub mod torrent;
 /// Houses the VPN routes/endpoints.
 pub mod vpn;
+/// Houses the route for hints.
+pub mod hints;
