@@ -2242,7 +2242,8 @@
             <!-- Add + Explore -->
             <div class="field full" id="tf-save-field">
                 <label for="tf-save">Local Save Path</label>
-                <input id="tf-save" placeholder="Leave blank for default" type="text">
+                <input id="tf-save" placeholder="Leave blank for default" type="text" list="save_paths">
+                <datalist id="save_paths"></datalist>
                 <div class="field-hint">Overrides the default qBittorrent save path</div>
             </div>
 
@@ -2250,16 +2251,19 @@
 
             <div class="field">
                 <label for="tf-host">Remote Host</label>
-                <input id="tf-host" placeholder="192.168.1.100" type="text">
+                <input id="tf-host" placeholder="192.168.1.100" type="text" list="remote_hosts">
+                <datalist id="remote_hosts"></datalist>
             </div>
             <div class="field">
                 <label for="tf-user">Remote Username</label>
-                <input id="tf-user" placeholder="admin" type="text">
+                <input id="tf-user" placeholder="admin" type="text" list="remote_users">
+                <datalist id="remote_users"></datalist>
             </div>
             <div class="field full">
                 <label for="tf-path">Remote Path</label>
-                <input id="tf-path" placeholder="/home/admin/Movies" type="text" list="remote-paths">
-                <datalist id="remote-paths"></datalist>
+                <input id="tf-path" placeholder="/home/admin/Movies" type="text" list="remote_paths">
+                <datalist id="remote_paths"></datalist>
+                <div class="field-hint">Remote path where the downloaded content has to be copied</div>
             </div>
             <div class="field full">
                 <label for="tf-timeout">Connection Timeout</label>
@@ -3403,29 +3407,58 @@
         }
     });
 
-    const pathInput = $("tf-path");
-    const pathHints = document.getElementById("remote-paths");
-    let hintsLoaded = false;
-    pathInput.addEventListener("click", async () => {
-        if (hintsLoaded) return;
+    let hints_json = null;
+
+    async function getHints() {
+        if (hints_json) return hints_json;
         try {
             const response = await api('/hints');
             if (!response.ok) {
                 toast(await response.text(), 'warning');
-                return;
+                return {};
             }
-            const paths = await response.json();
-            pathHints.replaceChildren(
-                ...paths.map(path => {
-                    const option = document.createElement("option");
-                    option.value = path;
-                    return option;
-                })
-            );
-            hintsLoaded = true;
+            hints_json = await response.json();
+            return hints_json;
         } catch (err) {
             toast(`Failed to load hints: ${err.message}`, 'error');
+            return {}
         }
+    }
+
+    let hintsLoaded = {};
+
+    async function loadHint(key, obj) {
+        const hints = await getHints();
+        const paths = hints[key];
+        if (!paths) return;
+        obj.replaceChildren(
+            ...paths.map(path => {
+                const option = document.createElement("option");
+                option.value = path;
+                return option;
+            })
+        );
+        hintsLoaded[key] = true;
+    }
+
+    $("tf-save").addEventListener("click", async () => {
+        if (hintsLoaded['save_paths']) return;
+        await loadHint("save_paths", document.getElementById("save_paths"));
+    });
+
+    $("tf-host").addEventListener("click", async () => {
+        if (hintsLoaded['remote_hosts']) return;
+        await loadHint("remote_hosts", document.getElementById("remote_hosts"));
+    });
+
+    $("tf-user").addEventListener("click", async () => {
+        if (hintsLoaded['remote_users']) return;
+        await loadHint("remote_users", document.getElementById("remote_users"));
+    });
+
+    $("tf-path").addEventListener("click", async () => {
+        if (hintsLoaded['remote_paths']) return;
+        await loadHint("remote_paths", document.getElementById("remote_paths"));
     });
 
     // ══════════════════════════════
