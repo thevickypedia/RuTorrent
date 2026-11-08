@@ -8,6 +8,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[openapi(
     paths(
         api::hints::get,
+        api::hints::put,
+        api::hints::delete,
 
         api::search::torrents,
         api::search::category,
@@ -23,7 +25,7 @@ use utoipa_swagger_ui::SwaggerUi;
         api::vpn::disconnect,
         api::vpn::feature,
     ),
-    components(schemas(api::schema::PutTorrentRequest, api::schema::PutTorrentResponse, api::schema::RetryTorrentRequest, api::schema::GetTorrentResponse, api::schema::SearchTorrentResponse, api::schema::MullvadResponse, api::schema::HintsResponse)),
+    components(schemas(api::schema::PutTorrentRequest, api::schema::PutTorrentResponse, api::schema::RetryTorrentRequest, api::schema::GetTorrentResponse, api::schema::SearchTorrentResponse, api::schema::MullvadResponse, api::schema::Hints)),
     security(
         ("apikey" = [])
     ),

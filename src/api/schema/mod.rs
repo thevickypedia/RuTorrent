@@ -236,14 +236,58 @@ pub enum GetCategoriesResponse {
     Nested(std::collections::HashMap<String, std::collections::HashMap<u16, String>>),
 }
 
-// Hints
+pub static HINTS: Hints = Hints::new();
 
-/// ### HintsResponse
-/// Represents the response object for hints.
+// Hints
+/// ### Hints
+/// Represents the hints object.
 #[derive(Debug, serde::Serialize, serde::Deserialize, ToSchema)]
-pub struct HintsResponse {
+pub struct Hints {
     pub save_paths: Option<Vec<String>>,
     pub remote_hosts: Option<Vec<String>>,
     pub remote_users: Option<Vec<String>>,
     pub remote_paths: Option<Vec<String>>,
+}
+
+impl Hints {
+    pub const fn new() -> Hints {
+        Hints {
+            save_paths: None,
+            remote_hosts: None,
+            remote_users: None,
+            remote_paths: None,
+        }
+    }
+    pub fn keys(&self) -> Vec<String> {
+        serde_json::to_value(self)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|k| k.to_string())
+            .collect()
+    }
+    pub fn has_field(&self, key: &str) -> bool {
+        serde_json::to_value(self)
+            .map(|v| v.get(key).is_some())
+            .unwrap_or(false)
+    }
+
+    #[allow(unused)]
+    pub fn has_value(&self, key: &str) -> bool {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|v| v.get(key).cloned())
+            .is_some_and(|v| !v.is_null())
+    }
+
+    pub fn clear_field(&mut self, key: &str) {
+        if let Ok(mut value) = serde_json::to_value(&self)
+            && let Some(obj) = value.as_object_mut() {
+                obj.insert(key.to_string(), serde_json::Value::Null);
+                if let Ok(updated) = serde_json::from_value(value) {
+                    *self = updated;
+                }
+            }
+    }
 }
