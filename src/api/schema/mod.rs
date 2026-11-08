@@ -250,44 +250,59 @@ pub struct Hints {
 }
 
 impl Hints {
-    pub const fn new() -> Hints {
-        Hints {
+    pub const fn new() -> Self {
+        Self {
             save_paths: None,
             remote_hosts: None,
             remote_users: None,
             remote_paths: None,
         }
     }
+
     pub fn keys(&self) -> Vec<String> {
-        serde_json::to_value(self)
-            .unwrap()
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(|k| k.to_string())
+        vec![
+            "save_paths",
+            "remote_hosts",
+            "remote_users",
+            "remote_paths",
+        ]
+            .into_iter()
+            .map(String::from)
             .collect()
     }
+
     pub fn has_field(&self, key: &str) -> bool {
-        serde_json::to_value(self)
-            .map(|v| v.get(key).is_some())
-            .unwrap_or(false)
+        self.keys().iter().any(|k| k == key)
     }
 
     #[allow(unused)]
     pub fn has_value(&self, key: &str) -> bool {
-        serde_json::to_value(self)
-            .ok()
-            .and_then(|v| v.get(key).cloned())
-            .is_some_and(|v| !v.is_null())
+        match key {
+            "save_paths" => self.save_paths.is_some(),
+            "remote_hosts" => self.remote_hosts.is_some(),
+            "remote_users" => self.remote_users.is_some(),
+            "remote_paths" => self.remote_paths.is_some(),
+            _ => false,
+        }
     }
 
     pub fn clear_field(&mut self, key: &str) {
-        if let Ok(mut value) = serde_json::to_value(&self)
-            && let Some(obj) = value.as_object_mut() {
-                obj.insert(key.to_string(), serde_json::Value::Null);
-                if let Ok(updated) = serde_json::from_value(value) {
-                    *self = updated;
-                }
-            }
+        match key {
+            "save_paths" => self.save_paths = None,
+            "remote_hosts" => self.remote_hosts = None,
+            "remote_users" => self.remote_users = None,
+            "remote_paths" => self.remote_paths = None,
+            _ => {}
+        }
+    }
+
+    pub fn add_field(&mut self, key: &str, value: Vec<String>) {
+        match key {
+            "save_paths" => self.save_paths = Some(value),
+            "remote_hosts" => self.remote_hosts = Some(value),
+            "remote_users" => self.remote_users = Some(value),
+            "remote_paths" => self.remote_paths = Some(value),
+            _ => {}
+        }
     }
 }

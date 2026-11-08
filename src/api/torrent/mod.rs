@@ -295,12 +295,12 @@ pub async fn put(
 ///
 /// #### Sample Request (delete any downloaded files)
 /// ```shell
-/// curl -X DELETE "http://localhost:3000/torrent?hash=2C..85"
+/// curl -X DELETE "localhost:3000/torrent?hash=2C..85"
 /// ```
 ///
 /// #### Sample Request (retain any downloaded files)
 /// ```shell
-/// curl -X DELETE "http://localhost:3000/torrent?hash=2C..85&delete-files=false"
+/// curl -X DELETE "localhost:3000/torrent?hash=2C..85&delete-files=false"
 /// ```
 ///
 /// #### Sample Response

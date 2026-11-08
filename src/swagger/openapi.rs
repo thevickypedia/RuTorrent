@@ -9,6 +9,7 @@ use utoipa_swagger_ui::SwaggerUi;
     paths(
         api::hints::get,
         api::hints::put,
+        api::hints::patch,
         api::hints::delete,
 
         api::search::torrents,

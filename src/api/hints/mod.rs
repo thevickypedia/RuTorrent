@@ -1,8 +1,8 @@
+use crate::{api, config};
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use actix_web::{web, HttpRequest, Responder, HttpResponse};
-use crate::{api, config};
 
 fn getter(config: &config::env::Config) -> Result<api::schema::Hints, Box<dyn std::error::Error>> {
     let file = File::open(&config.hints)?;
@@ -12,14 +12,30 @@ fn getter(config: &config::env::Config) -> Result<api::schema::Hints, Box<dyn st
     Ok(hints_response)
 }
 
-fn setter(config: &config::env::Config, data: &api::schema::Hints) -> Result<(), Box<dyn std::error::Error>> {
+fn setter(
+    config: &config::env::Config,
+    data: &api::schema::Hints,
+) -> Result<(), Box<dyn std::error::Error>> {
     let file = File::create(&config.hints)?;
     let writer = BufWriter::new(file);
     serde_json::to_writer_pretty(writer, data)?;
     Ok(())
 }
 
-/// API endpoint to GET hints stored in a file (with line breaks) or environment variables (comma separated list).
+fn set_and_return(
+    config: &config::env::Config,
+    data: &api::schema::Hints,
+) -> HttpResponse {
+    match setter(config, data) {
+        Ok(_) => HttpResponse::Ok().json(data),
+        Err(err) => {
+            log::error!("{:?}", err);
+            HttpResponse::InternalServerError().json(err.to_string())
+        }
+    }
+}
+
+/// API endpoint to GET hints stored in a JSON file.
 ///
 /// # Arguments
 ///
@@ -31,12 +47,9 @@ fn setter(config: &config::env::Config, data: &api::schema::Hints) -> Result<(),
 /// curl localhost:3000/hints
 /// ```
 ///
-/// #### Status
-/// * `200`: Successfully queued.
-///
 /// # Returns
 ///
-/// Returns a JSON object of `Vec<String>` object.
+/// Returns the `Hints` object.
 #[utoipa::path(
     get,
     tag = "Hints",
@@ -47,10 +60,7 @@ fn setter(config: &config::env::Config, data: &api::schema::Hints) -> Result<(),
         (status = 500, description = "Failed to open or parse hints file", body = String),
     )
 )]
-pub async fn get(
-    request: HttpRequest,
-    config: web::Data<config::env::Config>,
-) -> impl Responder {
+pub async fn get(request: HttpRequest, config: web::Data<config::env::Config>) -> impl Responder {
     if !api::squire::authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
@@ -61,78 +71,128 @@ pub async fn get(
         return HttpResponse::NotFound().json(warn);
     }
     match getter(&config) {
-        Ok(res) => {
-            HttpResponse::Ok().json(res)
-        },
+        Ok(res) => HttpResponse::Ok().json(res),
         Err(err) => {
             log::error!("{:?}", err);
             HttpResponse::InternalServerError().json(err.to_string())
-        },
+        }
     }
 }
 
-
-/// API endpoint to ADD hints.
+/// API endpoint to PUT a hint. Updates existing JSON file or creates a new one.
 ///
 /// # Arguments
 ///
 /// * `request` - Reference to the `HttpRequest` object.
+/// * `query` - JSON query parameters.
 /// * `config` - Reference to the `Config` object.
-/// * `body` - Request body that takes `Hints` object.
 ///
 /// #### Sample Request
 /// ```shell
-/// curl -X PUT localhost:3000/torrent \
-///   -H "Content-Type: application/json" \
-///   -d '{
-///     "save_paths": ["/home/admin/TV Shows", "/home/admin/Movies"]
-///     "remote_hosts": ["192.168.1.102", "192.168.1.101"],
-///     "remote_users": "admin",
-///     "remote_paths": "/Users/admin/Sintel",
-///   }'
-/// ```
-///
-/// #### Sample Response
-/// ```json
-/// "Added"
+/// curl -X 'PUT' \
+///   'localhost:3000/hints?key=save_paths' \
+///   -H 'Content-Type: application/json' \
+///   -d '["/home/Movies", "/home/TV Shows", "/home/Photos"]'
 /// ```
 ///
 /// # Returns
 ///
-/// Returns a JSON object to indicate the status.
+/// Returns the updated `Hints` object.
 #[utoipa::path(
     put,
     tag = "Hints",
     path = "/hints",
-    request_body = api::schema::Hints,
+    params(
+        ("key" = String, Query, description = "Hint key to add/update"),
+    ),
+    request_body = Vec<String>,
     responses(
-        (status = 200, description = "Hints object", body = Vec<api::schema::Hints>),
+        (status = 200, description = "Updated Hints object", body = Vec<String>),
         (status = 400, description = "Invalid key", body = String),
-        (status = 404, description = "Hints file not found", body = String),
         (status = 500, description = "Failed to open or parse hints file", body = String),
     )
 )]
 pub async fn put(
     request: HttpRequest,
     config: web::Data<config::env::Config>,
-    body: web::Json<api::schema::Hints>,
+    query: web::Query<HashMap<String, String>>,
+    body: web::Json<Vec<String>>,
 ) -> impl Responder {
-    // TODO: Replace this to patch and create a put endpoint to add/replace one particular key
     if !api::squire::authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    match setter(&config, &body) {
-        Ok(_) => {
-            HttpResponse::Ok().json(format!("Updated {}", &config.hints.display()))
+    let key = match query.get("key") {
+        Some(i) => i.trim().to_lowercase(),
+        None => return HttpResponse::BadRequest().body("Missing key"),
+    };
+    if !api::schema::HINTS.has_field(&key) {
+        return HttpResponse::BadRequest().body(format!(
+            "Invalid hint key '{}'; use one of {:?}",
+            key,
+            api::schema::HINTS.keys()
+        ));
+    }
+    // Update existing or create a new object
+    let mut data = match getter(&config) {
+        Ok(mut current_hints) => {
+            current_hints.clear_field(&key);
+            current_hints
         },
         Err(err) => {
-            log::error!("{:?}", err);
-            HttpResponse::InternalServerError().json(err.to_string())
-        },
-    }
+            log::warn!("{:?}", err);
+            api::schema::Hints::new()
+        }
+    };
+    data.add_field(&key, body.0);
+    set_and_return(&config, &data)
 }
 
-/// API endpoint to DELETE a hint.
+/// API endpoint to PATCH hints in (re-write) the JSON file.
+///
+/// # Arguments
+///
+/// * `request` - Reference to the `HttpRequest` object.
+/// * `body` - Request body that takes `Hints` object.
+/// * `config` - Reference to the `Config` object.
+///
+/// #### Sample Request
+/// ```shell
+/// curl -X 'PATCH' \
+///   'localhost:3000/hints' \
+///   -H 'Content-Type: application/json' \
+///   -d '{
+///   "save_paths": ["/Users/admin/Downloads", "/Users/admin/Documents"],
+///   "remote_hosts": ["192.168.1.102", "192.168.1.103"],
+///   "remote_users": ["admin", "user"],
+///   "remote_paths": ["/home/Movies", "/home/TV Shows", "/home/Photos"]
+/// }'
+/// ```
+///
+/// # Returns
+///
+/// Returns the updated `Hints` object.
+#[utoipa::path(
+    patch,
+    tag = "Hints",
+    path = "/hints",
+    request_body = api::schema::Hints,
+    responses(
+        (status = 200, description = "Updated Hints object", body = Vec<String>),
+        (status = 500, description = "Failed to open or parse hints file", body = String),
+    )
+)]
+pub async fn patch(
+    request: HttpRequest,
+    config: web::Data<config::env::Config>,
+    body: web::Json<api::schema::Hints>,
+) -> impl Responder {
+    if !api::squire::authenticator(&request, &config) {
+        return HttpResponse::Unauthorized().json("Unauthorized");
+    }
+    set_and_return(&config, &body)
+}
+
+/// API endpoint to DELETE a hint stored in the JSON file.
 ///
 /// # Arguments
 ///
@@ -142,17 +202,12 @@ pub async fn put(
 ///
 /// #### Sample Request (delete any downloaded files)
 /// ```shell
-/// curl -X DELETE "http://localhost:3000/hints?key=remote_users"
-/// ```
-///
-/// #### Sample Response
-/// ```json
-/// Deleted <name> [<hash>]
+/// curl -X DELETE "localhost:3000/hints?key=remote_users"
 /// ```
 ///
 /// # Returns
 ///
-/// Returns a JSON object to indicate the status.
+/// Returns the updated `Hints` object.
 #[utoipa::path(
     delete,
     tag = "Hints",
@@ -161,7 +216,7 @@ pub async fn put(
         ("key" = String, Query, description = "Hints key to delete"),
     ),
     responses(
-        (status = 200, description = "Get cleared hints object", body = api::schema::Hints),
+        (status = 200, description = "Updated Hints object", body = Vec<String>),
         (status = 400, description = "Invalid key", body = String),
         (status = 404, description = "Hints file not found", body = String),
         (status = 500, description = "Failed to open or parse hints file", body = String),
@@ -180,24 +235,20 @@ pub async fn delete(
         None => return HttpResponse::BadRequest().body("Missing key"),
     };
     if !api::schema::HINTS.has_field(&key) {
-        return HttpResponse::BadRequest().body(format!("Invalid hint key '{}'; use one of {:?}", key, api::schema::HINTS.keys()));
+        return HttpResponse::BadRequest().body(format!(
+            "Invalid hint key '{}'; use one of {:?}",
+            key,
+            api::schema::HINTS.keys()
+        ));
     }
     match getter(&config) {
         Ok(mut res) => {
             res.clear_field(key.as_str());
-            match setter(&config, &res) {
-                Ok(_) => {
-                    HttpResponse::Ok().json(res)
-                },
-                Err(err) => {
-                    log::error!("{:?}", err);
-                    HttpResponse::InternalServerError().json(err.to_string())
-                },
-            }
-        },
+            set_and_return(&config, &res)
+        }
         Err(err) => {
             log::error!("{:?}", err);
             HttpResponse::InternalServerError().json(err.to_string())
-        },
+        }
     }
 }

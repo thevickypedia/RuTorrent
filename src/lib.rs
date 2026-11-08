@@ -80,6 +80,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/version", web::get().to(api::base::version))
             // Hints
             .route("/hints", web::get().to(api::hints::get))
+            .route("/hints", web::patch().to(api::hints::patch))
             .route("/hints", web::put().to(api::hints::put))
             .route("/hints", web::delete().to(api::hints::delete))
             // Search

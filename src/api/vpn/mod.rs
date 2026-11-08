@@ -228,7 +228,7 @@ pub async fn disconnect(
     api::squire::vpn_response(vpn::connect::disconnect(lockdown).await)
 }
 
-/// API endpoint to disconnect mullvad vpn.
+/// API endpoint to toggle mullvad vpn features.
 ///
 /// # Arguments
 ///
