@@ -57,6 +57,14 @@ async fn main() -> std::io::Result<()> {
 | `TRACKERS_FILE`       | Filepath to custom trackers list with each tracker in a new line    | -                       |
 | `MAX_TRACKERS`        | Number of trackers to fetch and/or use                              | `10`                    |
 | `MULLVAD_RELAY_CACHE` | Directory path for the mullvad relay cache                          | [$MULLVAD_CACHE_DIR]    |
+| `HINTS`               | Filepath to the hints JSON file                                     | `hints.json`            |
+
+> [!TIP]
+> To get the chat ID, message the bot on Telegram and run the command:
+> ```shell
+> curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" \
+> | jq '.result[].message.chat.id'
+> ```
 
 #### Environment variables that can be overridden with API calls
 
@@ -76,13 +84,6 @@ async fn main() -> std::io::Result<()> {
 | `REMOTE_PATH`       | Default path to copy in remote host.              | -       | `PUT /torrent`, `POST /torrent` |
 | `RSYNC_TIMEOUT`     | Default SSH `ConnectTimeout` in rsync.            | `3`     | `PUT /torrent`, `POST /torrent` |
 | `DELETE_AFTER_COPY` | Boolean flag to be a leecher.                     | `false` | `PUT /torrent`, `POST /torrent` |
-
-> [!TIP]
-> To get the chat ID, message the bot on Telegram and run the command:
-> ```shell
-> curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" \
-> | jq '.result[].message.chat.id'
-> ```
 
 ### Setup Instructions
 
@@ -229,20 +230,61 @@ docker run -d \
 ### VPN (Mullvad CLI)
 
 1. `GET /vpn` - Get VPN state (cli: `mullvad status --json`)
+   > VPN state
    ```shell
    curl -H "apikey: ${APIKEY}" localhost:3000/vpn
    ```
+   > VPN Features
+   ```shell
+   curl -H "apikey: ${APIKEY}" localhost:3000/vpn?features=true
+   ```
 2. `POST /vpn` - Connect/Reconnect/Change VPN relay
    ```shell
-   curl -X POST --url "localhost:3000/vpn" \
+   curl -X POST "localhost:3000/vpn" \
      -H "Content-Type: application/json" \
      -H "apikey: ${APIKEY}" \
      -d '{"blacklist":"us,il,cl,cz","hostname":"","whitelist":"ch,se,ie,it,tyo"}'
    ```
 3. `DELETE /vpn` - Disconnect vpn
    ```shell
-   curl -X DELETE --url "localhost:3000/vpn?lockdown=false" \
+   curl -X DELETE "localhost:3000/vpn?lockdown=false" \
      -H "apikey: ${APIKEY}"
+   ```
+4. `PATCH /vpn` - Toggle VPN features
+   ```shell
+   curl -X PATCH "localhost:3000/vpn?feature=LanSharing&switch=true" \
+     -H "apikey: ${APIKEY}"
+   ```
+
+### Hints
+
+1. `GET /hints` - Get the hints stored in the server
+   ```shell
+   curl -H "apikey: ${APIKEY}" localhost:3000/hints
+   ```
+2. `PUT /hints` - Update a hint
+   ```shell
+   curl -X 'PUT' \
+     'localhost:3000/hints?key=save_paths' \
+     -H "apikey: ${APIKEY}"
+     -H 'Content-Type: application/json' \
+     -d '["/home/Movies", "/home/TV Shows", "/home/Photos"]'
+   ```
+3. `PATCH /hints` - Re-write the hints JSON file
+   ```shell
+   curl -X 'PATCH' \
+     'localhost:3000/hints' \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "save_paths": ["/Users/admin/Downloads", "/Users/admin/Documents"],
+       "remote_hosts": ["192.168.1.102", "192.168.1.103"],
+       "remote_users": ["admin", "user"],
+       "remote_paths": ["/home/Movies", "/home/TV Shows", "/home/Photos"]
+     }'
+   ```
+4. `DELETE /hints` - Delete a particular key in the hints JSON file
+   ```shell
+   curl -X DELETE -H "apikey: ${APIKEY}" localhost:3000/hints?key=remote_users
    ```
 
 ### Standalone UI
