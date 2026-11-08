@@ -2258,7 +2258,8 @@
             </div>
             <div class="field full">
                 <label for="tf-path">Remote Path</label>
-                <input id="tf-path" placeholder="/home/admin/Movies" type="text">
+                <input id="tf-path" placeholder="/home/admin/Movies" type="text" list="remote-paths">
+                <datalist id="remote-paths"></datalist>
             </div>
             <div class="field full">
                 <label for="tf-timeout">Connection Timeout</label>
@@ -3399,6 +3400,31 @@
                 transferRetryBtn.classList.remove('spinning');
                 transferRetryBtn.disabled = false;
             }
+        }
+    });
+
+    const pathInput = $("tf-path");
+    const pathHints = document.getElementById("remote-paths");
+    let hintsLoaded = false;
+    pathInput.addEventListener("click", async () => {
+        if (hintsLoaded) return;
+        try {
+            const response = await api('/hints');
+            if (!response.ok) {
+                toast(await response.text(), 'warning');
+                return;
+            }
+            const paths = await response.json();
+            pathHints.replaceChildren(
+                ...paths.map(path => {
+                    const option = document.createElement("option");
+                    option.value = path;
+                    return option;
+                })
+            );
+            hintsLoaded = true;
+        } catch (err) {
+            toast(`Failed to load hints: ${err.message}`, 'error');
         }
     });
 

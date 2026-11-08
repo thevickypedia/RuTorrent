@@ -78,6 +78,7 @@ pub async fn start() -> std::io::Result<()> {
             .route("/status", web::get().to(api::base::status))
             .route("/health", web::get().to(api::base::status))
             .route("/version", web::get().to(api::base::version))
+            .route("/hints", web::get().to(api::base::hints))
             // Search
             .route("/search", web::get().to(api::search::torrents))
             .route("/categories", web::get().to(api::search::category))

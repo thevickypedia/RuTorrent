@@ -7,6 +7,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        api::base::hints,
+
         api::search::torrents,
         api::search::category,
 
