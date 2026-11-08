@@ -1,32 +1,59 @@
 use crate::{api, config};
 use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 
-fn getter(config: &config::env::Config) -> Result<api::schema::Hints, Box<dyn std::error::Error>> {
-    let file = File::open(&config.hints)?;
-    let reader = BufReader::new(file);
-    let hints_response: api::schema::Hints = serde_json::from_reader(reader)?;
+/// Load the hints JSON file into the `Hints` struct.
+///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+///
+/// # Returns
+///
+/// Returns the `Result<Hints, Box<dyn Error>>` object.
+async fn getter(
+    config: &config::env::Config,
+) -> Result<api::schema::Hints, Box<dyn std::error::Error>> {
+    let data = tokio::fs::read(&config.hints).await?;
+    let hints_response: api::schema::Hints = serde_json::from_slice(&data)?;
     log::info!("Hints: {:?}", hints_response);
     Ok(hints_response)
 }
 
-fn setter(
+/// Writes the hints JSON file with the `Hints` struct.
+///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+/// * `data` - Reference to the `Hints` object.
+///
+/// # Returns
+///
+/// Returns the `Result<(), Box<dyn std::error::Error>>` object.
+async fn setter(
     config: &config::env::Config,
     data: &api::schema::Hints,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::create(&config.hints)?;
-    let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, data)?;
+    let json = serde_json::to_vec_pretty(data)?;
+    tokio::fs::write(&config.hints, json).await?;
     Ok(())
 }
 
-fn set_and_return(
+/// Writes the hints JSON file with the `Hints` struct and returns an `HttpResponse` object.
+///
+/// # Arguments
+///
+/// * `config` - Reference to the `Config` object.
+/// * `data` - Reference to the `Hints` object.
+///
+/// # Returns
+///
+/// Returns the `HttpResponse` object.
+async fn set_and_return(
     config: &config::env::Config,
     data: &api::schema::Hints,
 ) -> HttpResponse {
-    match setter(config, data) {
+    match setter(config, data).await {
         Ok(_) => HttpResponse::Ok().json(data),
         Err(err) => {
             log::error!("{:?}", err);
@@ -64,13 +91,12 @@ pub async fn get(request: HttpRequest, config: web::Data<config::env::Config>) -
     if !api::squire::authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    // TODO: Replace BufReader and BufWrtier with tokio for async
     if !config.hints.is_file() {
         let warn = format!("{} not found", config.hints.display());
         log::warn!("{}", warn);
         return HttpResponse::NotFound().json(warn);
     }
-    match getter(&config) {
+    match getter(&config).await {
         Ok(res) => HttpResponse::Ok().json(res),
         Err(err) => {
             log::error!("{:?}", err);
@@ -133,7 +159,7 @@ pub async fn put(
         ));
     }
     // Update existing or create a new object
-    let mut data = match getter(&config) {
+    let mut data = match getter(&config).await {
         Ok(mut current_hints) => {
             current_hints.clear_field(&key);
             current_hints
@@ -144,7 +170,7 @@ pub async fn put(
         }
     };
     data.add_field(&key, body.0);
-    set_and_return(&config, &data)
+    set_and_return(&config, &data).await
 }
 
 /// API endpoint to PATCH hints in (re-write) the JSON file.
@@ -189,7 +215,7 @@ pub async fn patch(
     if !api::squire::authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    set_and_return(&config, &body)
+    set_and_return(&config, &body).await
 }
 
 /// API endpoint to DELETE a hint stored in the JSON file.
@@ -241,10 +267,10 @@ pub async fn delete(
             api::schema::HINTS.keys()
         ));
     }
-    match getter(&config) {
+    match getter(&config).await {
         Ok(mut res) => {
             res.clear_field(key.as_str());
-            set_and_return(&config, &res)
+            set_and_return(&config, &res).await
         }
         Err(err) => {
             log::error!("{:?}", err);
