@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::BufReader;
-use std::path::PathBuf;
 use actix_web::{web, HttpRequest, Responder, HttpResponse};
 use crate::{api, config};
 
@@ -39,25 +38,27 @@ pub async fn get(
     if !api::squire::authenticator(&request, &config) {
         return HttpResponse::Unauthorized().json("Unauthorized");
     }
-    // TODO: Get hints.json filename from env vars
-    //  Add new endpoints to PUT and DELETE hints
-    let path = PathBuf::from("hints.json");
-    if !path.is_file() {
-        return HttpResponse::NotFound().json("hints.json not found");
+    // TODO: Add new endpoints to PUT and DELETE hints
+    if !config.hints.is_file() {
+        let warn = format!("{} not found", config.hints.display());
+        log::warn!("{}", warn);
+        return HttpResponse::NotFound().json(warn);
     }
-    let file = match File::open(&path) {
+    let file = match File::open(&config.hints) {
         Ok(file) => file,
         Err(e) => {
-            log::error!("Failed to open '{}': {}", path.display(), e);
-            return HttpResponse::InternalServerError().json("Failed to open hints.json");
+            let error = format!("Failed to open {} - {}", config.hints.display(), e);
+            log::error!("{}", error);
+            return HttpResponse::InternalServerError().json(error);
         }
     };
     let reader = BufReader::new(file);
     let hints_response: api::schema::HintsResponse = match serde_json::from_reader(reader) {
         Ok(json) => json,
         Err(e) => {
-            log::error!("Failed to parse '{}': {}", path.display(), e);
-            return HttpResponse::InternalServerError().json("Failed to parse hints.json");
+            let error = format!("Failed to parse {} - {}", config.hints.display(), e);
+            log::error!("{}", error);
+            return HttpResponse::InternalServerError().json(error);
         }
     };
     log::info!("Hints: {:?}", hints_response);

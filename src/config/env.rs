@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use crate::{error, squire, warning};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -90,6 +91,9 @@ pub struct Config {
 
     // Mullvad relay cache
     pub mullvad_relay_cache: Option<PathBuf>,
+
+    // Hints
+    pub hints: PathBuf,
 }
 
 impl Config {
@@ -234,6 +238,11 @@ impl Config {
                 .map(|dir| PathBuf::from(dir).join("relays.json"))
         };
 
+        let hints = PathBuf::from(squire::misc::get_env_var("hints", Some("hints.json")));
+        if hints.extension() != Some(OsStr::new("json")) {
+            error!("'hints' must be a path to a '.json' file - received: {:?}", hints.extension().unwrap_or_default());
+        }
+
         Self {
             host,
             port,
@@ -261,6 +270,7 @@ impl Config {
             trackers_file,
             max_trackers,
             mullvad_relay_cache,
+            hints,
         }
     }
 }
