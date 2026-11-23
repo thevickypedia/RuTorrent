@@ -1,6 +1,20 @@
 Release Notes
 =============
 
+v1.2.0 (11/22/2026)
+-------------------
+- [e369522](https://github.com/thevickypedia/RuTorrent/commit/e369522655b52ddbd21634e65c11ec346d21d789) chore: Release ``v1.2.0``
+- [c2138cc](https://github.com/thevickypedia/RuTorrent/commit/c2138cccc2c773f680239fb10a63c8ddb53737c9) chore: Bump dependencies
+- [a45c055](https://github.com/thevickypedia/RuTorrent/commit/a45c055badae0c7f94fb58439325e8dd5b9aa9f5) docs: Update README.md
+- [4590fe1](https://github.com/thevickypedia/RuTorrent/commit/4590fe1ebbd658b31a7a6496f30b03bbb41bc85f) perf: Change all file IO operations on ``hints`` to be asynchronous
+- [d81ffd6](https://github.com/thevickypedia/RuTorrent/commit/d81ffd6dd13318293ac706c93483cedfcb9c2098) feat: Add new ``PATCH /hints`` endpoint and improve code re-usability
+- [41a49e6](https://github.com/thevickypedia/RuTorrent/commit/41a49e6d58c4261ebab51515ce4717883662554b) feat: Add new ``PUT /hints`` and ``DELETE /hints`` endpoints
+- [8716588](https://github.com/thevickypedia/RuTorrent/commit/87165883cdd6522391451fdd87db90ba8c404889) perf: Replace hardcoded ``hints.json`` with env config
+- [0793ce5](https://github.com/thevickypedia/RuTorrent/commit/0793ce592b2893c99c3dca82ce61cf290236fbe8) feat: Update UI to support the new ``GET /hints`` endpoint
+- [e7acc78](https://github.com/thevickypedia/RuTorrent/commit/e7acc784691075b4a7cdd865498c3e4031a87844) feat: Make ``GET /hints`` respond with a structured dataset
+- [c880094](https://github.com/thevickypedia/RuTorrent/commit/c8800942d52ccd824e49c237045d0c33d9295ba9) feat: Include a ``GET /hints`` endpoint to support the UI for ``remote_path``
+- [95550eb](https://github.com/thevickypedia/RuTorrent/commit/95550eb0a0ff9a8c64878f17d40ff793b9285ae8) chore: Update release notes for v1.1.1
+
 v1.1.1 (11/07/2026)
 -------------------
 - [fcd2c85](https://github.com/thevickypedia/RuTorrent/commit/fcd2c85b081a979bb6c578cb43d699f937f9a126) chore: Release ``v1.1.1``
