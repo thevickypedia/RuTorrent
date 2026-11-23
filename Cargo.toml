@@ -1,6 +1,6 @@
 [package]
 name = "rutorrent"
-version = "1.1.1"
+version = "1.2.0"
 description = "RuTorrent is a lightweight API (with an optional WebUI) that can download magnet links and asynchronously transfer files to a remote server over SSH via rsync. The API also has an explore feature protected with tor proxy; and automatic VPN detection using mullvad cli."
 license = "MIT"
 documentation = "https://docs.rs/rutorrent"
@@ -32,7 +32,7 @@ reqwest = { version = "0.13", features = ["cookies", "json", "form", "query", "s
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 actix-rt = "2.15"
-tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync", "fs"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync", "fs"] }
 env_logger = "0.11"
 chrono = "0.4"
 log = "0.4"
@@ -40,7 +40,7 @@ uuid = { version = "1.29", features = ["v4"] }
 dotenv = "0.15"
 url = "2.5"
 regex = "1.13"
-rusqlite = { version = "0.41", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 dirs = "7.0"
 base64 = "0.23"
 urlencoding = "2.1"
